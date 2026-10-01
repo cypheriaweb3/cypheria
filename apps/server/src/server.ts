@@ -346,6 +346,7 @@ export class CypheriaServer implements HttpAppHost {
       () => this.configStore.getSnapshot().config.git
     )
     this.appTools = new AppToolService({
+      attachments: this.threadAttachments,
       defaultAgentId: "codex",
       isGitRepository: (root) =>
         this.git.discover(root).then(
@@ -370,6 +371,15 @@ export class CypheriaServer implements HttpAppHost {
       },
       randomId: () => randomUUID(),
       threads: this.threadManager,
+      worktrees: {
+        archive: (cwd, path) => this.git.deleteWorktree(cwd, path),
+        defaultBranch: async (cwd) => (await this.git.branchContext(cwd)).defaultBranch,
+        job: (id) => this.git.worktreeJob(id),
+        list: (cwd) => this.git.worktrees(cwd),
+        resolveRef: async (cwd, ref) => (await this.git.worktreeStartingRef(cwd, ref)).ref,
+        restore: (cwd, path) => this.git.restoreWorktree(cwd, path),
+        start: (input) => this.git.startWorktreeJob({ ...input }),
+      },
     })
     this.codexHarness = new CodexHarnessService(
       this.agentManager,

@@ -203,6 +203,23 @@ export class ThreadAttachmentService {
     return attachment
   }
 
+  async detachPullRequest(threadId: string, url: string): Promise<boolean> {
+    await this.#assertThread(threadId)
+    return this.#remove(threadId, "pull_request", pullRequestIdentityKey(parsePullRequestUrl(url)))
+  }
+
+  async list(threadId: string): Promise<ThreadAttachmentRecord[]> {
+    await this.#assertThread(threadId)
+    const records: ThreadAttachmentRecord[] = []
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.list({ cursor, limit: 200, threadId })
+      records.push(...page.data.map(record))
+      cursor = page.nextCursor
+    } while (cursor)
+    return records
+  }
+
   async detachWorktree(threadId: string, worktreeId: string): Promise<boolean> {
     return this.#remove(threadId, "worktree", worktreeId)
   }

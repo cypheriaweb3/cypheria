@@ -22,11 +22,70 @@ const thread = (id: string, patch: Partial<AppToolThread> = {}): AppToolThread =
 })
 
 const harness = (threads: AppToolThread[] = []) => {
+  const archived: string[] = []
+  const attached: {
+    attachmentType: "pull_request" | "worktree"
+    createdAt: number
+    identityKey: string
+    payload: unknown
+  }[] = [
+    { attachmentType: "worktree", createdAt: 5, identityKey: "w1", payload: { worktreeId: "w1" } },
+    { attachmentType: "worktree", createdAt: 6, identityKey: "w2", payload: { worktreeId: "w2" } },
+  ]
+  const trees = [
+    {
+      active: true,
+      branch: null,
+      head: "abc",
+      id: "w1",
+      managed: true,
+      ownerThreadId: null,
+      path: "/wt/w1",
+    },
+    {
+      active: false,
+      branch: null,
+      head: "def",
+      id: "w2",
+      managed: true,
+      ownerThreadId: null,
+      path: "/wt/w2",
+    },
+    {
+      active: true,
+      branch: null,
+      head: "abc",
+      id: "w3",
+      managed: true,
+      ownerThreadId: null,
+      path: "/wt/w3",
+    },
+  ]
+  const [firstTree, secondTree] = [
+    trees[0] as (typeof trees)[number],
+    trees[1] as (typeof trees)[number],
+  ]
+  const started: { attachToThreadId: string; cwd: string; startPoint: string }[] = []
+  let phase: "queued" | "creating" | "ready" = "creating"
   const requests: { payload: Record<string, unknown>; type: string }[] = []
-  const started: unknown[] = []
+  const turns: unknown[] = []
   const created: unknown[] = []
   const store = new Map(threads.map((entry) => [entry.id, entry]))
   const service = new AppToolService({
+    attachments: {
+      attachPullRequest: async (_threadId, url) => {
+        const entry = {
+          attachmentType: "pull_request" as const,
+          createdAt: 7,
+          identityKey: `pr:${url}`,
+          payload: { url },
+        }
+        attached.push(entry)
+        return entry
+      },
+      detachPullRequest: async () => true,
+      list: async () => attached,
+    },
     defaultAgentId: "codex",
     isGitRepository: async (root) => root === "/repo",
     pinnedSectionId: PINNED_ID,
@@ -112,7 +171,7 @@ const harness = (threads: AppToolThread[] = []) => {
         nextCursor: null,
       }),
       startTurn: async (input) => {
-        started.push(input)
+        turns.push(input)
         return {}
       },
       steerTurn: async () => ({}),
@@ -120,7 +179,30 @@ const harness = (threads: AppToolThread[] = []) => {
       update: async () => ({}),
       updateConfig: async () => ({}),
     },
-    wait: async () => undefined,
+    wait: async () => {
+      phase = "ready"
+    },
+    worktrees: {
+      archive: async (_cwd, path) => {
+        archived.push(path)
+      },
+      defaultBranch: async () => "origin/main",
+      job: (id) => ({
+        error: null,
+        id,
+        log: "Receiving objects",
+        path: phase === "ready" ? "/wt/new" : null,
+        phase,
+        worktree: phase === "ready" ? { ...firstTree, id: "new", path: "/wt/new" } : null,
+      }),
+      list: async () => trees,
+      resolveRef: async (_cwd, ref) => `refs/remotes/${ref}`,
+      restore: async (_cwd, path) => ({ ...secondTree, active: true, path }),
+      start: async (input) => {
+        started.push(input)
+        return { error: null, id: "job", log: "", path: null, phase: "queued", worktree: null }
+      },
+    },
   })
   const call = async (tool: string, args: unknown, threadId = "caller") => {
     const result = await service.call(
@@ -140,7 +222,7 @@ const harness = (threads: AppToolThread[] = []) => {
       value: first?.type === "inputText" ? first.text : "",
     }
   }
-  return { call, created, requests, started, store }
+  return { archived, attached, call, created, requests, started, store, turns }
 }
 
 describe("reorderWithinSlots", () => {
@@ -158,7 +240,12 @@ describe("reorderWithinSlots", () => {
 describe("app tool specs", () => {
   it("expose only names the developer instructions know and nothing about ChatGPT", () => {
     const names = [...AppToolService.toolNames]
-    const unnamed = new Set(["reorder_section"])
+    const unnamed = new Set([
+      "attach_artifact",
+      "get_worktree_creation_status",
+      "remove_artifact",
+      "reorder_section",
+    ])
     for (const name of names) {
       if (!unnamed.has(name)) expect(CODEX_APP_TOOL_NAMES as readonly string[]).toContain(name)
     }
@@ -166,9 +253,10 @@ describe("app tool specs", () => {
     expect(JSON.stringify(AppToolService.specs)).not.toMatch(/ChatGPT|hostId/u)
   })
 
-  it("defers every tool to tool search", () => {
+  it("defers every tool to tool search except list_artifacts", () => {
     for (const spec of AppToolService.specs) {
-      expect(spec.type === "function" && spec.deferLoading).toBe(true)
+      const deferred = spec.type === "function" && spec.deferLoading === true
+      expect(deferred).toBe(spec.type === "function" && spec.name !== "list_artifacts")
     }
   })
 })
@@ -199,7 +287,7 @@ describe("AppToolService", () => {
   })
 
   it("starts a project thread with the prompt and the requested model", async () => {
-    const { call, created, started } = harness()
+    const { call, created, turns } = harness()
     const { success, value } = await call("create_thread", {
       model: "gpt-x",
       prompt: "Do it",
@@ -208,7 +296,7 @@ describe("AppToolService", () => {
     expect(success).toBe(true)
     expect(JSON.parse(value).threadId).toBe("new")
     expect(created[0]).toMatchObject({ agentId: "codex", projectPlacement: { projectId: "p1" } })
-    expect(started).toEqual([
+    expect(turns).toEqual([
       {
         clientMessageId: "message-id",
         content: [{ text: "Do it", type: "text" }],
@@ -224,10 +312,10 @@ describe("AppToolService", () => {
   })
 
   it("steers a running thread instead of starting a second turn", async () => {
-    const { call, started } = harness([thread("other", { activeTurn: {}, state: "running" })])
+    const { call, turns } = harness([thread("other", { activeTurn: {}, state: "running" })])
     const { value } = await call("send_message_to_thread", { prompt: "x", threadId: "other" })
     expect(JSON.parse(value).delivered).toBe("steered")
-    expect(started).toEqual([])
+    expect(turns).toEqual([])
   })
 
   it("returns recent turns and a cursor for older ones", async () => {
@@ -301,5 +389,70 @@ describe("AppToolService", () => {
     expect((await call("reorder_sidebar_sections", { sectionIds: ["s1", "pinned"] })).success).toBe(
       true
     )
+  })
+
+  describe("worktrees and artifacts", () => {
+    const caller = thread("caller", { roots: ["/repo"] })
+
+    it("creates a worktree from the default branch and reports it once ready", async () => {
+      const { call, started } = harness([caller])
+      const result = await call("create_worktree", { allowAsync: true })
+      expect(started).toEqual([
+        { attachToThreadId: "caller", cwd: "/repo", startPoint: "refs/remotes/origin/main" },
+      ])
+      expect(JSON.parse(result.value)).toMatchObject({
+        identityKey: "new",
+        status: "completed",
+        workspaceDirectory: "/wt/new",
+      })
+    })
+
+    it("requires allowAsync and refuses an option-like ref", async () => {
+      const { call } = harness([caller])
+      expect((await call("create_worktree", {})).success).toBe(false)
+      expect((await call("create_worktree", { allowAsync: true, ref: "--force" })).success).toBe(
+        false
+      )
+    })
+
+    it("lists attached worktrees as active, archived, or missing", async () => {
+      const { call, attached } = harness([caller])
+      attached.push({
+        attachmentType: "worktree",
+        createdAt: 9,
+        identityKey: "gone",
+        payload: { worktreeId: "gone" },
+      })
+      const { artifacts } = JSON.parse((await call("list_artifacts", {})).value)
+      expect(artifacts.map((entry: { payload: { state: string } }) => entry.payload.state)).toEqual(
+        ["active", "archived", "missing"]
+      )
+    })
+
+    it("archives and restores only worktrees attached to the calling thread", async () => {
+      const { archived, call } = harness([caller])
+      expect((await call("archive_worktree", { root: "w3" })).success).toBe(false)
+      expect((await call("archive_worktree", { root: "w1" })).success).toBe(true)
+      expect(archived).toEqual(["/wt/w1"])
+      expect((await call("archive_worktree", { root: "w2" })).success).toBe(false)
+      const restored = await call("restore_worktree", { root: "w2" })
+      expect(JSON.parse(restored.value)).toEqual({
+        identityKey: "w2",
+        workspaceDirectory: "/wt/w2",
+      })
+      expect((await call("restore_worktree", { root: "w1" })).success).toBe(false)
+    })
+
+    it("attaches pull requests to the calling thread", async () => {
+      const { call } = harness([caller])
+      const result = await call("attach_artifact", {
+        artifact_type: "pull_request",
+        url: "https://github.com/o/r/pull/1",
+      })
+      expect(result.success).toBe(true)
+      expect(
+        (await call("attach_artifact", { artifact_type: "issue", url: "https://x" })).success
+      ).toBe(false)
+    })
   })
 })

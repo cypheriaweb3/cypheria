@@ -209,6 +209,7 @@ export class GitService {
       startPoint?: string
       includeChanges: boolean
       environmentConfigPath: string | null
+      attachToThreadId: string | null
       controller: AbortController
     }
   >()
@@ -1119,6 +1120,8 @@ export class GitService {
     startPoint?: string
     includeChanges?: boolean
     environmentConfigPath?: string | null
+    /** Thread the finished worktree is attached to, without moving the Thread into it. */
+    attachToThreadId?: string
   }): Promise<GitWorktreeJob> {
     await this.discover(input.cwd)
     if (this.#worktreeJobs.size >= 100) {
@@ -1136,6 +1139,7 @@ export class GitService {
       startPoint: input.startPoint,
       includeChanges: input.includeChanges ?? false,
       environmentConfigPath: input.environmentConfigPath ?? null,
+      attachToThreadId: input.attachToThreadId ?? null,
       controller: new AbortController(),
     }
     this.#worktreeJobs.set(id, job)
@@ -1187,6 +1191,9 @@ export class GitService {
         await this.#setupWorktreeJob(job)
       }
       job.controller.signal.throwIfAborted()
+      if (job.attachToThreadId && job.state.worktree?.id && this.#threadAttachments) {
+        await this.#threadAttachments.attachWorktree(job.attachToThreadId, job.state.worktree.id)
+      }
       job.state = { ...job.state, phase: "ready", error: null }
     } catch (error) {
       job.state = {
