@@ -6,6 +6,7 @@ import {
   buildCodexDeveloperInstructions,
   CODEX_APP_TOOL_NAMES,
   type CodexInstructionCapabilities,
+  CYPHERIA_RENDERING_CAPABILITIES,
   codexGitSection,
   codexProjectlessSection,
   NO_CODEX_INSTRUCTION_CAPABILITIES,
@@ -100,6 +101,21 @@ describe("buildCodexDeveloperInstructions", () => {
         "</app-context>",
       ].join("\n")
     )
+  })
+
+  it("states what the first-party clients render and no app tool", () => {
+    const text = buildCodexDeveloperInstructions({
+      capabilities: { ...CYPHERIA_RENDERING_CAPABILITIES, tools: new Set() },
+      git: noGitSettings,
+      isGitWorkspace: false,
+    })
+    expect(text).toContain("![alt](url)")
+    expect(text).toContain("always use full absolute file paths")
+    expect(text).toContain("### Inline Code Comments")
+    expect(text).toContain("### Inline Artifact Follow-Ups")
+    expect(text).not.toContain("### Pull request diff links")
+    expect(text).not.toContain("### Thread Coordination")
+    expect(text).not.toContain("::created-thread")
   })
 
   it("adds one sentence per capability, in the official order", () => {

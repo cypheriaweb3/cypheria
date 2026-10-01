@@ -2933,3 +2933,33 @@ msgstr "版本"
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Wire again"
 msgstr "重新接入"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.priority"
+msgstr "P{priority}"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.createdThread"
+msgstr "打开新对话"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileOutside"
+msgstr "不在此对话的文件夹内"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileUnavailable"
+msgstr "此文件不可用"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.mediaUnavailable"
+msgstr "无法显示"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.openFile"
+msgstr "在文件中打开"

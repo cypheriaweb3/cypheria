@@ -2933,3 +2933,33 @@ msgstr "Version"
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Wire again"
 msgstr "Wire again"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.priority"
+msgstr "P{priority}"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.createdThread"
+msgstr "Open the new chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileOutside"
+msgstr "Outside this chat's folders"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileUnavailable"
+msgstr "This file is not available"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.mediaUnavailable"
+msgstr "Cannot be shown"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.openFile"
+msgstr "Open in Files"

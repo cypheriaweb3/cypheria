@@ -65,6 +65,7 @@ import { serve } from "@hono/node-server"
 import pino, { type Logger } from "pino"
 import { type WebSocket, WebSocketServer } from "ws"
 import { AgentManager } from "./agent/agent-manager.js"
+import { CYPHERIA_RENDERING_CAPABILITIES } from "./agent/codex-developer-instructions.js"
 import { mapCodexInput } from "./agent/managed-thread-adapter.js"
 import { BrowserToolsService } from "./browser-tools/service.js"
 import { browserToolSpecs } from "./browser-tools/tools.js"
@@ -218,6 +219,10 @@ export class CypheriaServer implements HttpAppHost {
           () => false
         ),
       projectlessWorkspace: (cwd) => this.#projectlessWorkspaceFor(cwd),
+      codexInstructionCapabilities: () => ({
+        ...CYPHERIA_RENDERING_CAPABILITIES,
+        tools: new Set(),
+      }),
       agentDefaults: () => ({}),
       agentEnvironment: (_agentId, base) => this.networkProxy.environment(base),
     })

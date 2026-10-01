@@ -6,6 +6,7 @@ import { math } from "@streamdown/math"
 import { mermaid } from "@streamdown/mermaid"
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
 import { memo } from "react"
+import remarkDirective from "remark-directive"
 import { Streamdown } from "streamdown"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#components/collapsible"
@@ -21,9 +22,17 @@ import {
   ToolsIcon,
 } from "../icons/index.js"
 
+import { chatMarkdownComponents } from "./markdown-components.js"
+import {
+  CHAT_ALLOWED_TAGS,
+  remarkChatDirectives,
+  remarkChatReferences,
+} from "./markdown-extensions.js"
 import type { ChatActivityState } from "./types.js"
 
 const streamdownPlugins = { cjk, code, math, mermaid }
+// Directives first, so a restored directive is plain text before references are classified.
+const chatRemarkPlugins = [remarkDirective, remarkChatDirectives, remarkChatReferences]
 
 type ChatMessageContentProps = ComponentProps<typeof Streamdown>
 
@@ -39,7 +48,13 @@ export const ChatMessageContent = memo(
         className
       )}
     >
-      <Streamdown plugins={streamdownPlugins} {...props} />
+      <Streamdown
+        allowedTags={CHAT_ALLOWED_TAGS as Record<string, string[]>}
+        components={chatMarkdownComponents}
+        plugins={streamdownPlugins}
+        remarkPlugins={chatRemarkPlugins as never}
+        {...props}
+      />
     </div>
   ),
   (previous, next) =>
