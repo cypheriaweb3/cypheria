@@ -105,6 +105,8 @@ Cypheria starts Codex Threads the way the official Codex desktop does, so Codex 
 
 `developerInstructions` carries `<app-context>` with the text the official desktop sends, word for word, followed by a `### Projectless Chat` section for a Thread that belongs to no Project. The application context lists a section only when Cypheria can honor it: each sentence that promises a client capability, and each section that names an app tool, appears only while that capability or tool exists. Wording, tool names, and directive names stay identical to the official ones, except that deep links use `cypheria://`. A `### Git` section carries the branch prefix and commit and pull request instructions from Git settings when the working directory is inside a repository.
 
+Every turn also states `turnTrigger: "composer"` and `responsesapiClientMetadata` with `source: "cypheria"`, the `client_type` of the client that submitted the turn (`schedule` for a schedule run), and `workspace_kind` (`project` or `projectless`). Codex reports `source` as the turn source in its analytics and Responses API turn metadata, so it names this product rather than the official desktop.
+
 The instructions are stated when a Thread starts and again when it resumes from a stopped Codex process; a fork inherits the ones in its source history. They replace a `developer_instructions` value in `config.toml`.
 
 ## Thread and turn scope

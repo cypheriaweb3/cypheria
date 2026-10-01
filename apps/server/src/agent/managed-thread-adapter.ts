@@ -213,6 +213,38 @@ export const codexTurnWorkspace = (input: {
   }
 }
 
+/** `client_type` for each kind of client; Codex flattens it into the turn metadata it reports. */
+const CODEX_CLIENT_TYPES: Readonly<Record<string, string>> = {
+  cli: "cli",
+  desktop: "desktop_app",
+  hub: "hub",
+  mcp: "mcp",
+  mobile: "mobile_app",
+  schedule: "schedule",
+  web: "web",
+}
+
+/**
+ * Turn attribution. `source` names this product rather than the official desktop, because Codex
+ * reports it as the turn source in its analytics and in Responses API turn metadata.
+ */
+export const codexTurnMetadata = (input: {
+  readonly clientKind?: string
+  readonly workspaceKind?: "project" | "projectless"
+}): {
+  responsesapiClientMetadata: Record<string, string>
+  turnTrigger: string
+} => ({
+  responsesapiClientMetadata: {
+    source: "cypheria",
+    ...(input.clientKind && CODEX_CLIENT_TYPES[input.clientKind]
+      ? { client_type: CODEX_CLIENT_TYPES[input.clientKind] as string }
+      : {}),
+    workspace_kind: input.workspaceKind ?? "project",
+  },
+  turnTrigger: "composer",
+})
+
 const localInput = (uri: string, name?: string | null): v2.UserInput | null => {
   if (!uri.startsWith("file:")) return null
   const path = fileURLToPath(uri)
@@ -1501,6 +1533,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         clientUserMessageId: input.clientMessageId,
         input: mapCodexInput(input.content),
         requestId: randomUUID(),
+        ...codexTurnMetadata(input),
         ...workspace,
         threadId: input.agentSessionId,
         type: "agent.codex.turn.start.request",

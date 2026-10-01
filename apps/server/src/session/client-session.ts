@@ -58,7 +58,8 @@ export type SessionHost = {
     message: ClientMessage,
     send: (message: ServerMessage) => void,
     clientId: string,
-    sendBinary: (frame: CypheriaBinaryFrame) => void
+    sendBinary: (frame: CypheriaBinaryFrame) => void,
+    clientKind: ClientKind
   ): Promise<boolean>
   handleIntegrationMessage?(
     message: IntegrationClientMessage,
@@ -436,7 +437,8 @@ export class ClientSession {
             message,
             (response) => this.sendTo(source, response),
             this.client.id,
-            (frame) => this.sendBinaryFrameTo(source, frame)
+            (frame) => this.sendBinaryFrameTo(source, frame),
+            this.client.kind
           ))
         ) {
           break
