@@ -8,7 +8,7 @@ const thread = (id: string, title: string): ThreadView => ({
   activeTurn: null,
   config: {
     model: null,
-    permissionsMode: "approve-for-me",
+    permissionsMode: "auto",
     speed: null,
     thinking: null,
   },

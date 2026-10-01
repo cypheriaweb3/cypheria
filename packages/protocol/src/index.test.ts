@@ -58,7 +58,7 @@ describe("Cypheria protocol", () => {
       PersistedServerConfigPatchSchema.safeParse({
         agents: {
           claude: { pluginsEnabled: true },
-          codex: { permissionsMode: "approve-for-me" },
+          codex: { permissionsMode: "auto" },
         },
       }).success
     ).toBe(true)

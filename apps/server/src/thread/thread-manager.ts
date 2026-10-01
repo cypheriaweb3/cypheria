@@ -1,6 +1,6 @@
-import { access, mkdir, rm } from "node:fs/promises"
+import { rm } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join, resolve, sep } from "node:path"
+import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import type {
   CreateThreadInput,
@@ -36,6 +36,11 @@ import type {
   ThreadInteractionResponse,
 } from "./harness-adapter.js"
 import type { InputFileService } from "./input-file-service.js"
+import {
+  createProjectlessWorkspace,
+  isManagedProjectlessWorkspace,
+  pruneProjectlessDateDirectory,
+} from "./projectless-workspace.js"
 import { ThreadTimelineStore } from "./timeline-store.js"
 
 type Publish = (message: ServerMessage) => void
@@ -140,7 +145,7 @@ export class ThreadManager {
         ThreadConfigSchema.parse(
           requested ?? {
             model: null,
-            permissionsMode: agentId === "codex" ? "approve-for-me" : null,
+            permissionsMode: agentId === "codex" ? "auto" : null,
             speed: null,
             thinking: null,
           }
@@ -391,7 +396,7 @@ export class ThreadManager {
           await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
         }
         if (!databaseCommitted && projectlessRoot) {
-          await rm(projectlessRoot, { force: true, recursive: true }).catch(() => undefined)
+          await this.#removeProjectlessWorkspace(projectlessRoot).catch(() => undefined)
         }
         throw error
       }
@@ -514,7 +519,7 @@ export class ThreadManager {
         this.#isManagedProjectlessRoot(projectlessRoot) &&
         (await this.#persistence.countProjectlessRootReferences(projectlessRoot)) === 0
       ) {
-        await rm(projectlessRoot, { force: true, recursive: true }).catch((error) => {
+        await this.#removeProjectlessWorkspace(projectlessRoot).catch((error) => {
           warnings.push({ code: "WORKSPACE_CLEANUP_FAILED", message: this.#message(error) })
         })
       }
@@ -1100,7 +1105,7 @@ export class ThreadManager {
       this.#isManagedProjectlessRoot(cwd) &&
       (await this.#persistence.countProjectlessRootReferences(cwd)) === 0
     ) {
-      await rm(cwd, { force: true, recursive: true }).catch(() => undefined)
+      await this.#removeProjectlessWorkspace(cwd).catch(() => undefined)
     }
   }
 
@@ -1808,30 +1813,8 @@ export class ThreadManager {
     return this.#context(thread)
   }
 
-  async #createProjectlessWorkspace(threadId: string, title?: string | null): Promise<string> {
-    await mkdir(this.#projectlessWorkspaceRoot, { recursive: true })
-    const slug =
-      (title ?? "thread")
-        .normalize("NFKD")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/gu, "-")
-        .replace(/^-+|-+$/gu, "")
-        .slice(0, 48) || "thread"
-    const date = new Date().toISOString().slice(0, 10)
-    const base = `${date}-${slug}-${threadId.slice(0, 8)}`
-    let suffix = 1
-    let root = join(this.#projectlessWorkspaceRoot, base)
-    while (
-      await access(root)
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      suffix += 1
-      root = join(this.#projectlessWorkspaceRoot, `${base}-${suffix}`)
-    }
-    await mkdir(join(root, "work"), { recursive: true })
-    await mkdir(join(root, "outputs"), { recursive: true })
-    return resolve(root)
+  async #createProjectlessWorkspace(_threadId: string, title?: string | null): Promise<string> {
+    return createProjectlessWorkspace({ root: this.#projectlessWorkspaceRoot, text: title })
   }
 
   #assertWorkspaceMutationAllowed(thread: ThreadRecord, runtime: RuntimeState): void {
@@ -1895,8 +1878,13 @@ export class ThreadManager {
   }
 
   #isManagedProjectlessRoot(path: string): boolean {
-    const candidate = resolve(path)
-    return candidate.startsWith(`${this.#projectlessWorkspaceRoot}${sep}`)
+    return isManagedProjectlessWorkspace(this.#projectlessWorkspaceRoot, path)
+  }
+
+  /** Deletes an unreferenced managed workspace and its date directory when that becomes empty. */
+  async #removeProjectlessWorkspace(path: string): Promise<void> {
+    await rm(path, { force: true, recursive: true })
+    await pruneProjectlessDateDirectory(path)
   }
 
   #message(error: unknown): string {
@@ -1981,7 +1969,7 @@ export class ThreadManager {
               ThreadConfigSchema.parse(
                 (operation.input as { config?: ThreadConfig }).config ?? {
                   model: null,
-                  permissionsMode: operation.agentId === "codex" ? "approve-for-me" : null,
+                  permissionsMode: operation.agentId === "codex" ? "auto" : null,
                   speed: null,
                   thinking: null,
                 }

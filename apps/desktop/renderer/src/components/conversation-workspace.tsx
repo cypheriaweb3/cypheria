@@ -1832,7 +1832,7 @@ export function ConversationWorkspace({
         })
       ),
       label: i18n._(msg({ id: "chat.permissions.ask", message: "Ask for approval" })),
-      value: "ask-for-approval",
+      value: "auto",
     },
     {
       description: i18n._(
@@ -1842,7 +1842,7 @@ export function ConversationWorkspace({
         })
       ),
       label: i18n._(msg({ id: "chat.permissions.approve", message: "Approve for me" })),
-      value: "approve-for-me",
+      value: "guardian-approvals",
     },
     {
       description: i18n._(
@@ -2839,8 +2839,8 @@ export function ConversationWorkspace({
                         <Select
                           onValueChange={(value) => {
                             if (
-                              value === "ask-for-approval" ||
-                              value === "approve-for-me" ||
+                              value === "auto" ||
+                              value === "guardian-approvals" ||
                               value === "full-access" ||
                               value === "agent-config"
                             ) {

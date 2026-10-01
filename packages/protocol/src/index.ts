@@ -500,10 +500,10 @@ export const PersistedServerConfigSchema = z
       .object({
         codex: z
           .object({
-            permissionsMode: CodexPermissionsModeSchema.default("approve-for-me"),
+            permissionsMode: CodexPermissionsModeSchema.default("auto"),
           })
           .strict()
-          .default({ permissionsMode: "approve-for-me" }),
+          .default({ permissionsMode: "auto" }),
         claude: z
           .object({ pluginsEnabled: z.boolean().default(true) })
           .strict()
@@ -512,7 +512,7 @@ export const PersistedServerConfigSchema = z
       .strict()
       .default({
         claude: { pluginsEnabled: true },
-        codex: { permissionsMode: "approve-for-me" },
+        codex: { permissionsMode: "auto" },
       }),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),

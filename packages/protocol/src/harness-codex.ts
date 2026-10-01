@@ -76,7 +76,6 @@ export const CodexPermissionDefaultsWriteSchema = z
 export type CodexPermissionDefaultsWrite = z.infer<typeof CodexPermissionDefaultsWriteSchema>
 export const CodexAgentSettingsSchema = CodexModelSettingsSchema.extend({
   ...CodexPermissionDefaultsWriteSchema.shape,
-  personality: z.enum(["friendly", "pragmatic", "none"]),
   pluginsEnabled: z.boolean(),
 }).strict()
 export type CodexAgentSettings = z.infer<typeof CodexAgentSettingsSchema>

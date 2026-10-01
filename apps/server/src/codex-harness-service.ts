@@ -240,10 +240,7 @@ export class CodexHarnessService {
       this.nativeConfig(cwd),
       this.call<v2.ExperimentalFeatureListResponse>("experimentalFeature/list", { limit: 100 }),
     ])
-    const values = config as Record<string, unknown>
     const pluginFeature = features.data.find((feature) => feature.name === "plugins")
-    const personalityFeature = features.data.find((feature) => feature.name === "personality")
-    const personality = values.personality
     return {
       approvalPolicy: config.approval_policy === "never" ? "never" : "on-request",
       approvalsReviewer: config.approvals_reviewer === "auto_review" ? "auto_review" : "user",
@@ -251,12 +248,6 @@ export class CodexHarnessService {
       modelReasoningSummary: config.model_reasoning_summary ?? null,
       modelVerbosity: config.model_verbosity ?? null,
       networkAccess: config.sandbox_workspace_write?.network_access ?? false,
-      personality:
-        personality === "friendly" || personality === "pragmatic" || personality === "none"
-          ? personality
-          : personalityFeature?.enabled === false
-            ? "none"
-            : "pragmatic",
       pluginsEnabled: pluginFeature?.enabled ?? true,
       provider:
         config.model_provider === "amazon-bedrock" ||
@@ -378,7 +369,6 @@ export class CodexHarnessService {
       model: "model",
       reasoningEffort: "model_reasoning_effort",
       serviceTier: "service_tier",
-      personality: "personality",
       modelVerbosity: "model_verbosity",
       modelReasoningSummary: "model_reasoning_summary",
       pluginsEnabled: "features.plugins",

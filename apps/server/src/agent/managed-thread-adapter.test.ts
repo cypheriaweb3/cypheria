@@ -13,7 +13,7 @@ const input = (agentId: AgentId): ThreadHarnessCreateInput => ({
   agentId,
   config: {
     model: null,
-    permissionsMode: agentId === "codex" ? "approve-for-me" : null,
+    permissionsMode: agentId === "codex" ? "auto" : null,
     speed: null,
     thinking: null,
   },
@@ -135,15 +135,14 @@ describe("ManagedThreadAdapter", () => {
         .map(([message]) => message)
         .find(({ type }) => type === "agent.codex.thread.resume.request")
     ).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      config: { "features.request_permissions_tool": true },
       developerInstructions: "Use feature/ for new Git branches.",
+      permissions: ":workspace",
       runtimeWorkspaceRoots: ["/repo", "/shared"],
       type: "agent.codex.thread.resume.request",
     })
-    expect(
-      handleCodex.mock.calls
-        .map(([message]) => message)
-        .find(({ type }) => type === "agent.codex.config.read.request")
-    ).toMatchObject({ cwd: "/repo", includeLayers: false })
   })
 
   it("maps Codex user and assistant branch boundaries without file revert", async () => {
@@ -300,20 +299,24 @@ describe("ManagedThreadAdapter", () => {
       .find(({ type }) => type === "agent.codex.thread.start.request")
     expect(startRequest).toMatchObject({
       approvalPolicy: "on-request",
-      approvalsReviewer: "auto_review",
-      config: { shell_environment_policy: { set: { PATH: "/repo/bin" } } },
+      approvalsReviewer: "user",
+      config: {
+        "features.request_permissions_tool": true,
+        shell_environment_policy: { set: { PATH: "/repo/bin" } },
+      },
       cwd: "/repo",
       developerInstructions: "Use codex/ for new Git branches.",
+      permissions: ":workspace",
       runtimeWorkspaceRoots: ["/repo", "/shared"],
-      sandbox: "workspace-write",
       type: "agent.codex.thread.start.request",
     })
     expect(startRequest).not.toHaveProperty("projectId")
+    expect(startRequest).not.toHaveProperty("sandbox")
     expect(
       handleCodex.mock.calls
         .map(([message]) => message)
-        .find(({ type }) => type === "agent.codex.config.read.request")
-    ).toMatchObject({ cwd: "/repo", includeLayers: false })
+        .some(({ type }) => type === "agent.codex.config.read.request")
+    ).toBe(false)
   })
 
   it("preserves Codex permission, question, and elicitation response details", async () => {
@@ -376,19 +379,12 @@ describe("ManagedThreadAdapter", () => {
         .find(({ type }) => type === "agent.codex.turn.start.request")
     ).toMatchObject({
       approvalPolicy: "on-request",
-      approvalsReviewer: "auto_review",
+      approvalsReviewer: "user",
+      cwd: "/repo",
+      permissions: ":workspace",
       runtimeWorkspaceRoots: ["/repo", "/shared"],
-      sandboxPolicy: expect.objectContaining({ networkAccess: false, type: "workspaceWrite" }),
       type: "agent.codex.turn.start.request",
     })
-    expect(
-      handleCodex.mock.calls
-        .map(([message]) => message)
-        .filter(({ type }) => type === "agent.codex.config.read.request")
-    ).toEqual([
-      expect.objectContaining({ cwd: "/repo", includeLayers: false }),
-      expect.objectContaining({ cwd: "/repo", includeLayers: false }),
-    ])
 
     turnContext?.send({
       payload: {

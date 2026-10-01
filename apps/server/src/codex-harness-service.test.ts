@@ -93,11 +93,11 @@ describe("CodexHarnessService", () => {
     })
 
     callCodex.mockClear()
-    await service.updateNativeSettings({ pluginsEnabled: false, personality: "pragmatic" })
+    await service.updateNativeSettings({ pluginsEnabled: false, modelVerbosity: "low" })
     expect(callCodex).toHaveBeenCalledWith("config/batchWrite", {
       edits: [
         { keyPath: "features.plugins", mergeStrategy: "replace", value: false },
-        { keyPath: "personality", mergeStrategy: "replace", value: "pragmatic" },
+        { keyPath: "model_verbosity", mergeStrategy: "replace", value: "low" },
       ],
       reloadUserConfig: true,
     })
@@ -125,7 +125,6 @@ describe("CodexHarnessService", () => {
             model_reasoning_effort: null,
             model_reasoning_summary: null,
             model_verbosity: null,
-            personality: null,
             sandbox_mode: null,
             sandbox_workspace_write: null,
             service_tier: null,
@@ -134,10 +133,7 @@ describe("CodexHarnessService", () => {
         }
       if (method === "experimentalFeature/list")
         return {
-          data: [
-            { name: "personality", enabled: true },
-            { name: "plugins", enabled: true },
-          ],
+          data: [{ name: "plugins", enabled: true }],
           nextCursor: null,
         }
       return {}
@@ -152,7 +148,6 @@ describe("CodexHarnessService", () => {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
       networkAccess: false,
-      personality: "pragmatic",
       pluginsEnabled: true,
       sandboxMode: "workspace-write",
       serviceTier: null,

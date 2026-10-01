@@ -240,7 +240,7 @@ describe("ThreadManager", () => {
     const adapter = new FakeAdapter()
     const initial: ThreadConfig = {
       model: "gpt-5",
-      permissionsMode: "approve-for-me",
+      permissionsMode: "auto",
       speed: "fast",
       thinking: "medium",
     }
@@ -485,6 +485,10 @@ describe("ThreadManager", () => {
       clientMessageId: "move-active",
       content: [{ text: "work", type: "text" }],
       threadId: created.thread.id,
+    })
+    expect(adapter.starts[0]).toMatchObject({
+      cwd: "/repo/worktree",
+      workspaceRoots: ["/repo/worktree", "/shared"],
     })
     await expect(
       manager.moveWorkingDirectory(created.thread.id, "/repo/other")

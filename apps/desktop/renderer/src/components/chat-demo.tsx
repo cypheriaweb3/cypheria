@@ -2938,11 +2938,6 @@ export default function ChatDemo() {
                 tone="warning"
               />
               <ChatTimelineEvent
-                type="personality-changed"
-                title="Personality changed"
-                metadata="Concise"
-              />
-              <ChatTimelineEvent
                 type="forked-from-conversation"
                 title="Forked from conversation"
                 metadata="Turn 44"

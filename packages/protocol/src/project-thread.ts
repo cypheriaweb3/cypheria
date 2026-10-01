@@ -11,9 +11,14 @@ export const ProjectThreadSortDirectionSchema = z.enum(["asc", "desc"])
 export const ProjectThreadCursorSchema = z.string().min(1).max(2048)
 export const ProjectThreadLimitSchema = z.int().min(1).max(200)
 
+/**
+ * The composer permission modes. `auto`, `guardian-approvals`, and `full-access` send a built-in
+ * permission profile with the approval settings that go with it. `agent-config` sends no permission
+ * fields, so the Agent applies its own configuration.
+ */
 export const CodexPermissionsModeSchema = z.enum([
-  "ask-for-approval",
-  "approve-for-me",
+  "auto",
+  "guardian-approvals",
   "full-access",
   "agent-config",
 ])
