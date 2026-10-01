@@ -68,7 +68,7 @@ Project 与 Section membership 也作为规范化列表资源提供。Project me
 
 Agent capabilities 会说明创建 Thread 后能否修改 cwd 与 roots。Codex 和 Claude 在 turn start 使用最新 Thread roots；Codex 接收 `runtimeWorkspaceRoots`，Claude 接收 cwd 与 additional directories。OpenCode 与 Pi 只暴露创建时工作目录，因此拒绝之后的 workspace 修改。Agent start、resume 与 reconnect 总是使用 Thread 当前 roots 初始化。Cypheria 不创建 provider 原生 Project，也不使用 provider session ID 作为 workspace identity。
 
-`thread.files.*` 每次列出一层目录，按名称与路径搜索，读取有界 UTF-8 文本或二进制流，并提供带版本的写入、同 root 移动、隔离删除与冲突安全的恢复。每个请求都必须精确指定 Thread 的某个 root，并使用相对于 root 的路径。`thread.files.changed.notification` 用于失效受影响目录。`thread.workspace.cleanup.*` 只列出并显式删除无引用的托管 projectless 目录，绝不会自动发现或清理任意磁盘内容。
+`thread.files.*` 每次列出一层目录，按名称与路径搜索，读取有界 UTF-8 文本或二进制流，并提供带版本的写入、同 root 移动、隔离删除与冲突安全的恢复。每个请求都必须精确指定 Thread 的某个 root，并使用相对于 root 的路径。`thread.files.changed.notification` 用于失效受影响目录。`thread.paths.resolve` 把模型写出的路径（绝对路径、`~`、`file:` 或相对于工作目录的路径，可带 `#L12`、`#L12-L20` 或 `:12` 行号引用）解析为包含它的 Thread root 中相对于 root 的文件或目录，或报告该路径不存在、位于 Thread roots 之外；client 绝不会用自己的文件系统解释这类路径。`thread.workspace.cleanup.*` 只列出并显式删除无引用的托管 projectless 目录，绝不会自动发现或清理任意磁盘内容。
 
 列表接口有上限并使用 cursor 分页。Mutation response 返回 Server 权威值，供客户端校正乐观更新。
 

@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
@@ -40,6 +41,74 @@ const setup = async () => {
   })
   return { database, messages, root, service, thread }
 }
+
+describe("WorkspaceFileService path resolution", () => {
+  it("resolves model-written paths to a Thread root and nothing else", async () => {
+    const { database, root, service, thread } = await setup()
+    try {
+      await mkdir(join(root, "src"), { recursive: true })
+      await writeFile(join(root, "src", "app.ts"), "export {}\n")
+      await writeFile(join(root, "outputs", "chart.png"), "png")
+      await writeFile(join(root, "odd:12"), "x")
+      const resolve = (path: string) => service.resolvePath({ path, threadId: thread.id })
+
+      await expect(resolve(join(root, "src", "app.ts"))).resolves.toEqual({
+        kind: "file",
+        mimeType: expect.any(String),
+        path: "src/app.ts",
+        root,
+        sizeBytes: 10,
+      })
+      await expect(resolve(`${join(root, "src", "app.ts")}#L12-L20`)).resolves.toMatchObject({
+        endLine: 20,
+        line: 12,
+        path: "src/app.ts",
+      })
+      await expect(resolve(`${join(root, "src", "app.ts")}:7:3`)).resolves.toMatchObject({
+        line: 7,
+        path: "src/app.ts",
+      })
+      await expect(
+        resolve(pathToFileURL(join(root, "outputs", "chart.png")).href)
+      ).resolves.toMatchObject({
+        kind: "file",
+        mimeType: "image/png",
+        path: "outputs/chart.png",
+      })
+      await expect(resolve("src/app.ts")).resolves.toMatchObject({ path: "src/app.ts" })
+      await expect(resolve(join(root, "src"))).resolves.toEqual({
+        kind: "directory",
+        path: "src",
+        root,
+      })
+      await expect(resolve(root)).resolves.toEqual({ kind: "directory", path: "", root })
+      // A real file whose name looks like a line reference wins over the reading.
+      await expect(resolve(join(root, "odd:12"))).resolves.toMatchObject({
+        path: "odd:12",
+      })
+      await expect(resolve(join(root, "src", "gone.ts"))).resolves.toEqual({ kind: "missing" })
+      await expect(resolve(join(tmpdir(), "elsewhere.txt"))).resolves.toEqual({ kind: "outside" })
+      await expect(resolve(join(root, "..", "..", "x"))).resolves.toEqual({ kind: "outside" })
+    } finally {
+      database.close()
+    }
+  })
+
+  it("treats a symbolic link that leads out of the root as outside", async () => {
+    const { database, root, service, thread } = await setup()
+    try {
+      const outside = await mkdtemp(join(tmpdir(), "cypheria-outside-"))
+      cleanup.push(outside)
+      await writeFile(join(outside, "secret.txt"), "secret")
+      await symlink(join(outside, "secret.txt"), join(root, "link.txt"))
+      await expect(
+        service.resolvePath({ path: join(root, "link.txt"), threadId: thread.id })
+      ).resolves.toEqual({ kind: "outside" })
+    } finally {
+      database.close()
+    }
+  })
+})
 
 describe("WorkspaceFileService cleanup", () => {
   it("lists and deletes only unreferenced <date>/<slug> workspaces", async () => {
