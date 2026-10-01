@@ -11,7 +11,10 @@ import type { GitSettings } from "@cypheria/protocol"
  * tuned on them.
  */
 
-/** Names of the Cypheria app tools a Thread can call, identical to the official desktop's. */
+/**
+ * Names of the Cypheria app tools the instructions mention, identical to the official desktop's.
+ * Tools the text never names, such as `reorder_section`, need no entry.
+ */
 export const CODEX_APP_TOOL_NAMES = [
   "automation_update",
   "create_thread",

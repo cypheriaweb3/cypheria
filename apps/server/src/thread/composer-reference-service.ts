@@ -156,7 +156,7 @@ export class ComposerReferenceService {
       if (!this.#getThread) throw new Error("Thread references are unavailable")
       const thread = await this.#getThread(block.id)
       return {
-        text: `Referenced Cypheria chat: ${thread.title ?? thread.id} (threadId: ${thread.id}). Use cypheria_read_thread to inspect it before relying on its contents.`,
+        text: `Referenced Cypheria chat: ${thread.title ?? thread.id} (threadId: ${thread.id}). Use read_thread to inspect it before relying on its contents.`,
         type: "text",
       }
     }

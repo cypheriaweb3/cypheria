@@ -18,7 +18,7 @@ Other clients can use the same `@cypheria/client` APIs without sharing Desktop's
 
 ## Submission mapping
 
-The public input union contains text, existing image/audio/resource blocks, `reference`, and `uploaded-file`. The Server projects a verified workspace file to a path link, a Thread to a bounded `cypheria_read_thread` dynamic-tool instruction, a browser tab to its current tab identity, and an enabled skill, App, plugin, or MCP resource to an Agent-readable pointer. These are hints and resolvable identifiers, not snapshots of the referenced content. The model or its tools must read a path or resource in an authorized execution environment. Thread reading is bounded and explicitly labels content untrusted. References unsupported by the selected Agent fail before turn submission rather than silently degrading to a fake mention. The Server stores the original blocks, while the Agent receives the projected blocks.
+The public input union contains text, existing image/audio/resource blocks, `reference`, and `uploaded-file`. The Server projects a verified workspace file to a path link, a Thread to a bounded `read_thread` dynamic-tool instruction, a browser tab to its current tab identity, and an enabled skill, App, plugin, or MCP resource to an Agent-readable pointer. These are hints and resolvable identifiers, not snapshots of the referenced content. The model or its tools must read a path or resource in an authorized execution environment. Thread reading is bounded and explicitly labels content untrusted. References unsupported by the selected Agent fail before turn submission rather than silently degrading to a fake mention. The Server stores the original blocks, while the Agent receives the projected blocks.
 
 ## Uploaded files and drafts
 

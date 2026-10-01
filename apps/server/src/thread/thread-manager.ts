@@ -48,7 +48,11 @@ type Publish = (message: ServerMessage) => void
 type CreatePublicThreadInput = Omit<
   CreateThreadInput,
   "agentSessionId" | "config" | "forkedFromId" | "id" | "roots"
-> & { config?: ThreadConfig }
+> & {
+  config?: ThreadConfig
+  /** Text the projectless directory name derives from. Defaults to the title. */
+  workspaceName?: string | null
+}
 
 type RuntimeState = {
   activeTurn: { id: string; startedAt: string; captureId?: string | null } | null
@@ -305,10 +309,11 @@ export class ThreadManager {
     }
   }
 
-  async create(input: CreatePublicThreadInput): Promise<{
+  async create(request: CreatePublicThreadInput): Promise<{
     thread: ThreadView
     timeline: Awaited<ReturnType<ThreadTimelineStore["head"]>>
   }> {
+    const { workspaceName, ...input } = request
     const threadId = createThreadId()
     return this.#withLock(threadId, async () => {
       const agentId = input.agentId as AgentId
@@ -322,7 +327,7 @@ export class ThreadManager {
       }
       const projectlessRoot = project
         ? null
-        : await this.#createProjectlessWorkspace(threadId, input.title)
+        : await this.#createProjectlessWorkspace(threadId, workspaceName ?? input.title)
       const roots = project ? [...project.roots] : [projectlessRoot as string]
       const cwd = roots[0] as string
       const config = await this.#resolveInitialConfig(agentId, input.config)
@@ -418,9 +423,14 @@ export class ThreadManager {
     return this.#resumeContext(await this.#required(threadId))
   }
 
-  async getTimeline(threadId: string, limit = 10) {
+  async getTimeline(threadId: string, limit = 10, before?: { epoch: string; seq: number }) {
     await this.#required(threadId)
-    return this.#timeline.page(threadId, { direction: "tail", limit, projection: "projected" })
+    return this.#timeline.page(threadId, {
+      ...(before ? { cursor: before } : {}),
+      direction: before ? "before" : "tail",
+      limit,
+      projection: "projected",
+    })
   }
 
   async prepareComposerInput(
