@@ -1,5 +1,7 @@
 import type { v2 } from "@cypheria/protocol/codex-types"
 import type { CodexDynamicToolCallContext } from "../agent/codex-dynamic-tools.js"
+import type { AutomationTool } from "./automation.js"
+import { AUTOMATION_UPDATE_SPEC } from "./automation.js"
 import { APP_TOOL_SPECS } from "./definitions.js"
 import type { HandoffService } from "./handoff.js"
 
@@ -154,6 +156,7 @@ export type AppToolAttachments = {
 }
 
 export type AppToolServiceOptions = {
+  readonly automations: Pick<AutomationTool, "call">
   readonly handoff: Pick<HandoffService, "start" | "status">
   readonly attachments: AppToolAttachments
   readonly worktrees: AppToolWorktrees
@@ -253,9 +256,11 @@ export class AppToolService {
   }
 
   /** Specs and the names they carry; the names gate the matching developer instructions. */
-  static readonly specs: readonly v2.DynamicToolSpec[] = APP_TOOL_SPECS
+  static readonly specs: readonly v2.DynamicToolSpec[] = [...APP_TOOL_SPECS, AUTOMATION_UPDATE_SPEC]
   static readonly toolNames: ReadonlySet<string> = new Set(
-    APP_TOOL_SPECS.flatMap((spec) => (spec.type === "function" ? [spec.name] : []))
+    [...APP_TOOL_SPECS, AUTOMATION_UPDATE_SPEC].flatMap((spec) =>
+      spec.type === "function" ? [spec.name] : []
+    )
   )
 
   async call(
@@ -357,6 +362,8 @@ export class AppToolService {
         return ok(await this.#archiveWorktree(args, context))
       case "restore_worktree":
         return ok(await this.#restoreWorktree(args, context))
+      case "automation_update":
+        return ok(await this.#options.automations.call(args, context.threadId))
       case "handoff_thread": {
         const threadId = text(args, "threadId", true) as string
         if (threadId === context.threadId) {
