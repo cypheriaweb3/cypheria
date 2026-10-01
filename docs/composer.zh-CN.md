@@ -18,7 +18,7 @@ title: Composer 输入与引用
 
 ## 提交映射
 
-公共输入 union 包含文本、已有图片／音频／资源块、`reference` 和 `uploaded-file`。Server 将校验过的工作区文件映射为路径链接，Thread 映射为受限 `cypheria_read_thread` 动态工具提示，浏览器标签页映射为当前标签页身份，并将已启用的 skill、App、插件或 MCP 资源映射为 Agent 可读指针。这些是提示和可解析标识符，而不是被引用内容的快照。模型或其工具仍须在获授权的执行环境中读取路径或资源。Thread 读取有界，并明确将内容标为不可信。所选 Agent 不支持的引用会在提交前失败，而不会悄悄退化为假的 mention。Server 保存原始 blocks，Agent 收到映射后的 blocks。
+公共输入 union 包含文本、已有图片／音频／资源块、`reference` 和 `uploaded-file`。Server 将校验过的工作区文件映射为路径链接，Thread 映射为受限 `read_thread` 动态工具提示，浏览器标签页映射为当前标签页身份，并将已启用的 skill、App、插件或 MCP 资源映射为 Agent 可读指针。这些是提示和可解析标识符，而不是被引用内容的快照。模型或其工具仍须在获授权的执行环境中读取路径或资源。Thread 读取有界，并明确将内容标为不可信。所选 Agent 不支持的引用会在提交前失败，而不会悄悄退化为假的 mention。Server 保存原始 blocks，Agent 收到映射后的 blocks。
 
 ## 上传文件与草稿
 
