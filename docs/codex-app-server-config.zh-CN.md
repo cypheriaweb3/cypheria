@@ -105,6 +105,8 @@ Cypheria 以官方 Codex 桌面版的方式启动 Codex Thread，使 Codex 的�
 
 `developerInstructions` 包含 `<app-context>`，其文本与官方桌面版逐字相同；不属于任何 Project 的 Thread 后面再追加 `### Projectless Chat` 段。应用上下文只列出 Cypheria 能兑现的内容：承诺某项 client 能力的句子、点名某个 app 工具的段落，只有在该能力或工具存在时才出现。措辞、工具名和指令名与官方保持一致，只有深链使用 `cypheria://`。工作目录位于仓库内时，`### Git` 段携带 Git 设置中的分支前缀以及 commit 与 pull request 指令。
 
+每个 turn 还会声明 `turnTrigger: "composer"` 和 `responsesapiClientMetadata`：`source: "cypheria"`、提交该 turn 的 client 的 `client_type`（schedule 运行为 `schedule`）以及 `workspace_kind`（`project` 或 `projectless`）。Codex 会把 `source` 作为 turn 来源写入分析数据和 Responses API 的 turn metadata，所以它标识的是本产品，而不是官方桌面版。
+
 指令在 Thread 启动时声明，从已停止的 Codex 进程恢复时再次声明；fork 继承来源历史中的指令。它们会替换 `config.toml` 中的 `developer_instructions`。
 
 ## Thread 与 turn scope

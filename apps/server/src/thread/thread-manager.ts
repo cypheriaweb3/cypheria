@@ -15,6 +15,7 @@ import type {
 import { createThreadId, PINNED_SECTION_ID } from "@cypheria/db"
 import {
   type AgentId,
+  type ClientKind,
   type ServerMessage,
   type ThreadClientMessage,
   type ThreadConfig,
@@ -181,7 +182,8 @@ export class ThreadManager {
 
   async handle(
     message: ThreadClientMessage,
-    send: (message: ServerMessage) => void
+    send: (message: ServerMessage) => void,
+    context: { readonly clientKind?: ClientKind } = {}
   ): Promise<void> {
     const respond = (value: unknown): void => {
       send({
@@ -246,7 +248,12 @@ export class ThreadManager {
           respond({})
           break
         case "thread.turn.start.request":
-          respond(await this.startTurn(message.payload))
+          respond(
+            await this.startTurn({
+              ...message.payload,
+              ...(context.clientKind ? { clientKind: context.clientKind } : {}),
+            })
+          )
           break
         case "thread.turn.steer.request":
           respond(await this.steerTurn(message.payload))
@@ -1110,6 +1117,8 @@ export class ThreadManager {
   }
 
   async startTurn(input: {
+    /** The kind of client that submitted the turn; schedules pass `schedule`. */
+    clientKind?: ClientKind | "schedule"
     clientMessageId: string
     content: readonly ThreadInputBlock[]
     threadId: string
@@ -1162,6 +1171,7 @@ export class ThreadManager {
       try {
         started = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
           ...(await this.#resumeContext(thread)),
+          ...(input.clientKind ? { clientKind: input.clientKind } : {}),
           clientMessageId: input.clientMessageId,
           content: adapterContent,
         })
@@ -1800,6 +1810,10 @@ export class ThreadManager {
 
   #context(thread: ThreadRecord): ThreadHarnessContext {
     return {
+      workspaceKind:
+        thread.roots.length === 1 && this.#isManagedProjectlessRoot(thread.roots[0] as string)
+          ? "projectless"
+          : "project",
       agentId: thread.agentId as AgentId,
       agentSessionId: thread.agentSessionId,
       config: thread.config,

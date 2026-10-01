@@ -129,9 +129,17 @@ const harness = () => {
 
 const turn = (
   adapter: ManagedThreadAdapter,
-  overrides: { cwd?: string; mode?: CodexPermissionsMode | null; roots?: string[] } = {}
+  overrides: {
+    clientKind?: string
+    cwd?: string
+    mode?: CodexPermissionsMode | null
+    roots?: string[]
+    workspaceKind?: "project" | "projectless"
+  } = {}
 ) =>
   adapter.startTurn({
+    ...(overrides.clientKind ? { clientKind: overrides.clientKind } : {}),
+    ...(overrides.workspaceKind ? { workspaceKind: overrides.workspaceKind } : {}),
     agentId: "codex",
     agentSessionId: "codex-thread-1",
     clientMessageId: `m-${Math.random()}`,
@@ -236,5 +244,29 @@ describe("Codex turn workspace", () => {
       "working directory must be one of its workspace roots"
     )
     expect(only("agent.codex.turn.start.request")).toHaveLength(0)
+  })
+})
+
+describe("Codex turn attribution", () => {
+  it("names this product as the turn source and the client that submitted it", async () => {
+    const { adapter, only } = harness()
+    await adapter.create(create("auto"))
+    await turn(adapter, { clientKind: "desktop", workspaceKind: "projectless" })
+    await turn(adapter, { clientKind: "schedule" })
+    expect(only("agent.codex.turn.start.request")[0]).toMatchObject({
+      responsesapiClientMetadata: {
+        client_type: "desktop_app",
+        source: "cypheria",
+        workspace_kind: "projectless",
+      },
+      turnTrigger: "composer",
+    })
+    expect(only("agent.codex.turn.start.request")[1]).toMatchObject({
+      responsesapiClientMetadata: {
+        client_type: "schedule",
+        source: "cypheria",
+        workspace_kind: "project",
+      },
+    })
   })
 })

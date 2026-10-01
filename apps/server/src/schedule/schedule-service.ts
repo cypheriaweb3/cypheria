@@ -286,6 +286,7 @@ export class ScheduleService {
         })
         createdThreadId = created.thread.id
         const turn = await this.#threadManager.startTurn({
+          clientKind: "schedule",
           clientMessageId: `schedule:${claimed.run.id}:${randomUUID()}`,
           content: target.content,
           threadId: created.thread.id,
@@ -293,6 +294,7 @@ export class ScheduleService {
         result = { threadId: created.thread.id, turnId: turn.turnId }
       } else if (target.type === "thread") {
         const turn = await this.#threadManager.startTurn({
+          clientKind: "schedule",
           clientMessageId: `schedule:${claimed.run.id}:${randomUUID()}`,
           content: target.content,
           threadId: target.threadId,

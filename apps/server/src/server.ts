@@ -735,7 +735,8 @@ export class CypheriaServer implements HttpAppHost {
     message: ClientMessage,
     send: (message: ServerMessage) => void,
     clientId?: string,
-    sendBinary?: (frame: CypheriaBinaryFrame) => void
+    sendBinary?: (frame: CypheriaBinaryFrame) => void,
+    clientKind?: ClientKind
   ): Promise<boolean> {
     if (
       message.type.startsWith("thread.files.") ||
@@ -957,7 +958,7 @@ export class CypheriaServer implements HttpAppHost {
       return true
     }
     if (message.type.startsWith("thread.")) {
-      await this.threadManager.handle(message as ThreadClientMessage, send)
+      await this.threadManager.handle(message as ThreadClientMessage, send, { clientKind })
       return true
     }
     if (!message.type.startsWith("project.") && !message.type.startsWith("section.")) {

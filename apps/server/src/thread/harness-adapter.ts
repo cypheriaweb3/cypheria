@@ -37,6 +37,7 @@ export type ThreadHarnessContext = {
   readonly config?: ThreadConfig
   readonly cwd: string | null
   readonly threadId: string
+  readonly workspaceKind?: "project" | "projectless"
   readonly workspaceRoots?: readonly string[]
 }
 
@@ -91,6 +92,8 @@ export type ThreadHarnessResumeInput = ThreadHarnessContext & {
 }
 
 export type ThreadHarnessTurnInput = ThreadHarnessContext & {
+  /** The kind of client that submitted the turn, `schedule` for a schedule run. */
+  readonly clientKind?: string
   readonly clientMessageId: string
   readonly content: readonly ThreadInputBlock[]
 }
