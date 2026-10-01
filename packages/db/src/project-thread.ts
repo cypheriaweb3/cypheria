@@ -910,7 +910,7 @@ export const createProjectThreadPersistenceService = (
         config: ThreadConfigSchema.parse(
           input.config ?? {
             model: null,
-            permissionsMode: input.agentId === "codex" ? "approve-for-me" : null,
+            permissionsMode: input.agentId === "codex" ? "auto" : null,
             speed: null,
             thinking: null,
           }

@@ -41,7 +41,7 @@ describe("project/thread persistence", () => {
         agentId: "codex",
         config: {
           model: "gpt-5",
-          permissionsMode: "approve-for-me",
+          permissionsMode: "auto",
           speed: "fast",
           thinking: "medium",
         },
@@ -56,7 +56,7 @@ describe("project/thread persistence", () => {
     expect(thread.agentSessionId).toBeNull()
     expect(thread.config).toEqual({
       model: "gpt-5",
-      permissionsMode: "approve-for-me",
+      permissionsMode: "auto",
       speed: "fast",
       thinking: "medium",
     })

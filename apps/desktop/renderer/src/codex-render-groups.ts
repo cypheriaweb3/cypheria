@@ -79,9 +79,7 @@ const rowKind = (entry: ThreadTimelineProjectedItem): CodexRenderRow["kind"] | n
   if (
     item.type === "status" ||
     item.type === "approval" ||
-    /model|personality|forked|remoteTaskCreated|automationUpdate|autoReviewInterruptionWarning/u.test(
-      type
-    )
+    /model|forked|remoteTaskCreated|automationUpdate|autoReviewInterruptionWarning/u.test(type)
   )
     return "notice"
   if (item.type === "command" || item.type === "tool") return "tools"

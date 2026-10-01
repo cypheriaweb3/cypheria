@@ -1587,11 +1587,6 @@ export class HarnessService {
             option("default", "Standard"),
             option("priority", "Fast"),
           ]),
-          select("personality", "Communication style", settings.personality, [
-            option("friendly", "Friendly"),
-            option("pragmatic", "Pragmatic"),
-            option("none", "None"),
-          ]),
           select("modelVerbosity", "Output detail", permissions.modelVerbosity, [
             option("low", "Low"),
             option("medium", "Medium"),

@@ -80,7 +80,7 @@ AgentChatWorkspace
 
 正式 Files 面板始终反映所选 Thread 的 roots。它保留 `@pierre/trees`，只在打开 root 或目录时加载直接子项，并支持请求合并、取消、Server 分页读取、按通知定点刷新，以及可取消的名称／路径搜索。文本写入使用 opaque version；二进制预览通过协议二进制流传递，不把字节嵌入 JSON。删除会把条目移入 Server quarantine 并提供一次恢复操作；projectless workspace 的生命周期删除与之分离。Root 选择、选中文件、展开目录、树可见性和树宽度按 Thread 保存在 Desktop 本地状态。
 
-Projectless Thread 使用一个托管 root，其直接用途目录为 `work/` 与 `outputs/`。Root 本身是 Thread cwd，这两个子目录不是额外 roots。General 中的 projectless folder 设置会同步到本地 Server，并影响之后创建的托管 workspace。残留托管目录只能通过显式 cleanup 操作删除。
+Projectless Thread 使用一个托管 root，布局为 `<projectless folder>/<YYYY-MM-DD>/<name>/`，日期取 Server 本地日期。`<name>` 是首条消息前六个 ASCII 单词用 `-` 连接的结果（最长 80 个字符，没有单词时为 `new-chat`），重名时依次追加 `-2`、`-3`。其直接用途目录为 `work/` 与 `outputs/`。Root 本身是 Thread cwd，这两个子目录不是额外 roots。General 中的 projectless folder 设置会同步到本地 Server，并影响之后创建的托管 workspace。残留托管目录只能通过显式 cleanup 操作删除。
 
 该体验的能力归属与后端选择规则详见[本地 Git 设计](git.zh-CN.md)。
 

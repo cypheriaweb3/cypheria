@@ -35,7 +35,6 @@ Codex Settings 中每项选择都会立即通过 App Server 写入，不需要�
 | `webSearch` | `web_search` | 禁用、缓存、索引或实时搜索 |
 | `modelVerbosity` | `model_verbosity` | 默认响应详细度 |
 | `modelReasoningSummary` | `model_reasoning_summary` | Reasoning summary 展示方式 |
-| `personality` | `personality` | 默认交流风格 |
 | `pluginsEnabled` | `features.plugins` | 插件可用性 |
 
 仅仅打开 Settings 不会写入未设置的原生 key。每项设置的界面回退值与运行时行为如下。
@@ -54,12 +53,11 @@ Codex 首次启动时加载空的用户配置层和打包默认值，不会创�
 | Model | `model/list` 中 `isDefault` 的条目 | Cypheria 不硬编码模型 ID。 |
 | Reasoning effort | 所选模型的 `defaultReasoningEffort` | 仅当模型元数据不可用时，界面用 Medium 作为显示回退值。 |
 | Speed | Standard | 选择 Standard 写入 `service_tier = "default"`；Fast 写入 `"priority"`。读取旧的原生值 `"fast"` 时显示 Fast。 |
-| Communication style | personality 功能启用时为 Pragmatic，否则为 None | 功能状态来自 `experimentalFeature/list`；明确设置的 `personality` 优先。 |
 | Output detail | Model default | 未设置 `model_verbosity` 时由模型决定详细度。 |
 | Reasoning summary | Model default | 未设置 `model_reasoning_summary` 时由 Codex 模型元数据决定，而 `model/list` 不暴露该元数据。明确选择 Auto 才写入 `"auto"`。 |
 | Plugins | 当前固定版本的 Codex runtime 默认启用 | 实际功能状态来自 `experimentalFeature/list`；明确修改时写入 `features.plugins`。 |
 
-当前固定版本的 runtime 也默认启用 personality 功能。Settings 页面读取两项功能的实际状态，而非假设它们一直启用。[Codex 的 Auto 预设](https://learn.chatgpt.com/docs/agent-approvals-security#common-sandbox-and-approval-combinations)提供 Workspace write 和 On request 基线；有效权限 catalog 与项目信任状态可能进一步限制它。
+当前固定版本的 runtime 已不再让 `personality` 选择交流风格，因此 Cypheria 既不展示也不写入它。[Codex 的 Auto 预设](https://learn.chatgpt.com/docs/agent-approvals-security#common-sandbox-and-approval-combinations)提供 Workspace write 和 On request 基线；有效权限 catalog 与项目信任状态可能进一步限制它。
 
 `web_search` 与 `sandbox_mode` 是独立设置。配置偏好为 Cached 时，Codex 可在 Full access turn 中选用 Live，但仍受 provider 能力和托管限制约束；Settings 页面继续显示配置偏好。明确设置的 Disabled 和 Indexed 在被允许时维持原模式。对于 reasoning summary，[OpenAI 将 `auto` 记为明确的模式](https://developers.openai.com/api/docs/guides/reasoning)，它不等于未设置。
 

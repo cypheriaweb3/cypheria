@@ -25,7 +25,6 @@ export type ChatTimelineEventType =
   | "multi-agent-action"
   | "patch"
   | "permission-request"
-  | "personality-changed"
   | "plan-implementation"
   | "proposed-plan"
   | "reasoning"

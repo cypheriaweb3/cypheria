@@ -46,6 +46,11 @@ import type {
 import { ACP_V1_FALLBACK_REQUIRED_CODE, acpInitializeParams } from "./acp-negotiation.js"
 import type { AgentManager, AgentRuntimeServerMessage } from "./agent-manager.js"
 import type { ClaudePermissionHandler, ClaudePermissionRequest } from "./claude-session-runtime.js"
+import {
+  type CodexPermissionFields,
+  codexConfiguredPermissions,
+  codexPermissionWire,
+} from "./codex-permissions.js"
 import { codexThreadItemToTimeline, codexTurnUpdateToTimeline } from "./codex-timeline.js"
 
 type Pending = {
@@ -181,11 +186,25 @@ const usageBase = (usedTokens: number, maxTokens: number) => ({
   usedTokens,
 })
 
-type CodexResolvedPermissions = {
-  approvalPolicy?: v2.AskForApproval
-  approvalsReviewer?: v2.ApprovalsReviewer
-  sandbox?: v2.SandboxMode
-  sandboxPolicy?: v2.SandboxPolicy
+const CODEX_REQUEST_PERMISSIONS_TOOL = "features.request_permissions_tool"
+
+/**
+ * The workspace a Codex turn runs in. Codex applies `cwd` and `runtimeWorkspaceRoots` to this turn
+ * and every later one, so sending them each turn keeps a Thread that moved to a Git worktree, or
+ * had its roots synchronized, on the workspace the Server stores.
+ */
+export const codexTurnWorkspace = (input: {
+  readonly cwd: string | null
+  readonly workspaceRoots?: readonly string[]
+}): { cwd?: string; runtimeWorkspaceRoots?: string[] } => {
+  const roots = input.workspaceRoots ?? []
+  if (input.cwd && roots.length > 0 && !roots.includes(input.cwd)) {
+    throw new Error("The Thread working directory must be one of its workspace roots")
+  }
+  return {
+    ...(input.cwd ? { cwd: input.cwd } : {}),
+    ...(roots.length > 0 ? { runtimeWorkspaceRoots: [...roots] } : {}),
+  }
 }
 
 const localInput = (uri: string, name?: string | null): v2.UserInput | null => {
@@ -651,6 +670,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   #acpCapabilities: Record<string, unknown> | undefined
   #acpProtocolVersion: 1 | 2 | undefined
   #defaultsApplied = false
+  /** The permission mode last stated to Codex for this Thread; undefined until first stated. */
+  #appliedPermissionsMode: ThreadConfig["permissionsMode"] | undefined
   #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
   #harnessSessionId: string | null = null
   #contextUsage: ThreadContextUsage | null = null
@@ -691,60 +712,25 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
   }
 
-  #codexPermissions(
+  /**
+   * Permission fields for one Codex request. A preset sends its profile with the approval settings;
+   * `agent-config` sends nothing, so Codex uses `config.toml`. The one exception is a Thread that
+   * already runs under a preset: Codex cannot clear a permission override, so the first request
+   * after the switch states the configured values explicitly.
+   */
+  async #codexPermissions(
     config: ThreadConfig,
-    native: v2.Config,
-    workspaceRoots: readonly string[] | undefined
-  ): CodexResolvedPermissions {
-    const mode = config.permissionsMode ?? "agent-config"
-    const workspace = native.sandbox_workspace_write
-    const workspacePolicy: v2.SandboxPolicy = {
-      excludeSlashTmp: workspace?.exclude_slash_tmp ?? false,
-      excludeTmpdirEnvVar: workspace?.exclude_tmpdir_env_var ?? false,
-      networkAccess: workspace?.network_access ?? false,
-      type: "workspaceWrite",
-      writableRoots: [
-        ...new Set([...(workspace?.writable_roots ?? []), ...(workspaceRoots ?? [])]),
-      ],
-    }
-    if (mode === "ask-for-approval") {
-      return {
-        approvalPolicy: "on-request",
-        approvalsReviewer: "user",
-        sandbox: "workspace-write",
-        sandboxPolicy: workspacePolicy,
-      }
-    }
-    if (mode === "approve-for-me") {
-      return {
-        approvalPolicy: "on-request",
-        approvalsReviewer: "auto_review",
-        sandbox: "workspace-write",
-        sandboxPolicy: workspacePolicy,
-      }
-    }
-    if (mode === "full-access") {
-      return {
-        approvalPolicy: "never",
-        sandbox: "danger-full-access",
-        sandboxPolicy: { type: "dangerFullAccess" },
-      }
-    }
-    const sandbox = native.sandbox_mode ?? undefined
-    const sandboxPolicy =
-      sandbox === "danger-full-access"
-        ? ({ type: "dangerFullAccess" } as const)
-        : sandbox === "read-only"
-          ? ({ networkAccess: false, type: "readOnly" } as const)
-          : sandbox === "workspace-write"
-            ? workspacePolicy
-            : undefined
-    return {
-      ...(native.approval_policy ? { approvalPolicy: native.approval_policy } : {}),
-      ...(native.approvals_reviewer ? { approvalsReviewer: native.approvals_reviewer } : {}),
-      ...(sandbox ? { sandbox } : {}),
-      ...(sandboxPolicy ? { sandboxPolicy } : {}),
-    }
+    context: { readonly cwd: string | null; readonly threadId: string },
+    phase: "start" | "update"
+  ): Promise<CodexPermissionFields> {
+    const mode = config.permissionsMode
+    const wire = codexPermissionWire(mode)
+    const previous = this.#appliedPermissionsMode
+    this.#appliedPermissionsMode = mode
+    if (wire) return wire
+    if (phase === "start" || previous === undefined || previous === "agent-config") return {}
+    if (previous === null) return {}
+    return codexConfiguredPermissions(await this.#codexNativeConfig(context.threadId, context.cwd))
   }
 
   async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
@@ -756,23 +742,19 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "codex") {
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
-      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
-      const permissions = this.#codexPermissions(input.config, nativeConfig, input.workspaceRoots)
+      const permissions = await this.#codexPermissions(input.config, input, "start")
       const config = {
         ...(worktreeConfig ?? {}),
         ...(input.config.thinking ? { model_reasoning_effort: input.config.thinking } : {}),
+        [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
       }
       const response = await this.#request(input.threadId, {
         ...(input.config.model ? { model: input.config.model } : {}),
         ...(input.config.speed ? { serviceTier: input.config.speed } : {}),
-        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
-        ...(permissions.approvalsReviewer
-          ? { approvalsReviewer: permissions.approvalsReviewer }
-          : {}),
-        ...(permissions.sandbox ? { sandbox: permissions.sandbox } : {}),
+        ...permissions,
         cwd: input.cwd,
         ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-        ...(Object.keys(config).length > 0 ? { config } : {}),
+        config,
         ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
         dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
         requestId: randomUUID(),
@@ -834,19 +816,15 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#config = input.config ?? this.#config
 
     if (this.agentId === "codex") {
-      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
-      const permissions = this.#codexPermissions(this.#config, nativeConfig, input.workspaceRoots)
+      const permissions = await this.#codexPermissions(this.#config, input, "start")
       const response = await this.#request(input.sourceThreadId, {
         ...(this.#config.model ? { model: this.#config.model } : {}),
         ...(this.#config.speed ? { serviceTier: this.#config.speed } : {}),
-        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
-        ...(permissions.approvalsReviewer
-          ? { approvalsReviewer: permissions.approvalsReviewer }
-          : {}),
-        ...(permissions.sandbox ? { sandbox: permissions.sandbox } : {}),
-        ...(this.#config.thinking
-          ? { config: { model_reasoning_effort: this.#config.thinking } }
-          : {}),
+        ...permissions,
+        config: {
+          ...(this.#config.thinking ? { model_reasoning_effort: this.#config.thinking } : {}),
+          [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
+        },
         cwd: input.cwd,
         ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
         ...(input.target.kind === "user-message" ? { beforeTurnId: input.target.turnId } : {}),
@@ -1103,23 +1081,19 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       if (!input.agentSessionId) return this.create({ ...input, config: this.#config })
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
-      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
-      const permissions = this.#codexPermissions(this.#config, nativeConfig, input.workspaceRoots)
+      const permissions = await this.#codexPermissions(this.#config, input, "start")
       const config = {
         ...(worktreeConfig ?? {}),
         ...(this.#config.thinking ? { model_reasoning_effort: this.#config.thinking } : {}),
+        [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
       }
       const response = await this.#request(input.threadId, {
         ...(this.#config.model ? { model: this.#config.model } : {}),
         ...(this.#config.speed ? { serviceTier: this.#config.speed } : {}),
-        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
-        ...(permissions.approvalsReviewer
-          ? { approvalsReviewer: permissions.approvalsReviewer }
-          : {}),
-        ...(permissions.sandbox ? { sandbox: permissions.sandbox } : {}),
+        ...permissions,
         cwd: input.cwd,
         ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-        ...(Object.keys(config).length > 0 ? { config } : {}),
+        config,
         ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
         excludeTurns: false,
         requestId: randomUUID(),
@@ -1486,21 +1460,17 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "codex") {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
       const config = input.config ?? this.#config
-      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
-      const permissions = this.#codexPermissions(config, nativeConfig, input.workspaceRoots)
+      const permissions = await this.#codexPermissions(config, input, "update")
+      const workspace = codexTurnWorkspace(input)
       const response = await this.#request(input.threadId, {
         ...(config.model ? { model: config.model } : {}),
         ...(config.thinking ? { effort: config.thinking } : {}),
         ...(config.speed ? { serviceTier: config.speed } : {}),
-        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
-        ...(permissions.approvalsReviewer
-          ? { approvalsReviewer: permissions.approvalsReviewer }
-          : {}),
-        ...(permissions.sandboxPolicy ? { sandboxPolicy: permissions.sandboxPolicy } : {}),
+        ...permissions,
         clientUserMessageId: input.clientMessageId,
         input: mapCodexInput(input.content),
         requestId: randomUUID(),
-        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
+        ...workspace,
         threadId: input.agentSessionId,
         type: "agent.codex.turn.start.request",
       })
@@ -1752,17 +1722,12 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "codex") {
       const turnId = [...this.#codexProjectors.keys()].at(-1)
       if (!context.agentSessionId) return
-      const nativeConfig = await this.#codexNativeConfig(context.threadId, context.cwd)
-      const permissions = this.#codexPermissions(config, nativeConfig, context.workspaceRoots)
+      const permissions = await this.#codexPermissions(config, context, "update")
       await this.#request(context.threadId, {
         ...(config.thinking !== null ? { effort: config.thinking } : {}),
         ...(config.model !== null ? { model: config.model } : {}),
         ...(config.speed !== null ? { serviceTier: config.speed } : {}),
-        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
-        ...(permissions.approvalsReviewer
-          ? { approvalsReviewer: permissions.approvalsReviewer }
-          : {}),
-        ...(permissions.sandboxPolicy ? { sandboxPolicy: permissions.sandboxPolicy } : {}),
+        ...permissions,
         requestId: randomUUID(),
         threadId: context.agentSessionId,
         type: "agent.codex.thread.settings.update.request",

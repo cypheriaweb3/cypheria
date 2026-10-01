@@ -15,6 +15,11 @@ import {
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path"
 import type { ProjectThreadPersistenceService } from "@cypheria/db"
 import type { ServerMessage, WorkspaceFileEntry, WorkspaceFileReadResult } from "@cypheria/protocol"
+import {
+  isManagedProjectlessWorkspace,
+  listManagedProjectlessWorkspaces,
+  pruneProjectlessDateDirectory,
+} from "./projectless-workspace.js"
 
 const TEXT_PREVIEW_LIMIT = 2 * 1024 * 1024
 const BINARY_PREVIEW_LIMIT = 16 * 1024 * 1024
@@ -256,11 +261,8 @@ export class WorkspaceFileService {
   }
 
   async listCleanup() {
-    const entries = await readdir(this.#projectlessRoot, { withFileTypes: true }).catch(() => [])
     const items = []
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      const path = join(this.#projectlessRoot, entry.name)
+    for (const path of await listManagedProjectlessWorkspaces(this.#projectlessRoot)) {
       if ((await this.#persistence.countProjectlessRootReferences(path)) > 0) continue
       const info = await stat(path).catch(() => undefined)
       items.push({
@@ -279,10 +281,7 @@ export class WorkspaceFileService {
     for (const value of paths) {
       const path = resolve(value)
       try {
-        if (
-          !path.startsWith(`${this.#projectlessRoot}${sep}`) ||
-          dirname(path) !== this.#projectlessRoot
-        ) {
+        if (!isManagedProjectlessWorkspace(this.#projectlessRoot, path)) {
           throw new WorkspaceFileError(
             "INVALID_WORKSPACE",
             "Path is not a managed projectless workspace"
@@ -292,6 +291,7 @@ export class WorkspaceFileService {
           throw new WorkspaceFileError("WORKSPACE_REFERENCED", "Workspace is still referenced")
         }
         await rm(path, { recursive: true })
+        await pruneProjectlessDateDirectory(path)
         deleted.push(path)
       } catch (error) {
         failed.push({ message: error instanceof Error ? error.message : String(error), path })

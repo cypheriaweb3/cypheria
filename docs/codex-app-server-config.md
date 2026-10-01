@@ -35,7 +35,6 @@ Codex Settings writes each changed option immediately through App Server; no Sav
 | `webSearch` | `web_search` | Disabled, cached, indexed, or live search |
 | `modelVerbosity` | `model_verbosity` | Default response verbosity |
 | `modelReasoningSummary` | `model_reasoning_summary` | Reasoning-summary presentation |
-| `personality` | `personality` | Default communication style |
 | `pluginsEnabled` | `features.plugins` | Plugin availability |
 
 An unset native key is not written merely because Settings was opened. Its displayed fallback and runtime behavior depend on the setting, as described below.
@@ -54,12 +53,11 @@ On first launch, Codex loads an empty user configuration layer and its packaged 
 | Model | The `isDefault` entry from `model/list` | No model identifier is hard-coded in Cypheria. |
 | Reasoning effort | The selected model's `defaultReasoningEffort` | The UI uses Medium only as a display fallback if model metadata is unavailable. |
 | Speed | Standard | Selecting Standard writes `service_tier = "default"`; Fast writes `"priority"`. The older native value `"fast"` is read as Fast. |
-| Communication style | Pragmatic when the personality feature is enabled; otherwise None | Feature state comes from `experimentalFeature/list`. An explicit `personality` value takes precedence. |
 | Output detail | Model default | An unset `model_verbosity` leaves detail to the model. |
 | Reasoning summary | Model default | An unset `model_reasoning_summary` leaves the choice to Codex model metadata, which `model/list` does not expose. Selecting Auto explicitly writes `"auto"`. |
 | Plugins | Enabled in the pinned Codex runtime | Actual feature state comes from `experimentalFeature/list`; an explicit edit writes `features.plugins`. |
 
-The pinned runtime also enables the personality feature by default. The Settings page reads both feature states rather than assuming they remain enabled. [Codex's Auto preset](https://learn.chatgpt.com/docs/agent-approvals-security#common-sandbox-and-approval-combinations) supplies the Workspace write and On request baseline; the effective permission catalog and project trust can narrow it.
+The pinned runtime no longer lets `personality` select a communication style, so Cypheria neither shows nor writes it. [Codex's Auto preset](https://learn.chatgpt.com/docs/agent-approvals-security#common-sandbox-and-approval-combinations) supplies the Workspace write and On request baseline; the effective permission catalog and project trust can narrow it.
 
 `web_search` is a separate setting from `sandbox_mode`. When its configured preference is Cached, Codex may select Live for a Full access turn, subject to provider capabilities and managed restrictions; the Settings page continues to show the configured preference. Explicit Disabled and Indexed preferences retain their requested mode when allowed. For reasoning summaries, [OpenAI documents `auto` as an explicit mode](https://developers.openai.com/api/docs/guides/reasoning), not as the absence of a setting.
 

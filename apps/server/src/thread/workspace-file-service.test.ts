@@ -21,7 +21,7 @@ afterEach(async () => {
 const setup = async () => {
   const home = await mkdtemp(join(tmpdir(), "cypheria-workspace-files-"))
   cleanup.push(home)
-  const root = join(home, "managed", "thread")
+  const root = join(home, "managed", "2026-10-01", "thread")
   await mkdir(join(root, "work"), { recursive: true })
   await mkdir(join(root, "outputs"), { recursive: true })
   const database = openCypheriaDatabase({ cypheriaHome: home })
@@ -40,6 +40,32 @@ const setup = async () => {
   })
   return { database, messages, root, service, thread }
 }
+
+describe("WorkspaceFileService cleanup", () => {
+  it("lists and deletes only unreferenced <date>/<slug> workspaces", async () => {
+    const { database, root, service } = await setup()
+    try {
+      const orphan = join(root, "..", "orphan")
+      await mkdir(orphan, { recursive: true })
+      await mkdir(join(root, "..", "..", "loose"), { recursive: true })
+      const listed = await service.listCleanup()
+      expect(listed.items.map(({ path }) => path)).toEqual([orphan])
+      await expect(service.deleteCleanup([root])).resolves.toMatchObject({
+        deleted: [],
+        failed: [{ path: root }],
+      })
+      await expect(service.deleteCleanup([join(root, "..", "..", "loose")])).resolves.toMatchObject(
+        { deleted: [], failed: [{ message: expect.stringContaining("managed") }] }
+      )
+      await expect(service.deleteCleanup([orphan])).resolves.toEqual({
+        deleted: [orphan],
+        failed: [],
+      })
+    } finally {
+      database.close()
+    }
+  })
+})
 
 describe("WorkspaceFileService", () => {
   it("loads direct children with pagination and includes hidden files", async () => {

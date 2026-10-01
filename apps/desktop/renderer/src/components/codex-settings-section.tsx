@@ -389,17 +389,6 @@ export function CodexSettingsSection({
             ]}
           />
           <SettingSelect
-            label="Communication style"
-            description="Set a default communication style for supported models."
-            value={String(get("personality") ?? "pragmatic")}
-            onChange={(value) => set("personality", value)}
-            choices={[
-              { value: "friendly", label: "Friendly" },
-              { value: "pragmatic", label: "Pragmatic" },
-              { value: "none", label: "None" },
-            ]}
-          />
-          <SettingSelect
             label="Output detail"
             description="Choose how much detail Codex includes in responses"
             value={String(get("modelVerbosity") ?? "model-default")}

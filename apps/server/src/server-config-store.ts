@@ -87,7 +87,7 @@ export class ServerConfigStore {
     const persisted: PersistedServerConfig = {
       agents: {
         claude: { pluginsEnabled: true },
-        codex: { permissionsMode: "approve-for-me" },
+        codex: { permissionsMode: "auto" },
       },
       git: DEFAULT_GIT_SETTINGS,
       browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
