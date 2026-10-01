@@ -23,6 +23,7 @@ const thread = (id: string, patch: Partial<AppToolThread> = {}): AppToolThread =
 
 const harness = (threads: AppToolThread[] = []) => {
   const archived: string[] = []
+  const handoffs: { followUpPrompt?: string; threadId: string }[] = []
   const attached: {
     attachmentType: "pull_request" | "worktree"
     createdAt: number
@@ -87,6 +88,18 @@ const harness = (threads: AppToolThread[] = []) => {
       list: async () => attached,
     },
     defaultAgentId: "codex",
+    handoff: {
+      start: (input) => {
+        handoffs.push(input)
+        return { operationId: "op", revision: 1, status: "queued", threadId: input.threadId }
+      },
+      status: async (operationId) => ({
+        operationId,
+        revision: 2,
+        status: "completed",
+        threadId: "x",
+      }),
+    },
     isGitRepository: async (root) => root === "/repo",
     pinnedSectionId: PINNED_ID,
     projectThread: async (type, payload) => {
@@ -222,7 +235,7 @@ const harness = (threads: AppToolThread[] = []) => {
       value: first?.type === "inputText" ? first.text : "",
     }
   }
-  return { archived, attached, call, created, requests, started, store, turns }
+  return { archived, attached, handoffs, call, created, requests, started, store, turns }
 }
 
 describe("reorderWithinSlots", () => {
@@ -242,6 +255,7 @@ describe("app tool specs", () => {
     const names = [...AppToolService.toolNames]
     const unnamed = new Set([
       "attach_artifact",
+      "get_handoff_status",
       "get_worktree_creation_status",
       "remove_artifact",
       "reorder_section",
@@ -389,6 +403,26 @@ describe("AppToolService", () => {
     expect((await call("reorder_sidebar_sections", { sectionIds: ["s1", "pinned"] })).success).toBe(
       true
     )
+  })
+
+  describe("handoff", () => {
+    it("starts a handoff of another thread and reads its status", async () => {
+      const { call, handoffs } = harness([thread("caller"), thread("other")])
+      const started = await call("handoff_thread", { followUpPrompt: "Go", threadId: "other" })
+      expect(JSON.parse(started.value)).toMatchObject({ operationId: "op", status: "queued" })
+      expect(handoffs).toEqual([{ followUpPrompt: "Go", threadId: "other" }])
+      const status = await call("get_handoff_status", {
+        afterRevision: 1,
+        operationId: "op",
+        waitMs: 30_000,
+      })
+      expect(JSON.parse(status.value)).toMatchObject({ revision: 2, status: "completed" })
+    })
+
+    it("refuses to hand off the calling thread", async () => {
+      const { call } = harness([thread("caller")])
+      expect((await call("handoff_thread", { threadId: "caller" })).success).toBe(false)
+    })
   })
 
   describe("worktrees and artifacts", () => {

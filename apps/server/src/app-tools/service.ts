@@ -1,6 +1,7 @@
 import type { v2 } from "@cypheria/protocol/codex-types"
 import type { CodexDynamicToolCallContext } from "../agent/codex-dynamic-tools.js"
 import { APP_TOOL_SPECS } from "./definitions.js"
+import type { HandoffService } from "./handoff.js"
 
 /** The id the sidebar tools use for the Pinned section. */
 const PINNED = "pinned"
@@ -153,6 +154,7 @@ export type AppToolAttachments = {
 }
 
 export type AppToolServiceOptions = {
+  readonly handoff: Pick<HandoffService, "start" | "status">
   readonly attachments: AppToolAttachments
   readonly worktrees: AppToolWorktrees
   readonly isGitRepository: (root: string) => Promise<boolean>
@@ -355,6 +357,27 @@ export class AppToolService {
         return ok(await this.#archiveWorktree(args, context))
       case "restore_worktree":
         return ok(await this.#restoreWorktree(args, context))
+      case "handoff_thread": {
+        const threadId = text(args, "threadId", true) as string
+        if (threadId === context.threadId) {
+          throw new ToolInputError("The calling thread cannot hand itself off.")
+        }
+        await this.#options.threads.get(threadId)
+        const followUpPrompt = text(args, "followUpPrompt")
+        return ok(
+          this.#options.handoff.start({ threadId, ...(followUpPrompt ? { followUpPrompt } : {}) })
+        )
+      }
+      case "get_handoff_status": {
+        const afterRevision = integer(args, "afterRevision", 0, Number.MAX_SAFE_INTEGER)
+        const waitMs = integer(args, "waitMs", 0, 60_000)
+        return ok(
+          await this.#options.handoff.status(text(args, "operationId", true) as string, {
+            ...(afterRevision === undefined ? {} : { afterRevision }),
+            ...(waitMs === undefined ? {} : { waitMs }),
+          })
+        )
+      }
       case "list_artifacts":
         return ok(await this.#listArtifacts(context))
       case "attach_artifact": {

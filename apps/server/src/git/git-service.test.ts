@@ -999,6 +999,54 @@ describe("GitService", () => {
     expect(state.worktree?.ownerThreadId).toBeNull()
   }, 30_000)
 
+  it("hands a thread off to a new worktree and back to its checkout", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-git-handoff-toggle-"))
+    created.push(home)
+    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf402"
+    const thread = {
+      id: threadId,
+      agentId: "claude",
+      agentSessionId: null,
+      roots: [root],
+      activeTurn: null as { id: string } | null,
+      pendingInteractions: [] as unknown[],
+    }
+    const threads = {
+      get: async () => thread,
+      moveWorkingDirectory: async (_id: string, cwd: string) => {
+        thread.roots = [cwd]
+        return thread
+      },
+    } as unknown as ThreadManager
+    const service = new GitService(join(home, "cache"), home, {
+      agents: {} as AgentManager,
+      threadAttachments: {
+        attachPullRequest: vi.fn(),
+        attachWorktree: vi.fn(),
+        detachWorktree: vi.fn(),
+      },
+      threads,
+    })
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, "local.txt"), "local\n")
+    const phases: string[] = []
+    const out = await service.handoffThread(threadId, (phase) => phases.push(phase))
+    expect(out.direction).toBe("to-worktree")
+    expect(phases).toEqual(["creating-worktree", "moving"])
+    expect(thread.roots[0]).toBe(out.path)
+    expect(await readFile(join(out.path, "local.txt"), "utf8")).toBe("local\n")
+    // The checkout keeps its copy of the changes, so returning to it needs it clean.
+    await expect(service.handoffThread(threadId)).rejects.toThrow(/clean/u)
+    await rm(join(root, "local.txt"))
+    const back = await service.handoffThread(threadId)
+    expect(back.direction).toBe("to-checkout")
+    expect(await readFile(join(root, "local.txt"), "utf8")).toBe("local\n")
+    expect(thread.roots[0]).toBe(await realpath(root))
+  }, 45_000)
+
   it("cancels a running worktree setup and permits skipping it", async () => {
     const root = await repository()
     const home = await mkdtemp(join(tmpdir(), "cypheria-worktree-home-"))

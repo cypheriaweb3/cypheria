@@ -70,6 +70,7 @@ import { type WebSocket, WebSocketServer } from "ws"
 import { AgentManager } from "./agent/agent-manager.js"
 import { CYPHERIA_RENDERING_CAPABILITIES } from "./agent/codex-developer-instructions.js"
 import { mapCodexInput } from "./agent/managed-thread-adapter.js"
+import { HandoffService } from "./app-tools/handoff.js"
 import { AppToolService } from "./app-tools/service.js"
 import { BrowserToolsService } from "./browser-tools/service.js"
 import { browserToolSpecs } from "./browser-tools/tools.js"
@@ -346,6 +347,11 @@ export class CypheriaServer implements HttpAppHost {
       () => this.configStore.getSnapshot().config.git
     )
     this.appTools = new AppToolService({
+      handoff: new HandoffService({
+        git: this.git,
+        randomId: () => randomUUID(),
+        threads: this.threadManager,
+      }),
       attachments: this.threadAttachments,
       defaultAgentId: "codex",
       isGitRepository: (root) =>

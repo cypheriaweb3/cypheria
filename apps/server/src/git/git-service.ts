@@ -1401,6 +1401,39 @@ export class GitService {
     return updated
   }
 
+  /**
+   * Moves a Thread and its local changes between its checkout and a new managed worktree: a Thread
+   * in a managed worktree returns to the repository's checkout, any other Thread moves into a
+   * fresh worktree. The Thread must be idle.
+   */
+  async handoffThread(
+    threadId: string,
+    onPhase: (phase: "creating-worktree" | "moving") => void = () => undefined
+  ): Promise<{ direction: "to-checkout" | "to-worktree"; path: string }> {
+    if (!this.#threads) throw new Error("A local Thread is required")
+    const cwd = (await this.#threads.get(threadId)).roots[0]
+    if (!cwd) throw new Error("The thread has no working directory")
+    const repository = await this.discover(cwd)
+    const worktrees = await this.#worktrees.list(repository)
+    if (worktrees.some((entry) => entry.managed && entry.path === repository.root)) {
+      const checkout = worktrees.find((entry) => !entry.managed && entry.active)
+      if (!checkout) throw new Error("The thread's original checkout is unavailable")
+      onPhase("moving")
+      await this.moveThreadToWorktree(cwd, checkout.path, threadId, true)
+      return { direction: "to-checkout", path: checkout.path }
+    }
+    onPhase("creating-worktree")
+    const created = await this.createWorktree(cwd)
+    onPhase("moving")
+    try {
+      await this.moveThreadToWorktree(cwd, created.path, threadId, true)
+    } catch (error) {
+      await this.deleteWorktree(cwd, created.path).catch(() => undefined)
+      throw error
+    }
+    return { direction: "to-worktree", path: created.path }
+  }
+
   async moveThreadToWorktree(
     cwd: string,
     path: string,

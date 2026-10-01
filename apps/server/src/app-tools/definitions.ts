@@ -567,4 +567,48 @@ export const APP_TOOL_SPECS: readonly v2.DynamicToolSpec[] = [
     deferLoading: true,
     type: "function",
   },
+  {
+    description:
+      "Move another Codex thread and its associated git state between its checkout and Codex worktree on its current host. Running threads are interrupted before handoff. The calling thread cannot move itself, and cloud handoff is not supported. Returns quickly with an operationId and revision. For model-visible completion, call get_handoff_status with afterRevision and a 30000-60000 waitMs, then back off if the revision does not change.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        threadId: { type: "string", description: "Other thread id to hand off." },
+        followUpPrompt: {
+          type: "string",
+          description: "Optional prompt to send to the destination thread after handoff succeeds.",
+        },
+      },
+      required: ["threadId"],
+    },
+    name: "handoff_thread",
+    deferLoading: true,
+    type: "function",
+  },
+  {
+    description:
+      "Read status for a handoff_thread operation. Avoid frequent polling. Prefer afterRevision with a 30000-60000 waitMs so the call returns only when progress changes or the timeout expires. Poll once after dispatch, then wait longer/back off; do not repeatedly poll unchanged state or narrate unchanged polls.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        operationId: { type: "string", description: "operationId returned by handoff_thread." },
+        afterRevision: {
+          type: "number",
+          description:
+            "Optional last revision already seen. When provided with waitMs, wait until the operation revision is greater than this value or the timeout expires.",
+        },
+        waitMs: {
+          type: "number",
+          description:
+            "Optional maximum milliseconds to wait for a status change, from 0 to 60000.",
+        },
+      },
+      required: ["operationId"],
+    },
+    name: "get_handoff_status",
+    deferLoading: true,
+    type: "function",
+  },
 ]
