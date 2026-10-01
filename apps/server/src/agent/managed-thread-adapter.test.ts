@@ -52,7 +52,7 @@ describe("ManagedThreadAdapter", () => {
     let runtimeContext: AgentMessageContext | undefined
     const manager = {
       codexDynamicTools: { getSpecs: () => [] },
-      codexGitInstructions: () => undefined,
+      codexDeveloperInstructions: async () => "",
       handleCodex: async (message: Record<string, unknown>, context: AgentMessageContext) => {
         if (respondToCodexConfigRead(message, context)) return
         runtimeContext = context
@@ -121,7 +121,7 @@ describe("ManagedThreadAdapter", () => {
       }
     )
     const manager = {
-      codexGitInstructions: () => "Use feature/ for new Git branches.",
+      codexDeveloperInstructions: async () => "Use feature/ for new Git branches.",
       handleCodex,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
@@ -272,7 +272,7 @@ describe("ManagedThreadAdapter", () => {
     )
     const manager = {
       codexDynamicTools: { getSpecs: () => [] },
-      codexGitInstructions: () => "Use codex/ for new Git branches.",
+      codexDeveloperInstructions: async () => "Use codex/ for new Git branches.",
       codexWorktreeConfig: async () => ({
         shell_environment_policy: { set: { PATH: "/repo/bin" } },
       }),
@@ -352,7 +352,7 @@ describe("ManagedThreadAdapter", () => {
     )
     const manager = {
       codexDynamicTools: { getSpecs: () => [] },
-      codexGitInstructions: () => undefined,
+      codexDeveloperInstructions: async () => "",
       handleCodex,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
@@ -1605,5 +1605,53 @@ describe("ManagedThreadAdapter", () => {
         },
       })
     )
+  })
+})
+
+describe("ManagedThreadAdapter Codex history", () => {
+  it("pages a paginated Thread's turns when resuming", async () => {
+    const pages = [
+      { data: [{ id: "turn-1", items: [], status: "completed" }], nextCursor: "c1" },
+      { data: [{ id: "turn-2", items: [], status: "completed" }], nextCursor: null },
+    ]
+    const requests: Record<string, unknown>[] = []
+    const handleCodex = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        requests.push(message)
+        if (message.type === "agent.codex.thread.resume.request") {
+          context.send({
+            payload: {
+              requestId: message.requestId,
+              thread: { historyMode: "paginated", id: "codex-thread-1", turns: [] },
+            },
+            type: "agent.codex.thread.resume.response",
+          } as unknown as AgentRuntimeServerMessage)
+          return
+        }
+        context.send({
+          payload: { requestId: message.requestId, ...pages.shift() },
+          type: "agent.codex.thread.turns.list.response",
+        } as unknown as AgentRuntimeServerMessage)
+      }
+    )
+    const adapter = new ManagedThreadAdapter(
+      { codexDeveloperInstructions: async () => "", handleCodex } as unknown as AgentManager,
+      "codex"
+    )
+    await adapter.resume({ ...input("codex"), agentSessionId: "codex-thread-1" })
+    expect(requests.find(({ type }) => type === "agent.codex.thread.resume.request")).toMatchObject(
+      { excludeTurns: true }
+    )
+    expect(requests.filter(({ type }) => type === "agent.codex.thread.turns.list.request")).toEqual(
+      [
+        expect.objectContaining({
+          itemsView: "full",
+          sortDirection: "asc",
+          threadId: "codex-thread-1",
+        }),
+        expect.objectContaining({ cursor: "c1", itemsView: "full" }),
+      ]
+    )
+    expect(pages).toHaveLength(0)
   })
 })

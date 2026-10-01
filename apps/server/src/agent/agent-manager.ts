@@ -45,8 +45,12 @@ import {
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller, type AgentInstallReceipt } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
+import {
+  buildCodexDeveloperInstructions,
+  type CodexInstructionCapabilities,
+  NO_CODEX_INSTRUCTION_CAPABILITIES,
+} from "./codex-developer-instructions.js"
 import { type CodexDynamicToolHandler, CodexDynamicToolRegistry } from "./codex-dynamic-tools.js"
-import { codexGitInstructions } from "./codex-git-instructions.js"
 import { CodexRuntime } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
@@ -112,6 +116,12 @@ export type AgentManagerOptions = {
   /** Whether Claude may load plugins (`agents.claude.pluginsEnabled`). */
   claudePluginsEnabled?: () => boolean
   managedShellEnvironment?: (cwd: string) => Promise<Record<string, string> | null>
+  /** Whether a working directory is inside a Git repository. */
+  isGitWorkspace?: (cwd: string) => Promise<boolean>
+  /** The generated workspace of a projectless Thread, or null for any other directory. */
+  projectlessWorkspace?: (cwd: string) => { cwd: string; outputsDirectory: string } | null
+  /** What Cypheria can honor in Codex instructions right now. */
+  codexInstructionCapabilities?: () => CodexInstructionCapabilities
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   agentEnvironment?: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
   networkBootstrap?: boolean
@@ -216,6 +226,9 @@ export class AgentManager {
   readonly #gitSettings: () => GitSettings
   readonly #claudePluginsEnabled: () => boolean
   readonly #managedShellEnvironment: (cwd: string) => Promise<Record<string, string> | null>
+  readonly #isGitWorkspace: (cwd: string) => Promise<boolean>
+  readonly #projectlessWorkspace: (cwd: string) => { cwd: string; outputsDirectory: string } | null
+  readonly #codexInstructionCapabilities: () => CodexInstructionCapabilities
   readonly #installer: Pick<
     AgentInstaller,
     "cleanupInterrupted" | "install" | "readCurrent" | "uninstall"
@@ -253,6 +266,10 @@ export class AgentManager {
     this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
     this.#claudePluginsEnabled = options.claudePluginsEnabled ?? (() => true)
     this.#managedShellEnvironment = options.managedShellEnvironment ?? (async () => null)
+    this.#isGitWorkspace = options.isGitWorkspace ?? (async () => false)
+    this.#projectlessWorkspace = options.projectlessWorkspace ?? (() => null)
+    this.#codexInstructionCapabilities =
+      options.codexInstructionCapabilities ?? (() => NO_CODEX_INSTRUCTION_CAPABILITIES)
     this.#cypheriaHome = options.cypheriaHome
     this.#agentHomes = join(options.cypheriaHome, "agents")
     this.registry = new AgentRegistryService()
@@ -410,8 +427,15 @@ export class AgentManager {
     return adapter
   }
 
-  codexGitInstructions(): string | undefined {
-    return codexGitInstructions(this.#gitSettings())
+  /** The `developerInstructions` of a Codex Thread working in `cwd`. */
+  async codexDeveloperInstructions(cwd: string | null): Promise<string> {
+    const projectless = cwd ? this.#projectlessWorkspace(cwd) : null
+    return buildCodexDeveloperInstructions({
+      capabilities: this.#codexInstructionCapabilities(),
+      git: this.#gitSettings(),
+      isGitWorkspace: cwd && !projectless ? await this.#isGitWorkspace(cwd) : false,
+      ...(projectless ? { projectless } : {}),
+    })
   }
 
   async codexWorktreeConfig(

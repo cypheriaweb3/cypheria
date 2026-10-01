@@ -86,6 +86,27 @@ Cypheria 在隔离的 `CODEX_HOME` 内应用该机制。用户默认 `~/.codex/c
 
 实验性的 App Server Project API 是另一套 conversation grouping surface，包含 ID、name、roots、metadata、ordering 和 Thread membership。它的 `projectId` 与 roots 不参与 `config.toml` trust resolution。Cypheria 自己拥有 Project records，不创建或分配原生 Codex projects，并按[客户端/服务端协议](protocol.zh-CN.md)所述独立传递 working directory 与 `runtimeWorkspaceRoots`。把仓库加入 Cypheria Project 绝不能自动把该路径标记为 trusted。
 
+## Thread 启动参数
+
+Cypheria 以官方 Codex 桌面版的方式启动 Codex Thread，使 Codex 的行为一致。启动参数全部由 Server 组装，client 看不到这些字段。
+
+| 字段 | 取值 |
+| --- | --- |
+| `cwd`、`runtimeWorkspaceRoots` | Thread 的第一个 root 与全部 roots；每个 turn 都会重新声明 |
+| `model`、`serviceTier` | Thread 的选择；未设置时省略，由 Codex 使用默认值 |
+| `permissions`、`approvalPolicy`、`approvalsReviewer` | 权限模式对应的 profile；`agent-config` 不发送任何字段（见 [Codex 权限](codex-permissions.zh-CN.md)） |
+| `config` | `model_reasoning_effort`、Git worktree 的受管 shell 环境，以及 `features.request_permissions_tool=true`；不涉及 feature、工具或 MCP，它们来自 Codex 自己的配置和受管插件 |
+| `developerInstructions` | 下文的应用上下文 |
+| `threadSource` | `user` |
+| `historyMode` | `paginated`；Server 分页读取 `thread/turns/list`，不再请求完整历史 |
+| `dynamicTools` | Server 自己的工具，例如浏览器工具 |
+
+不发送 `baseInstructions`、`personality`、`serviceName` 和 `projectId`：基础指令留给模型目录，其余字段对 Cypheria 没有作用。
+
+`developerInstructions` 包含 `<app-context>`，其文本与官方桌面版逐字相同；不属于任何 Project 的 Thread 后面再追加 `### Projectless Chat` 段。应用上下文只列出 Cypheria 能兑现的内容：承诺某项 client 能力的句子、点名某个 app 工具的段落，只有在该能力或工具存在时才出现。措辞、工具名和指令名与官方保持一致，只有深链使用 `cypheria://`。工作目录位于仓库内时，`### Git` 段携带 Git 设置中的分支前缀以及 commit 与 pull request 指令。
+
+指令在 Thread 启动时声明，从已停止的 Codex 进程恢复时再次声明；fork 继承来源历史中的指令。它们会替换 `config.toml` 中的 `developer_instructions`。
+
 ## Thread 与 turn scope
 
 共享设置是新 Thread 的默认值。Thread 会捕获 harness session 状态，并可接收支持的 model、reasoning、service-tier、working-directory 和 permission selection。启动普通 turn 不会重建 Codex 进程，也不会重新加载所有原生配置字段。

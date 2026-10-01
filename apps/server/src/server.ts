@@ -95,6 +95,10 @@ import { TerminalManager } from "./terminal/terminal-manager.js"
 import { ComposerReferenceService } from "./thread/composer-reference-service.js"
 import { InputFileService } from "./thread/input-file-service.js"
 import {
+  isManagedProjectlessWorkspace,
+  projectlessOutputsDirectory,
+} from "./thread/projectless-workspace.js"
+import {
   type ThreadAttachmentClientMessage,
   ThreadAttachmentService,
 } from "./thread/thread-attachment-service.js"
@@ -208,6 +212,12 @@ export class CypheriaServer implements HttpAppHost {
       claudePluginsEnabled: () =>
         this.configStore.getSnapshot().config.agents.claude.pluginsEnabled,
       managedShellEnvironment: (cwd) => this.git.managedShellEnvironment(cwd),
+      isGitWorkspace: async (cwd) =>
+        await this.git.discover(cwd).then(
+          () => true,
+          () => false
+        ),
+      projectlessWorkspace: (cwd) => this.#projectlessWorkspaceFor(cwd),
       agentDefaults: () => ({}),
       agentEnvironment: (_agentId, base) => this.networkProxy.environment(base),
     })
@@ -589,6 +599,16 @@ export class CypheriaServer implements HttpAppHost {
       this.registry.broadcast({ payload: snapshot, type: "server.config.updated.notification" })
       return snapshot
     })
+  }
+
+  #projectlessWorkspaceFor(cwd: string): { cwd: string; outputsDirectory: string } | null {
+    const root = resolve(
+      this.configStore.getSnapshot().config.workspace.projectlessRoot ??
+        join(homedir(), "Documents", "Cypheria")
+    )
+    return isManagedProjectlessWorkspace(root, cwd)
+      ? { cwd, outputsDirectory: projectlessOutputsDirectory(cwd) }
+      : null
   }
 
   #applyWorkspaceConfig(snapshot: ServerConfigSnapshot): void {

@@ -607,3 +607,45 @@ describe("AgentManager enable gate", () => {
     }
   })
 })
+
+describe("AgentManager Codex developer instructions", () => {
+  const create = async (
+    options: ConstructorParameters<typeof AgentManager>[0] extends infer T ? Partial<T> : never
+  ) => {
+    const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-instructions-"))
+    homes.push(home)
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    return new AgentManager({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      networkBootstrap: false,
+      persistence: createAgentRegistryPersistenceService(database.db),
+      publish: () => undefined,
+      ...options,
+    })
+  }
+
+  it("adds Git settings inside a repository and the projectless section outside Projects", async () => {
+    const git = {
+      autoCreatePr: false,
+      branchPrefix: "codex/",
+      commitInstructions: "",
+      prInstructions: "",
+    } as never
+    const manager = await create({
+      gitSettings: () => git,
+      isGitWorkspace: async (cwd) => cwd === "/repo",
+      projectlessWorkspace: (cwd) =>
+        cwd.startsWith("/managed/") ? { cwd, outputsDirectory: `${cwd}/outputs` } : null,
+    })
+    expect(await manager.codexDeveloperInstructions("/repo")).toContain(
+      "### Git\n- Branch prefix: `codex/`"
+    )
+    expect(await manager.codexDeveloperInstructions("/elsewhere")).not.toContain("### Git")
+    const projectless = await manager.codexDeveloperInstructions("/managed/2026-10-01/x")
+    expect(projectless).not.toContain("### Git")
+    expect(projectless).toContain("### Projectless Chat")
+    expect(projectless).toContain("Use /managed/2026-10-01/x/outputs only")
+  })
+})

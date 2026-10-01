@@ -51,6 +51,11 @@ import {
   codexConfiguredPermissions,
   codexPermissionWire,
 } from "./codex-permissions.js"
+import {
+  codexThreadForkParams,
+  codexThreadResumeParams,
+  codexThreadStartParams,
+} from "./codex-thread-launch.js"
 import { codexThreadItemToTimeline, codexTurnUpdateToTimeline } from "./codex-timeline.js"
 
 type Pending = {
@@ -186,7 +191,8 @@ const usageBase = (usedTokens: number, maxTokens: number) => ({
   usedTokens,
 })
 
-const CODEX_REQUEST_PERMISSIONS_TOOL = "features.request_permissions_tool"
+const CODEX_TURN_PAGE_SIZE = 100
+const CODEX_MAX_TURN_PAGES = 10_000
 
 /**
  * The workspace a Codex turn runs in. Codex applies `cwd` and `runtimeWorkspaceRoots` to this turn
@@ -713,6 +719,50 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   }
 
   /**
+   * The Thread with its turns. A paginated Thread comes back without turns, and Codex deprecates
+   * full-history hydration in favor of paging `thread/turns/list`; a Thread of the older kind is
+   * read whole.
+   */
+  async #codexThreadWithTurns(
+    threadId: string,
+    thread: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    const sessionId = stringId(thread.id)
+    if (!sessionId || (Array.isArray(thread.turns) && thread.turns.length > 0)) return thread
+    if (thread.historyMode === "paginated") {
+      const turns: unknown[] = []
+      let cursor: string | null = null
+      for (let page = 0; page < CODEX_MAX_TURN_PAGES; page += 1) {
+        const response = await this.#request(threadId, {
+          ...(cursor ? { cursor } : {}),
+          itemsView: "full",
+          limit: CODEX_TURN_PAGE_SIZE,
+          requestId: randomUUID(),
+          sortDirection: "asc",
+          threadId: sessionId,
+          type: "agent.codex.thread.turns.list.request",
+        })
+        const result = resultOf(response)
+        turns.push(...(Array.isArray(result.data) ? result.data : []))
+        const next = stringId(result.nextCursor)
+        if (!next || next === cursor) break
+        cursor = next
+      }
+      return { ...thread, turns }
+    }
+    if (thread.historyMode === "legacy") {
+      const response = await this.#request(threadId, {
+        includeTurns: true,
+        requestId: randomUUID(),
+        threadId: sessionId,
+        type: "agent.codex.thread.read.request",
+      })
+      return { ...thread, ...extractThread(resultOf(response)) }
+    }
+    return thread
+  }
+
+  /**
    * Permission fields for one Codex request. A preset sends its profile with the approval settings;
    * `agent-config` sends nothing, so Codex uses `config.toml`. The one exception is a Thread that
    * already runs under a preset: Codex cannot clear a permission override, so the first request
@@ -740,23 +790,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#ownerThreadId = input.threadId
     this.#cwd = input.cwd
     if (this.agentId === "codex") {
-      const gitInstructions = this.#manager.codexGitInstructions()
-      const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
-      const permissions = await this.#codexPermissions(input.config, input, "start")
-      const config = {
-        ...(worktreeConfig ?? {}),
-        ...(input.config.thinking ? { model_reasoning_effort: input.config.thinking } : {}),
-        [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
-      }
       const response = await this.#request(input.threadId, {
-        ...(input.config.model ? { model: input.config.model } : {}),
-        ...(input.config.speed ? { serviceTier: input.config.speed } : {}),
-        ...permissions,
-        cwd: input.cwd,
-        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-        config,
-        ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
-        dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
+        ...codexThreadStartParams({
+          config: input.config,
+          cwd: input.cwd,
+          developerInstructions: await this.#manager.codexDeveloperInstructions(input.cwd),
+          dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
+          permissions: await this.#codexPermissions(input.config, input, "start"),
+          workspaceRoots: input.workspaceRoots,
+          worktreeConfig: await this.#manager.codexWorktreeConfig?.(input.cwd),
+        }),
         requestId: randomUUID(),
         type: "agent.codex.thread.start.request",
       })
@@ -816,22 +859,18 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#config = input.config ?? this.#config
 
     if (this.agentId === "codex") {
-      const permissions = await this.#codexPermissions(this.#config, input, "start")
       const response = await this.#request(input.sourceThreadId, {
-        ...(this.#config.model ? { model: this.#config.model } : {}),
-        ...(this.#config.speed ? { serviceTier: this.#config.speed } : {}),
-        ...permissions,
-        config: {
-          ...(this.#config.thinking ? { model_reasoning_effort: this.#config.thinking } : {}),
-          [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
-        },
-        cwd: input.cwd,
-        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
+        ...codexThreadForkParams({
+          config: this.#config,
+          cwd: input.cwd,
+          permissions: await this.#codexPermissions(this.#config, input, "start"),
+          workspaceRoots: input.workspaceRoots,
+          worktreeConfig: await this.#manager.codexWorktreeConfig?.(input.cwd),
+        }),
         ...(input.target.kind === "user-message" ? { beforeTurnId: input.target.turnId } : {}),
         ...(input.target.kind === "assistant-message" && input.target.nextTurnId
           ? { beforeTurnId: input.target.nextTurnId }
           : {}),
-        excludeTurns: false,
         requestId: randomUUID(),
         threadId: input.agentSessionId,
         type: "agent.codex.thread.fork.request",
@@ -844,7 +883,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       return {
         capabilities: capabilities(this.agentId),
         config: this.#codexEffectiveThreadConfig(result, this.#config),
-        history: mapCodexHistory(thread),
+        history: mapCodexHistory(await this.#codexThreadWithTurns(input.threadId, thread)),
         sessionId,
       }
     }
@@ -1079,25 +1118,17 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#config = input.config ?? this.#config
     if (this.agentId === "codex") {
       if (!input.agentSessionId) return this.create({ ...input, config: this.#config })
-      const gitInstructions = this.#manager.codexGitInstructions()
-      const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
-      const permissions = await this.#codexPermissions(this.#config, input, "start")
-      const config = {
-        ...(worktreeConfig ?? {}),
-        ...(this.#config.thinking ? { model_reasoning_effort: this.#config.thinking } : {}),
-        [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
-      }
       const response = await this.#request(input.threadId, {
-        ...(this.#config.model ? { model: this.#config.model } : {}),
-        ...(this.#config.speed ? { serviceTier: this.#config.speed } : {}),
-        ...permissions,
-        cwd: input.cwd,
-        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-        config,
-        ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
-        excludeTurns: false,
+        ...codexThreadResumeParams({
+          config: this.#config,
+          cwd: input.cwd,
+          developerInstructions: await this.#manager.codexDeveloperInstructions(input.cwd),
+          permissions: await this.#codexPermissions(this.#config, input, "start"),
+          threadId: input.agentSessionId,
+          workspaceRoots: input.workspaceRoots,
+          worktreeConfig: await this.#manager.codexWorktreeConfig?.(input.cwd),
+        }),
         requestId: randomUUID(),
-        threadId: input.agentSessionId,
         type: "agent.codex.thread.resume.request",
       })
       const result = resultOf(response)
@@ -1107,7 +1138,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       return {
         capabilities: capabilities(this.agentId),
         config: this.#codexEffectiveThreadConfig(result, this.#config),
-        history: mapCodexHistory(thread),
+        history: mapCodexHistory(await this.#codexThreadWithTurns(input.threadId, thread)),
         sessionId,
       }
     }
