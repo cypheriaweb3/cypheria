@@ -970,6 +970,35 @@ describe("GitService", () => {
     expect((await waitForJob(failed.id)).phase).toBe("ready")
   }, 45_000)
 
+  it("attaches a finished worktree job to the requesting thread without moving it", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-worktree-attach-"))
+    created.push(home)
+    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf401"
+    const threadAttachments = {
+      attachPullRequest: vi.fn(),
+      attachWorktree: vi.fn(),
+      detachWorktree: vi.fn(),
+    }
+    const service = new GitService(join(home, "cache"), home, {
+      agents: {} as AgentManager,
+      threadAttachments,
+      threads: {} as unknown as ThreadManager,
+    })
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    const job = await service.startWorktreeJob({ attachToThreadId: threadId, cwd: root })
+    let state = service.worktreeJob(job.id)
+    for (let attempt = 0; attempt < 100 && state.phase !== "ready"; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      state = service.worktreeJob(job.id)
+    }
+    expect(state.phase).toBe("ready")
+    expect(threadAttachments.attachWorktree).toHaveBeenCalledWith(threadId, state.worktree?.id)
+    expect(state.worktree?.ownerThreadId).toBeNull()
+  }, 30_000)
+
   it("cancels a running worktree setup and permits skipping it", async () => {
     const root = await repository()
     const home = await mkdtemp(join(tmpdir(), "cypheria-worktree-home-"))

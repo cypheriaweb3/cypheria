@@ -10,6 +10,7 @@ const WAIT_POLL_MS = 500
 const DEFAULT_TURN_LIMIT = 3
 const DEFAULT_OUTPUT_CHARS = 2000
 const TIMELINE_WINDOW = 500
+const WORKTREE_INLINE_WAIT_MS = 3000
 
 type ThreadState = "stopped" | "starting" | "idle" | "running" | "stopping" | "deleting" | "errored"
 
@@ -106,7 +107,54 @@ export type AppToolThreads = {
   ): Promise<unknown>
 }
 
+export type AppToolWorktree = {
+  readonly active: boolean
+  readonly branch: string | null
+  readonly head: string | null
+  readonly id: string | null
+  readonly managed: boolean
+  readonly ownerThreadId: string | null
+  readonly path: string
+}
+
+type WorktreeJob = {
+  readonly error: string | null
+  readonly id: string
+  readonly log: string
+  readonly path: string | null
+  readonly phase: "queued" | "creating" | "setting-up" | "ready" | "failed" | "cancelled"
+  readonly worktree: AppToolWorktree | null
+}
+
+/** The slice of the Git service the worktree tools use. */
+export type AppToolWorktrees = {
+  archive(cwd: string, path: string): Promise<void>
+  /** The repository's default branch, such as `origin/main`, when it can be determined. */
+  defaultBranch(cwd: string): Promise<string | null>
+  job(id: string): WorktreeJob
+  list(cwd: string): Promise<AppToolWorktree[]>
+  /** The full ref a user-given commit-ish names. */
+  resolveRef(cwd: string, ref: string): Promise<string>
+  restore(cwd: string, path: string): Promise<AppToolWorktree>
+  start(input: { attachToThreadId: string; cwd: string; startPoint: string }): Promise<WorktreeJob>
+}
+
+export type AppToolAttachment = {
+  readonly attachmentType: "pull_request" | "worktree"
+  readonly createdAt: number
+  readonly identityKey: string
+  readonly payload: unknown
+}
+
+export type AppToolAttachments = {
+  attachPullRequest(threadId: string, url: string): Promise<AppToolAttachment>
+  detachPullRequest(threadId: string, url: string): Promise<boolean>
+  list(threadId: string): Promise<AppToolAttachment[]>
+}
+
 export type AppToolServiceOptions = {
+  readonly attachments: AppToolAttachments
+  readonly worktrees: AppToolWorktrees
   readonly isGitRepository: (root: string) => Promise<boolean>
   /** Section and Project requests, answered by the same code the clients reach. */
   readonly projectThread: (type: string, payload: unknown) => Promise<unknown>
@@ -299,6 +347,30 @@ export class AppToolService {
         return ok(await this.#reorderProjects(strings(args, "projectIds", 1)))
       case "reorder_sidebar_sections":
         return ok(await this.#reorderSections(strings(args, "sectionIds", 1)))
+      case "create_worktree":
+        return ok(await this.#createWorktree(args, context))
+      case "get_worktree_creation_status":
+        return ok(this.#worktreeStatus(text(args, "operationId", true) as string))
+      case "archive_worktree":
+        return ok(await this.#archiveWorktree(args, context))
+      case "restore_worktree":
+        return ok(await this.#restoreWorktree(args, context))
+      case "list_artifacts":
+        return ok(await this.#listArtifacts(context))
+      case "attach_artifact": {
+        const attachment = await this.#options.attachments.attachPullRequest(
+          this.#caller(context),
+          this.#pullRequestUrl(args)
+        )
+        return ok({ artifact_type: "pull_request", identityKey: attachment.identityKey })
+      }
+      case "remove_artifact": {
+        const removed = await this.#options.attachments.detachPullRequest(
+          this.#caller(context),
+          this.#pullRequestUrl(args)
+        )
+        return ok({ artifact_type: "pull_request", removed })
+      }
       default:
         throw new ToolInputError(`Unknown Cypheria app tool ${tool}.`)
     }
@@ -775,5 +847,148 @@ export class AppToolService {
       })
     }
     return { sectionIds: order.map((id) => (id === this.#options.pinnedSectionId ? PINNED : id)) }
+  }
+
+  #caller(context: CodexDynamicToolCallContext): string {
+    if (!context.threadId) throw new ToolInputError("This tool acts on the calling thread.")
+    return context.threadId
+  }
+
+  #pullRequestUrl(args: Record<string, unknown>): string {
+    if (args.artifact_type !== "pull_request") {
+      throw new ToolInputError("Only pull_request artifacts are supported.")
+    }
+    return text(args, "url", true) as string
+  }
+
+  async #callerCwd(
+    context: CodexDynamicToolCallContext
+  ): Promise<{ cwd: string; threadId: string }> {
+    const threadId = this.#caller(context)
+    const cwd = (await this.#options.threads.get(threadId)).roots[0]
+    if (!cwd) throw new ToolInputError("The calling thread has no working directory.")
+    return { cwd, threadId }
+  }
+
+  async #createWorktree(
+    args: Record<string, unknown>,
+    context: CodexDynamicToolCallContext
+  ): Promise<unknown> {
+    if (args.allowAsync !== true) throw new ToolInputError("allowAsync must be true")
+    const { cwd, threadId } = await this.#callerCwd(context)
+    const requested = text(args, "ref")
+    if (requested?.startsWith("-")) throw new ToolInputError("ref must not start with a dash")
+    const base = requested ?? (await this.#options.worktrees.defaultBranch(cwd))
+    if (!base) {
+      throw new ToolInputError("The repository's default branch cannot be determined; specify ref.")
+    }
+    const startPoint = await this.#options.worktrees.resolveRef(cwd, base)
+    const started = await this.#options.worktrees.start({
+      attachToThreadId: threadId,
+      cwd,
+      startPoint,
+    })
+    const pause =
+      this.#options.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+    for (let waited = 0; waited < WORKTREE_INLINE_WAIT_MS; waited += WAIT_POLL_MS) {
+      const job = this.#options.worktrees.job(started.id)
+      if (job.phase === "ready" || job.phase === "failed" || job.phase === "cancelled") break
+      await pause(WAIT_POLL_MS)
+    }
+    return this.#worktreeStatus(started.id)
+  }
+
+  #worktreeStatus(operationId: string): Record<string, unknown> {
+    const job = this.#options.worktrees.job(operationId)
+    const status =
+      job.phase === "queued"
+        ? "preparing"
+        : job.phase === "creating" || job.phase === "setting-up"
+          ? "creating"
+          : job.phase === "ready"
+            ? "completed"
+            : "failed"
+    return {
+      operationId,
+      status,
+      ...(job.error ? { error: job.error } : {}),
+      ...(job.phase === "creating" || job.phase === "setting-up"
+        ? { recentOutput: truncate(job.log.slice(-1000), 1000) }
+        : {}),
+      ...(job.worktree?.id ? { identityKey: job.worktree.id } : {}),
+      ...(job.phase === "ready" && job.path ? { workspaceDirectory: job.path } : {}),
+    }
+  }
+
+  async #attachedWorktree(
+    root: string,
+    context: CodexDynamicToolCallContext
+  ): Promise<{ cwd: string; worktree: AppToolWorktree }> {
+    const { cwd, threadId } = await this.#callerCwd(context)
+    const attached = (await this.#options.attachments.list(threadId)).some(
+      (entry) => entry.attachmentType === "worktree" && entry.identityKey === root
+    )
+    const worktree = (await this.#options.worktrees.list(cwd)).find((entry) => entry.id === root)
+    if (!attached || !worktree?.managed) {
+      throw new ToolInputError("root is not a worktree attached to this task; see list_artifacts.")
+    }
+    return { cwd, worktree }
+  }
+
+  async #archiveWorktree(
+    args: Record<string, unknown>,
+    context: CodexDynamicToolCallContext
+  ): Promise<unknown> {
+    const root = text(args, "root", true) as string
+    const { cwd, worktree } = await this.#attachedWorktree(root, context)
+    if (!worktree.active) throw new ToolInputError("The worktree is already archived.")
+    if (worktree.ownerThreadId) {
+      throw new ToolInputError("A thread works in this worktree; move the thread out of it first.")
+    }
+    await this.#options.worktrees.archive(cwd, worktree.path)
+    return { archived: true, identityKey: root }
+  }
+
+  async #restoreWorktree(
+    args: Record<string, unknown>,
+    context: CodexDynamicToolCallContext
+  ): Promise<unknown> {
+    const root = text(args, "root", true) as string
+    const { cwd, worktree } = await this.#attachedWorktree(root, context)
+    if (worktree.active) throw new ToolInputError("The worktree is not archived.")
+    const restored = await this.#options.worktrees.restore(cwd, worktree.path)
+    return { identityKey: root, workspaceDirectory: restored.path }
+  }
+
+  async #listArtifacts(context: CodexDynamicToolCallContext): Promise<unknown> {
+    const { cwd, threadId } = await this.#callerCwd(context)
+    const [attachments, worktrees] = await Promise.all([
+      this.#options.attachments.list(threadId),
+      this.#options.worktrees.list(cwd).catch(() => [] as AppToolWorktree[]),
+    ])
+    return {
+      artifacts: attachments.map((entry) => {
+        if (entry.attachmentType === "pull_request") {
+          return {
+            createdAt: entry.createdAt,
+            identityKey: entry.identityKey,
+            payload: entry.payload,
+            type: "pull_request",
+          }
+        }
+        const worktree = worktrees.find((candidate) => candidate.id === entry.identityKey)
+        return {
+          createdAt: entry.createdAt,
+          identityKey: entry.identityKey,
+          payload: {
+            branch: worktree?.branch ?? null,
+            head: worktree?.head ?? null,
+            path: worktree?.path ?? null,
+            state: worktree ? (worktree.active ? "active" : "archived") : "missing",
+          },
+          type: "worktree",
+        }
+      }),
+    }
   }
 }

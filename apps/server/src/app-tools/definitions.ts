@@ -2,10 +2,11 @@ import type { v2 } from "@cypheria/protocol/codex-types"
 
 /**
  * Descriptions and schemas of the Cypheria app tools. They are the official Codex desktop's, word
- * for word, with only the parts removed that Cypheria has no counterpart for: ChatGPT
- * conversations, remote hosts, and the Work cloud. `set_thread_pinned` is absent because Pinned is
- * a Section, so `move_thread_to_sidebar_section` covers it, as in the desktop when custom sections
- * are available. Tools are deferred, so Codex discovers them through tool search.
+ * for word, except where Cypheria differs: it has no ChatGPT conversations, remote hosts, or Work
+ * cloud, and an archived worktree keeps a Git ref to HEAD, so it must be clean. `set_thread_pinned`
+ * is absent because Pinned is a Section, so `move_thread_to_sidebar_section` covers it, as in the
+ * desktop when custom sections are available. Tools are deferred, so Codex discovers them through
+ * tool search, except `list_artifacts`, which the worktree instructions name.
  */
 export const APP_TOOL_SPECS: readonly v2.DynamicToolSpec[] = [
   {
@@ -452,6 +453,117 @@ export const APP_TOOL_SPECS: readonly v2.DynamicToolSpec[] = [
       required: ["sectionIds"],
     },
     name: "reorder_sidebar_sections",
+    deferLoading: true,
+    type: "function",
+  },
+  {
+    description:
+      "Create and attach a managed Git worktree on this chat's host. Follow applicable user, repository, and skill instructions when deciding whether and how to create a worktree. Unless the user requests a new worktree, inspect list_artifacts and prefer reusing a suitable active worktree. Use archive_worktree to clean up worktrees created with this tool. Defaults to the repository's remote default branch, not the current branch; specify ref if the default cannot be determined. The chat stays in its existing checkout; use the returned workspace directory. Uncommitted changes are not copied. Returns paths when complete or an operationId to check with get_worktree_creation_status. If registration fails, use the returned paths rather than creating another worktree.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        allowAsync: {
+          description:
+            "Allow a pending result followed by get_worktree_creation_status. Required for this tool version.",
+          type: "boolean",
+          const: true,
+        },
+        ref: {
+          description:
+            "Branch, tag, commit SHA, or other Git commit-ish. Omit to start from the repository's remote default branch (for example origin/main or origin/master). Specify a ref when intentionally continuing existing branch or PR work.",
+          type: "string",
+          minLength: 1,
+          pattern: "^[^-]",
+        },
+      },
+      required: ["allowAsync"],
+    },
+    name: "create_worktree",
+    deferLoading: true,
+    type: "function",
+  },
+  {
+    description:
+      "Check a pending create_worktree operation: preparing validates the request, creating builds the checkout, and registering attaches it to the chat, followed by completed or failed. During creation, returns recent Git output. Use it to explain what is happening; it does not provide a percentage or reliable ETA. Returns immediately. Continue independent work between checks and space checks farther apart when progress is unchanged. Status is kept while the Server runs.",
+    inputSchema: {
+      type: "object",
+      properties: { operationId: { type: "string", minLength: 1 } },
+      required: ["operationId"],
+    },
+    name: "get_worktree_creation_status",
+    deferLoading: true,
+    type: "function",
+  },
+  {
+    description:
+      "Archive a managed worktree attached to this chat when it is no longer needed. Use this to clean up worktrees created with create_worktree; identify the attachment with list_artifacts. Keeps a recoverable Git ref to the checkout's HEAD before removing it, so the worktree must have no uncommitted changes: commit or discard them first. The primary worktree and a worktree that a thread works in cannot be archived. Keeps the chat open and does not modify GitHub PRs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        root: {
+          type: "string",
+          minLength: 1,
+          description: "Exact worktree identityKey returned by list_artifacts on this task.",
+        },
+      },
+      required: ["root"],
+    },
+    name: "archive_worktree",
+    deferLoading: true,
+    type: "function",
+  },
+  {
+    description:
+      "Restore an archived worktree from this chat's list_artifacts to recover its saved work. Recreates the checkout at its original path with a detached HEAD, preserving commit history. Use the returned workspace directory for subsequent work.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        root: {
+          type: "string",
+          minLength: 1,
+          description: "Exact worktree identityKey returned by list_artifacts on this task.",
+        },
+      },
+      required: ["root"],
+    },
+    name: "restore_worktree",
+    deferLoading: true,
+    type: "function",
+  },
+  {
+    description:
+      "List this chat's attached pull requests, active worktrees, archived worktrees, and other saved attachments. Returns each supported attachment's type, identity, payload, and creation time. Items merely mentioned in messages or attached to another chat are not included.",
+    inputSchema: { type: "object", properties: {} },
+    name: "list_artifacts",
+    type: "function",
+  },
+  {
+    description:
+      "Attach a pull request to the current task. After successfully creating a pull request, always call this tool with its URL, regardless of which command or tool created it. Attach every created pull request when a task produces more than one. Also attach an existing pull request when the user asks to review, update, or continue working on it. Do not attach pull requests used only as examples, references, dependencies, comparisons, or background context.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact_type: { type: "string", enum: ["pull_request"] },
+        url: { type: "string", minLength: 1 },
+      },
+      required: ["artifact_type", "url"],
+    },
+    name: "attach_artifact",
+    deferLoading: true,
+    type: "function",
+  },
+  {
+    description:
+      "Remove an artifact from the current task when the user asks to unlink it or it is no longer relevant. Currently, only pull_request artifacts are supported. Removing an artifact does not close, delete, or otherwise modify the pull request.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact_type: { type: "string", enum: ["pull_request"] },
+        url: { type: "string", minLength: 1 },
+      },
+      required: ["artifact_type", "url"],
+    },
+    name: "remove_artifact",
     deferLoading: true,
     type: "function",
   },
