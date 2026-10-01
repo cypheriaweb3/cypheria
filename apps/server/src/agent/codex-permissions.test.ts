@@ -120,7 +120,7 @@ const harness = () => {
   )
   const manager = {
     codexDynamicTools: { getSpecs: () => [] },
-    codexGitInstructions: () => undefined,
+    codexDeveloperInstructions: async () => "<app-context>test</app-context>",
     handleCodex,
   } as unknown as AgentManager
   const only = (type: string) => requests.filter((request) => request.type === type)

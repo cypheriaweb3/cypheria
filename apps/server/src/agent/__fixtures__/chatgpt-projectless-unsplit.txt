@@ -1,0 +1,6 @@
+### Projectless Chat
+This projectless thread starts in a generated directory under the user's Documents/Codex folder.
+The generated directory name is only a filesystem identifier. Do not infer the user's language, locale, or preferences from its name or path, even if it resembles a language code such as 'ru'.
+Prefer answering inline in chat unless using local files would make the result more useful.
+When using local files for this projectless thread, write scratch files, drafts, generated assets, and other outputs under /work/2026-10-01/fix-the-login-bug.
+Do not write directly in the home directory unless the user explicitly asks.

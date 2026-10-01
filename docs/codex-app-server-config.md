@@ -86,6 +86,27 @@ Cypheria applies this mechanism inside its isolated `CODEX_HOME`. A trust entry 
 
 The experimental App Server Project API is a separate conversation-grouping surface with IDs, names, roots, metadata, ordering, and Thread membership. Its `projectId` and roots do not participate in `config.toml` trust resolution. Cypheria owns its own Project records, does not create or assign native Codex projects, and passes working-directory and `runtimeWorkspaceRoots` values independently as described in [Client/server protocol](protocol.md). Adding a repository to a Cypheria Project must never by itself mark that path as trusted.
 
+## Thread launch parameters
+
+Cypheria starts Codex Threads the way the official Codex desktop does, so Codex behaves the same. The Server composes every launch; clients never see these fields.
+
+| Field | Value |
+| --- | --- |
+| `cwd`, `runtimeWorkspaceRoots` | The Thread's first root and its roots; both are stated again on every turn |
+| `model`, `serviceTier` | The Thread's selection; omitted when unset so Codex uses its default |
+| `permissions`, `approvalPolicy`, `approvalsReviewer` | The permission mode's profile, or nothing for `agent-config` (see [Codex Permissions](codex-permissions.md)) |
+| `config` | `model_reasoning_effort`, the managed shell environment of a Git worktree, and `features.request_permissions_tool=true`; nothing about features, tools, or MCP, which come from Codex's own configuration and managed plugins |
+| `developerInstructions` | The application context below |
+| `threadSource` | `user` |
+| `historyMode` | `paginated`; the Server pages `thread/turns/list` instead of requesting full history |
+| `dynamicTools` | The Server's own tools, such as the browser tools |
+
+`baseInstructions`, `personality`, `serviceName`, and `projectId` are not sent: base instructions stay with the model catalog, and the others have no effect for Cypheria.
+
+`developerInstructions` carries `<app-context>` with the text the official desktop sends, word for word, followed by a `### Projectless Chat` section for a Thread that belongs to no Project. The application context lists a section only when Cypheria can honor it: each sentence that promises a client capability, and each section that names an app tool, appears only while that capability or tool exists. Wording, tool names, and directive names stay identical to the official ones, except that deep links use `cypheria://`. A `### Git` section carries the branch prefix and commit and pull request instructions from Git settings when the working directory is inside a repository.
+
+The instructions are stated when a Thread starts and again when it resumes from a stopped Codex process; a fork inherits the ones in its source history. They replace a `developer_instructions` value in `config.toml`.
+
 ## Thread and turn scope
 
 Shared settings are defaults for new Threads. A Thread captures harness session state and may receive supported model, reasoning, service-tier, working-directory, and permission selections. Starting a normal turn does not recreate the Codex process or reload every native configuration field.
