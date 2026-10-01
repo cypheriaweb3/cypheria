@@ -44,6 +44,7 @@ import {
   ChatImagePreviewPanel,
   ChatInlineNotice,
   ChatMainColumn,
+  ChatMarkdownHostContext,
   ChatMcpAppPanel,
   ChatMcpElicitationRequest,
   ChatMessageContent,
@@ -172,6 +173,7 @@ import type {
   PanelLayoutCheckpoint,
 } from "../../../ipc/src/index.js"
 import { BrowserPane } from "../browser/browser-pane.js"
+import { useThreadMarkdownHost } from "../chat-markdown-host.js"
 import {
   clientStateStore,
   composerDraftAtom,
@@ -1960,6 +1962,23 @@ export function ConversationWorkspace({
     }
   }
 
+  const openRightTab = useCallback(
+    (id: string) => {
+      setOpenRightTabs((current) => (current.includes(id) ? current : [...current, id]))
+      setRightTab(id)
+      setRightVisibility("visible")
+    },
+    [setOpenRightTabs, setRightTab, setRightVisibility]
+  )
+  const markdownHost = useThreadMarkdownHost({
+    openFilesPanel: () => openRightTab("files"),
+    openReviewPanel: () => openRightTab("review"),
+    openThread: (threadId) => void navigate({ search: { thread: threadId } }),
+    sendFollowUp: (prompt) =>
+      void controller.submit([{ text: prompt, type: "text" }], busy ? "queue" : "send"),
+    threadId: snapshot.thread?.id ?? null,
+  })
+
   const attachFiles = async (files: File[]) => {
     if (files.length === 0) return
     const saved: ComposerDraftAttachment[] = []
@@ -2092,855 +2111,864 @@ export function ConversationWorkspace({
   )
 
   return (
-    <ChatWorkspaceShell
-      allowRightPanelFullscreen={codex}
-      bottomPanel={
-        bottomVisibility === "visible" ? (
-          <WorkspaceTerminalView
-            controller={terminals}
-            onHide={() => setBottomVisibility("hidden")}
-            placement="bottom"
-          />
-        ) : null
-      }
-      bottomPanelVisibility={bottomVisibility}
-      bottomPanelSize={bottomPanelSize}
-      onBottomPanelResize={(size) => {
-        markPanelDirty()
-        setBottomPanelSizeState(size)
-      }}
-      bottomPanelResizeLabel={i18n._(
-        msg({ id: "chat.workspace.resizeBottomPanel", message: "Resize bottom panel" })
-      )}
-      fixedHeaderActions={
-        <>
-          {workspaceLayout?.showBottomPanelControl !== false ? (
-            <ChatPanelToggle
-              label={i18n._(
-                msg({ id: "chat.workspace.toggleBottomPanel", message: "Toggle bottom panel" })
-              )}
-              onClick={() => {
-                if (workspaceLayout?.defaultTerminalLocation === "right" && codex) {
-                  setBottomVisibility("hidden")
-                  setOpenRightTabs((current) =>
-                    current.includes("terminal") ? current : [...current, "terminal"]
-                  )
-                  setRightTab("terminal")
-                  setRightVisibility("visible")
-                } else {
-                  if (rightTab === "terminal") setRightVisibility("hidden")
-                  setBottomVisibility((value) => (value === "visible" ? "hidden" : "visible"))
-                }
-              }}
-              panel="bottom"
-              pressed={
-                workspaceLayout?.defaultTerminalLocation === "right"
-                  ? rightVisibility === "visible" && rightTab === "terminal"
-                  : bottomVisibility === "visible"
-              }
-              tooltip={i18n._(
-                msg({ id: "chat.workspace.toggleBottomPanel", message: "Toggle bottom panel" })
-              )}
-            >
-              <DockIcon />
-            </ChatPanelToggle>
-          ) : null}
-          {codex ? (
-            <ChatPanelToggle
-              label={i18n._(
-                msg({ id: "chat.workspace.toggleSidePanel", message: "Toggle side panel" })
-              )}
-              onClick={() => {
-                if (rightVisibility === "visible") {
-                  setRightFullscreen(false)
-                  setRightVisibility("hidden")
-                } else setRightVisibility("visible")
-              }}
-              panel="right"
-              pressed={wideViewport && rightVisibility === "visible"}
-              tooltip={i18n._(
-                msg({ id: "chat.workspace.toggleSidePanel", message: "Toggle side panel" })
-              )}
-            >
-              <SidebarRightIcon />
-            </ChatPanelToggle>
-          ) : null}
-        </>
-      }
-      header={header}
-      onBottomPanelVisibilityChange={setBottomVisibility}
-      onRightPanelFullscreenChange={setRightFullscreen}
-      rightPanel={wideViewport ? rightPanel : undefined}
-      rightPanelFullscreen={rightFullscreen}
-      rightPanelSize={rightPanelSize}
-      onRightPanelResize={(size) => {
-        markPanelDirty()
-        setRightPanelSizeState(size)
-      }}
-      rightPanelResizeLabel={i18n._(
-        msg({ id: "chat.workspace.resizeSidePanel", message: "Resize side panel" })
-      )}
-      rightPanelVisibility={codex && wideViewport ? rightVisibility : "closed"}
-    >
-      <ChatMainColumn
-        className={
-          codex && summaryCheckpoint.open && summaryCheckpoint.pinned && summaryMode !== "overlay"
-            ? summaryMode === "gutter"
-              ? "pr-[316px] transition-[padding-right] duration-200 motion-reduce:transition-none"
-              : "pr-[160px] transition-[padding-right] duration-200 motion-reduce:transition-none"
-            : "pr-0 transition-[padding-right] duration-200 motion-reduce:transition-none"
+    <ChatMarkdownHostContext.Provider value={markdownHost}>
+      <ChatWorkspaceShell
+        allowRightPanelFullscreen={codex}
+        bottomPanel={
+          bottomVisibility === "visible" ? (
+            <WorkspaceTerminalView
+              controller={terminals}
+              onHide={() => setBottomVisibility("hidden")}
+              placement="bottom"
+            />
+          ) : null
         }
-      >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          ref={summaryHostRef}
-        />
-        <VirtualTimeline
-          actionBusy={timelineActionBusy}
-          activeTurnId={snapshot.thread?.activeTurn?.id ?? null}
-          codex={codex}
-          hasOlder={snapshot.hasOlder}
-          items={snapshot.items}
-          loading={snapshot.loadState === "loading"}
-          loadingOlder={snapshot.loadingOlder}
-          onForkAssistant={
-            snapshot.thread?.capabilities.fork.assistantMessage
-              ? (entry) => void forkTimelineMessage(entry)
-              : undefined
-          }
-          onForkUser={
-            snapshot.thread?.capabilities.fork.userMessage
-              ? (entry) => void forkTimelineMessage(entry)
-              : undefined
-          }
-          onLoadOlder={() => void controller.loadOlder()}
-          onRewind={
-            snapshot.thread?.capabilities.rewind.userMessage
-              ? (entry) => void rewindTimelineMessage(entry)
-              : undefined
-          }
-        />
-        <ChatComposerDock>
-          <div className="pointer-events-none w-full max-w-(--chat-composer-max-width)">
-            {!snapshot.thread ? (
-              <div
-                className="pointer-events-auto relative z-0 mx-3 -mb-3 min-h-12 overflow-x-auto rounded-t-[1.25rem] bg-muted px-2 pt-1 pb-3"
-                data-slot="chat-composer-context-rail"
+        bottomPanelVisibility={bottomVisibility}
+        bottomPanelSize={bottomPanelSize}
+        onBottomPanelResize={(size) => {
+          markPanelDirty()
+          setBottomPanelSizeState(size)
+        }}
+        bottomPanelResizeLabel={i18n._(
+          msg({ id: "chat.workspace.resizeBottomPanel", message: "Resize bottom panel" })
+        )}
+        fixedHeaderActions={
+          <>
+            {workspaceLayout?.showBottomPanelControl !== false ? (
+              <ChatPanelToggle
+                label={i18n._(
+                  msg({ id: "chat.workspace.toggleBottomPanel", message: "Toggle bottom panel" })
+                )}
+                onClick={() => {
+                  if (workspaceLayout?.defaultTerminalLocation === "right" && codex) {
+                    setBottomVisibility("hidden")
+                    setOpenRightTabs((current) =>
+                      current.includes("terminal") ? current : [...current, "terminal"]
+                    )
+                    setRightTab("terminal")
+                    setRightVisibility("visible")
+                  } else {
+                    if (rightTab === "terminal") setRightVisibility("hidden")
+                    setBottomVisibility((value) => (value === "visible" ? "hidden" : "visible"))
+                  }
+                }}
+                panel="bottom"
+                pressed={
+                  workspaceLayout?.defaultTerminalLocation === "right"
+                    ? rightVisibility === "visible" && rightTab === "terminal"
+                    : bottomVisibility === "visible"
+                }
+                tooltip={i18n._(
+                  msg({ id: "chat.workspace.toggleBottomPanel", message: "Toggle bottom panel" })
+                )}
               >
-                <div className="flex min-w-max items-center gap-0.5">
-                  <div className="flex min-w-0 items-center">
-                    {project ? (
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              aria-label={clearProjectLabel}
-                              className="mr-0.5 size-7 rounded-xl text-muted-foreground hover:bg-background/75 hover:text-foreground"
-                              onClick={() => chooseNewProject(undefined)}
-                              size="icon-sm"
-                              type="button"
-                              variant="ghost"
-                            />
-                          }
-                        >
-                          <CloseBoldIcon className="size-3.5" />
-                        </TooltipTrigger>
-                        <TooltipContent
-                          className="rounded-xl px-3 py-2 text-[13px] shadow-lg"
-                          side="top"
-                          sideOffset={8}
-                        >
-                          {clearProjectLabel}
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : null}
-                    <Popover
-                      onOpenChange={(open) => {
-                        setProjectPickerOpen(open)
-                        if (!open) {
-                          setProjectSearch("")
-                          setProjectKeyboardIndex(null)
-                        }
-                      }}
-                      open={projectPickerOpen}
-                    >
-                      <PopoverTrigger
-                        render={
-                          <button
-                            aria-label={i18n._(
-                              msg({ id: "chat.project.choose", message: "Choose project" })
-                            )}
-                            className={`inline-flex h-8 max-w-56 items-center gap-2 rounded-xl px-2.5 text-sm font-normal outline-none transition-colors hover:bg-background/75 focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-background/75 ${project ? "bg-foreground/5" : ""}`}
-                            type="button"
-                          >
-                            <FolderIcon className="size-4 shrink-0" />
-                            <span className="truncate">
-                              {project?.name ??
-                                i18n._(
-                                  msg({ id: "chat.project.choose", message: "Choose project" })
-                                )}
-                            </span>
-                          </button>
-                        }
-                      />
-                      <PopoverContent
-                        align="start"
-                        className="w-64 gap-0 overflow-hidden rounded-[18px] p-2 shadow-xl"
-                        side="top"
-                        sideOffset={-4}
-                      >
-                        <div className="flex h-10 items-center gap-2 border-b px-2 pb-2 text-muted-foreground">
-                          <SearchIcon className="size-4 shrink-0" />
-                          <input
-                            aria-activedescendant={
-                              projectKeyboardIndex === null
-                                ? undefined
-                                : `new-thread-project-option-${projectKeyboardIndex}`
-                            }
-                            aria-autocomplete="list"
-                            aria-controls="new-thread-project-list"
-                            aria-expanded={projectPickerOpen}
-                            aria-label={i18n._(
-                              msg({ id: "chat.project.search", message: "Search projects" })
-                            )}
-                            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                            onChange={(event) => {
-                              setProjectSearch(event.target.value)
-                              setProjectKeyboardIndex(null)
-                            }}
-                            onKeyDown={(event) => {
-                              if (!filteredProjects.length) return
-                              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                                event.preventDefault()
-                                const nextIndex =
-                                  event.key === "ArrowDown"
-                                    ? projectKeyboardIndex === null
-                                      ? 0
-                                      : Math.min(
-                                          projectKeyboardIndex + 1,
-                                          filteredProjects.length - 1
-                                        )
-                                    : projectKeyboardIndex === null
-                                      ? filteredProjects.length - 1
-                                      : Math.max(projectKeyboardIndex - 1, 0)
-                                setProjectKeyboardIndex(nextIndex)
-                                projectVirtualizer.scrollToIndex(nextIndex, { align: "auto" })
-                                return
-                              }
-                              if (event.key === "Enter") {
-                                event.preventDefault()
-                                const selected = filteredProjects[projectKeyboardIndex ?? 0]
-                                if (!selected) return
-                                setProjectPickerOpen(false)
-                                chooseNewProject(selected.id)
-                              }
-                            }}
-                            placeholder={i18n._(
-                              msg({ id: "chat.project.search", message: "Search projects" })
-                            )}
-                            ref={projectSearchRef}
-                            role="combobox"
-                            value={projectSearch}
-                          />
-                        </div>
-                        <div
-                          className="no-scrollbar overflow-y-auto py-1"
-                          id="new-thread-project-list"
-                          ref={projectListRef}
-                          role="listbox"
-                          style={{
-                            height: Math.min(Math.max(projectVirtualizer.getTotalSize(), 48), 240),
-                          }}
-                        >
-                          {filteredProjects.length ? (
-                            <div
-                              className="relative w-full"
-                              style={{ height: projectVirtualizer.getTotalSize() }}
-                            >
-                              {projectVirtualizer.getVirtualItems().map((virtualItem) => {
-                                const item = filteredProjects[virtualItem.index]
-                                if (!item) return null
-                                const current = item.id === project?.id
-                                return (
-                                  <button
-                                    aria-selected={current}
-                                    className="absolute top-0 left-0 flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted data-[keyboard-active=true]:bg-muted"
-                                    data-index={virtualItem.index}
-                                    data-keyboard-active={
-                                      projectKeyboardIndex === virtualItem.index || undefined
-                                    }
-                                    id={`new-thread-project-option-${virtualItem.index}`}
-                                    key={item.id}
-                                    onClick={() => {
-                                      setProjectPickerOpen(false)
-                                      chooseNewProject(item.id)
-                                    }}
-                                    onMouseMove={() => setProjectKeyboardIndex(null)}
-                                    role="option"
-                                    style={{ transform: `translateY(${virtualItem.start}px)` }}
-                                    type="button"
-                                  >
-                                    <FolderIcon className="size-4 shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                                    {current ? <CheckIcon className="size-4 shrink-0" /> : null}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          ) : (
-                            <div className="flex h-12 items-center justify-center px-3 text-sm text-muted-foreground">
-                              <Trans id="chat.project.empty">No projects found</Trans>
-                            </div>
-                          )}
-                        </div>
-                        <div className="border-t pt-1">
-                          <button
-                            className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
-                            onClick={() => {
-                              setProjectPickerOpen(false)
-                              setProjectCreateOpen(true)
-                            }}
-                            type="button"
-                          >
-                            <PlusIcon className="size-4 shrink-0" />
-                            <Trans id="chat.project.new">New project</Trans>
-                          </button>
-                          <button
-                            className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
-                            onClick={() => {
-                              setProjectPickerOpen(false)
-                              chooseNewProject(undefined)
-                            }}
-                            type="button"
-                          >
-                            <CloseBoldIcon className="size-4 shrink-0" />
-                            <span className="min-w-0 flex-1 truncate">{clearProjectLabel}</span>
-                            {!project ? <CheckIcon className="size-4 shrink-0" /> : null}
-                          </button>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  {project ? (
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <label
-                              className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-xl px-2.5 text-sm font-normal text-foreground transition-colors hover:bg-background/75 has-data-checked:bg-background/75 has-data-checked:shadow-sm has-data-disabled:cursor-not-allowed has-data-disabled:opacity-50"
-                              htmlFor="new-thread-worktree"
-                            >
-                              <Checkbox
-                                aria-label={i18n._(
-                                  msg({ id: "chat.worktree.label", message: "Worktree" })
-                                )}
-                                checked={createWorktree}
-                                className="border-foreground/25 bg-background/60 data-checked:border-foreground data-checked:bg-foreground data-checked:text-background dark:data-checked:bg-foreground"
-                                disabled={!gitRepositoryQuery.isSuccess}
-                                id="new-thread-worktree"
-                                onCheckedChange={(checked) => setCreateWorktree(checked === true)}
+                <DockIcon />
+              </ChatPanelToggle>
+            ) : null}
+            {codex ? (
+              <ChatPanelToggle
+                label={i18n._(
+                  msg({ id: "chat.workspace.toggleSidePanel", message: "Toggle side panel" })
+                )}
+                onClick={() => {
+                  if (rightVisibility === "visible") {
+                    setRightFullscreen(false)
+                    setRightVisibility("hidden")
+                  } else setRightVisibility("visible")
+                }}
+                panel="right"
+                pressed={wideViewport && rightVisibility === "visible"}
+                tooltip={i18n._(
+                  msg({ id: "chat.workspace.toggleSidePanel", message: "Toggle side panel" })
+                )}
+              >
+                <SidebarRightIcon />
+              </ChatPanelToggle>
+            ) : null}
+          </>
+        }
+        header={header}
+        onBottomPanelVisibilityChange={setBottomVisibility}
+        onRightPanelFullscreenChange={setRightFullscreen}
+        rightPanel={wideViewport ? rightPanel : undefined}
+        rightPanelFullscreen={rightFullscreen}
+        rightPanelSize={rightPanelSize}
+        onRightPanelResize={(size) => {
+          markPanelDirty()
+          setRightPanelSizeState(size)
+        }}
+        rightPanelResizeLabel={i18n._(
+          msg({ id: "chat.workspace.resizeSidePanel", message: "Resize side panel" })
+        )}
+        rightPanelVisibility={codex && wideViewport ? rightVisibility : "closed"}
+      >
+        <ChatMainColumn
+          className={
+            codex && summaryCheckpoint.open && summaryCheckpoint.pinned && summaryMode !== "overlay"
+              ? summaryMode === "gutter"
+                ? "pr-[316px] transition-[padding-right] duration-200 motion-reduce:transition-none"
+                : "pr-[160px] transition-[padding-right] duration-200 motion-reduce:transition-none"
+              : "pr-0 transition-[padding-right] duration-200 motion-reduce:transition-none"
+          }
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            ref={summaryHostRef}
+          />
+          <VirtualTimeline
+            actionBusy={timelineActionBusy}
+            activeTurnId={snapshot.thread?.activeTurn?.id ?? null}
+            codex={codex}
+            hasOlder={snapshot.hasOlder}
+            items={snapshot.items}
+            loading={snapshot.loadState === "loading"}
+            loadingOlder={snapshot.loadingOlder}
+            onForkAssistant={
+              snapshot.thread?.capabilities.fork.assistantMessage
+                ? (entry) => void forkTimelineMessage(entry)
+                : undefined
+            }
+            onForkUser={
+              snapshot.thread?.capabilities.fork.userMessage
+                ? (entry) => void forkTimelineMessage(entry)
+                : undefined
+            }
+            onLoadOlder={() => void controller.loadOlder()}
+            onRewind={
+              snapshot.thread?.capabilities.rewind.userMessage
+                ? (entry) => void rewindTimelineMessage(entry)
+                : undefined
+            }
+          />
+          <ChatComposerDock>
+            <div className="pointer-events-none w-full max-w-(--chat-composer-max-width)">
+              {!snapshot.thread ? (
+                <div
+                  className="pointer-events-auto relative z-0 mx-3 -mb-3 min-h-12 overflow-x-auto rounded-t-[1.25rem] bg-muted px-2 pt-1 pb-3"
+                  data-slot="chat-composer-context-rail"
+                >
+                  <div className="flex min-w-max items-center gap-0.5">
+                    <div className="flex min-w-0 items-center">
+                      {project ? (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                aria-label={clearProjectLabel}
+                                className="mr-0.5 size-7 rounded-xl text-muted-foreground hover:bg-background/75 hover:text-foreground"
+                                onClick={() => chooseNewProject(undefined)}
+                                size="icon-sm"
+                                type="button"
+                                variant="ghost"
                               />
-                              <span>
-                                <Trans id="chat.worktree.label">Worktree</Trans>
+                            }
+                          >
+                            <CloseBoldIcon className="size-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent
+                            className="rounded-xl px-3 py-2 text-[13px] shadow-lg"
+                            side="top"
+                            sideOffset={8}
+                          >
+                            {clearProjectLabel}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
+                      <Popover
+                        onOpenChange={(open) => {
+                          setProjectPickerOpen(open)
+                          if (!open) {
+                            setProjectSearch("")
+                            setProjectKeyboardIndex(null)
+                          }
+                        }}
+                        open={projectPickerOpen}
+                      >
+                        <PopoverTrigger
+                          render={
+                            <button
+                              aria-label={i18n._(
+                                msg({ id: "chat.project.choose", message: "Choose project" })
+                              )}
+                              className={`inline-flex h-8 max-w-56 items-center gap-2 rounded-xl px-2.5 text-sm font-normal outline-none transition-colors hover:bg-background/75 focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-background/75 ${project ? "bg-foreground/5" : ""}`}
+                              type="button"
+                            >
+                              <FolderIcon className="size-4 shrink-0" />
+                              <span className="truncate">
+                                {project?.name ??
+                                  i18n._(
+                                    msg({ id: "chat.project.choose", message: "Choose project" })
+                                  )}
                               </span>
-                            </label>
+                            </button>
                           }
                         />
-                        <TooltipContent
-                          className="max-w-80 rounded-xl px-4 py-2.5 text-center text-sm leading-5 shadow-lg"
-                          side="top"
-                          sideOffset={8}
-                        >
-                          {gitRepositoryQuery.isError
-                            ? i18n._(
-                                msg({
-                                  id: "chat.worktree.gitRequired",
-                                  message:
-                                    "Worktrees require the project's first source folder to be a Git repository.",
-                                })
-                              )
-                            : worktreeDescription}
-                        </TooltipContent>
-                      </Tooltip>
-                      <Select
-                        disabled={!gitRepositoryQuery.isSuccess || localBranches.length === 0}
-                        onValueChange={(value) =>
-                          setSelectedBranch(typeof value === "string" ? value : null)
-                        }
-                        value={selectedBranch}
-                      >
-                        <SelectTrigger
-                          aria-label={i18n._(msg({ id: "chat.branch.label", message: "Branch" }))}
-                          className="h-8 max-w-56 rounded-xl border-0 bg-transparent px-2.5 text-sm font-normal shadow-none hover:bg-background/75 aria-expanded:bg-background/75"
-                        >
-                          <BranchIcon />
-                          <SelectValue>
-                            {selectedBranch ??
-                              i18n._(msg({ id: "chat.branch.choose", message: "Choose branch" }))}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent
+                        <PopoverContent
                           align="start"
-                          alignItemWithTrigger={false}
-                          className="min-w-72 rounded-xl p-1 shadow-lg"
+                          className="w-64 gap-0 overflow-hidden rounded-[18px] p-2 shadow-xl"
                           side="top"
-                          sideOffset={8}
+                          sideOffset={-4}
                         >
-                          <SelectGroup>
-                            <SelectLabel className="px-2 py-1.5 text-sm">
-                              <Trans id="chat.branch.local">Local branches</Trans>
-                            </SelectLabel>
-                            {localBranches.map((branch) => (
-                              <SelectItem
-                                className="min-h-9 rounded-lg px-2"
-                                key={branch.name}
-                                value={branch.name}
-                              >
-                                <BranchIcon />
-                                <span className="min-w-0 truncate">{branch.name}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-            <ChatComposerFrame className="relative z-10 max-w-none">
-              {pending ? (
-                <PendingInteraction
-                  interaction={pending}
-                  onRespond={(response) => void controller.respond(pending.id, response)}
-                />
-              ) : (
-                <ChatComposerForm ref={composerForm} onSubmit={submit}>
-                  <input
-                    className="sr-only"
-                    multiple
-                    onChange={(event) => void attach(event)}
-                    ref={attachmentInput}
-                    type="file"
-                  />
-                  {attachments.length ? (
-                    <ChatComposerHeader>
-                      <ChatComposerAttachmentList
-                        aria-label={i18n._(
-                          msg({ id: "chat.prompt.addFiles", message: "Add files" })
-                        )}
-                        items={attachments.map((attachment) => ({
-                          id: attachment.id,
-                          kind:
-                            isOwnedDraftAttachment(attachment) && attachment.kind === "image"
-                              ? "image"
-                              : "file",
-                          name: draftAttachmentName(attachment),
-                          detail:
-                            isOwnedDraftAttachment(attachment) &&
-                            attachment.status === "unavailable"
-                              ? attachment.error
-                              : draftAttachmentMimeType(attachment),
-                        }))}
-                        onRemove={(id) => {
-                          const removed = attachments.find((item) => item.id === id)
-                          setAttachments((current) => current.filter((item) => item.id !== id))
-                          if (removed) void deleteDraftAttachments([removed])
-                        }}
-                        onReorder={(ids) =>
-                          setAttachments((current) =>
-                            ids.flatMap((id) => current.find((item) => item.id === id) ?? [])
-                          )
-                        }
-                        removeLabel={(item) =>
-                          `${i18n._(msg({ id: "common.remove", message: "Remove" }))} ${item.name}`
-                        }
-                      />
-                    </ChatComposerHeader>
-                  ) : null}
-                  {queueQuery.data?.data.length ||
-                  goalQuery.data?.goal ||
-                  usageQuery.data?.threadUsage ? (
-                    <ChatComposerHeader>
-                      <ChatFixedTurnSummary>
-                        {goalQuery.data?.goal ? (
-                          <ChatFixedTurnSummaryItem
-                            kind="goal"
-                            label={goalQuery.data.goal.objective}
-                          />
-                        ) : null}
-                        {queueQuery.data?.data.length ? (
-                          <ChatFixedTurnSummaryItem
-                            kind="status"
-                            label={`${queueQuery.data.data.length} ${i18n._(
-                              msg({ id: "chat.queue.queuedCount", message: "queued" })
-                            )}`}
-                          />
-                        ) : null}
-                      </ChatFixedTurnSummary>
-                      {queueQuery.data?.data.length ? (
-                        <ChatQueuedInputList>
-                          {queueQuery.data.data.map((queued, index) => (
-                            <ChatQueuedInputItem
-                              key={queued.id}
-                              position={String(index + 1)}
-                              state="queued"
-                              stateLabel={i18n._(
-                                msg({ id: "chat.queue.queued", message: "Queued" })
+                          <div className="flex h-10 items-center gap-2 border-b px-2 pb-2 text-muted-foreground">
+                            <SearchIcon className="size-4 shrink-0" />
+                            <input
+                              aria-activedescendant={
+                                projectKeyboardIndex === null
+                                  ? undefined
+                                  : `new-thread-project-option-${projectKeyboardIndex}`
+                              }
+                              aria-autocomplete="list"
+                              aria-controls="new-thread-project-list"
+                              aria-expanded={projectPickerOpen}
+                              aria-label={i18n._(
+                                msg({ id: "chat.project.search", message: "Search projects" })
                               )}
+                              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                              onChange={(event) => {
+                                setProjectSearch(event.target.value)
+                                setProjectKeyboardIndex(null)
+                              }}
+                              onKeyDown={(event) => {
+                                if (!filteredProjects.length) return
+                                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                                  event.preventDefault()
+                                  const nextIndex =
+                                    event.key === "ArrowDown"
+                                      ? projectKeyboardIndex === null
+                                        ? 0
+                                        : Math.min(
+                                            projectKeyboardIndex + 1,
+                                            filteredProjects.length - 1
+                                          )
+                                      : projectKeyboardIndex === null
+                                        ? filteredProjects.length - 1
+                                        : Math.max(projectKeyboardIndex - 1, 0)
+                                  setProjectKeyboardIndex(nextIndex)
+                                  projectVirtualizer.scrollToIndex(nextIndex, { align: "auto" })
+                                  return
+                                }
+                                if (event.key === "Enter") {
+                                  event.preventDefault()
+                                  const selected = filteredProjects[projectKeyboardIndex ?? 0]
+                                  if (!selected) return
+                                  setProjectPickerOpen(false)
+                                  chooseNewProject(selected.id)
+                                }
+                              }}
+                              placeholder={i18n._(
+                                msg({ id: "chat.project.search", message: "Search projects" })
+                              )}
+                              ref={projectSearchRef}
+                              role="combobox"
+                              value={projectSearch}
+                            />
+                          </div>
+                          <div
+                            className="no-scrollbar overflow-y-auto py-1"
+                            id="new-thread-project-list"
+                            ref={projectListRef}
+                            role="listbox"
+                            style={{
+                              height: Math.min(
+                                Math.max(projectVirtualizer.getTotalSize(), 48),
+                                240
+                              ),
+                            }}
+                          >
+                            {filteredProjects.length ? (
+                              <div
+                                className="relative w-full"
+                                style={{ height: projectVirtualizer.getTotalSize() }}
+                              >
+                                {projectVirtualizer.getVirtualItems().map((virtualItem) => {
+                                  const item = filteredProjects[virtualItem.index]
+                                  if (!item) return null
+                                  const current = item.id === project?.id
+                                  return (
+                                    <button
+                                      aria-selected={current}
+                                      className="absolute top-0 left-0 flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted data-[keyboard-active=true]:bg-muted"
+                                      data-index={virtualItem.index}
+                                      data-keyboard-active={
+                                        projectKeyboardIndex === virtualItem.index || undefined
+                                      }
+                                      id={`new-thread-project-option-${virtualItem.index}`}
+                                      key={item.id}
+                                      onClick={() => {
+                                        setProjectPickerOpen(false)
+                                        chooseNewProject(item.id)
+                                      }}
+                                      onMouseMove={() => setProjectKeyboardIndex(null)}
+                                      role="option"
+                                      style={{ transform: `translateY(${virtualItem.start}px)` }}
+                                      type="button"
+                                    >
+                                      <FolderIcon className="size-4 shrink-0" />
+                                      <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                                      {current ? <CheckIcon className="size-4 shrink-0" /> : null}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex h-12 items-center justify-center px-3 text-sm text-muted-foreground">
+                                <Trans id="chat.project.empty">No projects found</Trans>
+                              </div>
+                            )}
+                          </div>
+                          <div className="border-t pt-1">
+                            <button
+                              className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+                              onClick={() => {
+                                setProjectPickerOpen(false)
+                                setProjectCreateOpen(true)
+                              }}
+                              type="button"
                             >
-                              {queued.input
-                                .map((input) =>
-                                  input.type === "text" ? input.text : `[${input.type}]`
-                                )
-                                .join(" ")}
-                            </ChatQueuedInputItem>
-                          ))}
-                        </ChatQueuedInputList>
-                      ) : null}
-                    </ChatComposerHeader>
-                  ) : null}
-                  <ChatComposerBody>
-                    {desktopPreferences?.composerPlainTextMode ? (
-                      <ChatComposerTextarea
-                        aria-label={i18n._(
-                          msg({ id: "chat.prompt.label", message: "Message Cypheria" })
-                        )}
-                        onChange={(event) => setComposer(event.currentTarget.value)}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter" || event.nativeEvent.isComposing) return
-                          if (event.shiftKey && (event.metaKey || event.ctrlKey)) {
-                            event.preventDefault()
-                            oppositeFollowUp.current = true
-                            composerForm.current?.requestSubmit()
-                          } else if (event.metaKey || event.ctrlKey) {
-                            event.preventDefault()
-                            composerForm.current?.requestSubmit()
-                          }
-                        }}
-                        submitOnEnter={
-                          desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
-                          (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
-                            !composer.includes("\n"))
-                        }
-                        placeholder={
-                          busy
-                            ? i18n._(
-                                msg({
-                                  id: "chat.prompt.steerPlaceholder",
-                                  message: "Steer the current task…",
-                                })
-                              )
-                            : i18n._(
-                                msg({
-                                  id: "chat.prompt.placeholderShort",
-                                  message: "Ask anything…",
-                                })
-                              )
-                        }
-                        value={composer}
-                      />
-                    ) : (
-                      <ChatComposerEditor
-                        key={composerEpoch}
-                        initialDocument={
-                          draftSnapshotRef.current?.text === composer
-                            ? (composerDocumentRef.current ?? undefined)
-                            : undefined
-                        }
-                        aria-label={i18n._(
-                          msg({ id: "chat.prompt.label", message: "Message Cypheria" })
-                        )}
-                        onChange={(text, document) => {
-                          composerDocumentRef.current = document
-                          setComposer(text)
-                        }}
-                        onAlternateSubmit={() => {
-                          oppositeFollowUp.current = true
-                          composerForm.current?.requestSubmit()
-                        }}
-                        onSubmit={() => composerForm.current?.requestSubmit()}
-                        onPasteFiles={(files) => void attachFiles(files)}
-                        onPasteLongText={(text) =>
-                          void attachFiles([
-                            new File([text], "Pasted text.txt", { type: "text/plain" }),
-                          ])
-                        }
-                        onCommand={(id) => {
-                          if (id === "attach") attachmentInput.current?.click()
-                          if (id === "clear") setComposer("")
-                          if (id === "new")
-                            void navigate({
-                              search: {
-                                agent: agentId,
-                                project: initialProjectId,
-                                section: initialSectionId,
-                              },
-                            })
-                          if (id === "status") {
-                            setSummaryCheckpoint((current) => ({ ...current, open: true }))
-                          }
-                          if (id === "goal") {
-                            setOpenRightTabs((current) =>
-                              current.includes("goal") ? current : [...current, "goal"]
-                            )
-                            setRightTab("goal")
-                            setRightVisibility("visible")
-                          }
-                          const codexSessionId = snapshot.thread?.agentSessionId
-                          if (id === "compact" && codexSessionId) {
-                            void ensureCypheriaClient().then((client) =>
-                              client.harnesses.codex.threads.compact({
-                                threadId: codexSessionId,
-                              })
-                            )
-                          }
-                        }}
-                        suggestions={async (trigger, query) => {
-                          if (trigger === "/") {
-                            const commands = [
-                              {
-                                id: "attach",
-                                label: i18n._(
-                                  msg({ id: "chat.prompt.addFiles", message: "Add files" })
-                                ),
-                              },
-                              {
-                                id: "clear",
-                                label: i18n._(
-                                  msg({ id: "chat.prompt.clear", message: "Clear prompt" })
-                                ),
-                              },
-                              {
-                                id: "new",
-                                label: i18n._(
-                                  msg({ id: "chat.prompt.newChat", message: "New chat" })
-                                ),
-                              },
-                              ...(codex && snapshot.thread
-                                ? [
-                                    {
-                                      id: "goal",
-                                      label: i18n._(
-                                        msg({ id: "chat.panel.goal", message: "Goal" })
-                                      ),
-                                    },
-                                    {
-                                      id: "status",
-                                      label: i18n._(
-                                        msg({ id: "chat.prompt.status", message: "Status" })
-                                      ),
-                                    },
-                                    {
-                                      id: "compact",
-                                      label: i18n._(
-                                        msg({
-                                          id: "chat.prompt.compact",
-                                          message: "Compact context",
-                                        })
-                                      ),
-                                    },
-                                  ]
-                                : []),
-                            ]
-                            return commands
-                              .filter((item) =>
-                                item.label.toLowerCase().includes(query.toLowerCase())
-                              )
-                              .map((item) => ({ ...item, kind: "command" as const }))
-                          }
-                          const client = await ensureCypheriaClient()
-                          const result = await client.threads.composer.suggest({
-                            agentId: snapshot.thread ? undefined : agentId,
-                            roots: snapshot.thread ? undefined : project?.roots,
-                            query,
-                            threadId: snapshot.thread?.id,
-                            trigger,
-                          })
-                          return result.items.map((item) => ({
-                            description: item.description ?? undefined,
-                            id: item.id,
-                            kind:
-                              item.kind === "workspace-file"
-                                ? ("file" as const)
-                                : item.kind === "mcp-resource"
-                                  ? ("resource" as const)
-                                  : item.kind,
-                            label: item.label,
-                            target:
-                              item.kind === "app"
-                                ? `app://${item.id}`
-                                : item.kind === "plugin"
-                                  ? `plugin://${item.id}`
-                                  : item.kind === "thread"
-                                    ? `thread://${item.id}`
-                                    : item.kind === "browser-tab"
-                                      ? `browser://${item.id}`
-                                      : item.kind === "mcp-resource"
-                                        ? `mcp-resource:${encodeURIComponent(item.id)}`
-                                        : item.id,
-                          }))
-                        }}
-                        submitOnEnter={
-                          desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
-                          (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
-                            !composer.includes("\n"))
-                        }
-                        placeholder={
-                          busy
-                            ? i18n._(
-                                msg({
-                                  id: "chat.prompt.steerPlaceholder",
-                                  message: "Steer the current task…",
-                                })
-                              )
-                            : i18n._(
-                                msg({
-                                  id: "chat.prompt.placeholderShort",
-                                  message: "Ask anything…",
-                                })
-                              )
-                        }
-                        value={composer}
-                      />
-                    )}
-                  </ChatComposerBody>
-                  <ChatComposerFooter>
-                    <ChatComposerUtilityBar>
-                      <ChatComposerControl
-                        label={i18n._(msg({ id: "chat.prompt.addFiles", message: "Add files" }))}
-                        onClick={() => attachmentInput.current?.click()}
-                        size="icon-sm"
-                        tooltip={i18n._(msg({ id: "chat.prompt.addFiles", message: "Add files" }))}
-                      >
-                        <ClipIcon />
-                      </ChatComposerControl>
-                      {project && snapshot.thread ? <ChatContextChip label={project.name} /> : null}
-                      <ComposerModelSelector
-                        agentId={agentId}
-                        allowAgentChange={!threadId}
-                        onAgentChange={(nextAgentId) => {
-                          if (threadId || nextAgentId === agentId) return
-                          void navigate({
-                            search: {
-                              agent: nextAgentId,
-                              project: initialProjectId,
-                              prompt: composer || undefined,
-                              section: initialSectionId,
-                            },
-                            to: "/",
-                          })
-                        }}
-                        onThreadConfigChange={(patch) => controller.updateConfig(patch)}
-                        threadConfig={snapshot.thread?.config}
-                      />
-                      {codex ? (
-                        <Select
-                          onValueChange={(value) => {
-                            if (
-                              value === "auto" ||
-                              value === "guardian-approvals" ||
-                              value === "full-access" ||
-                              value === "agent-config"
-                            ) {
-                              void updatePermissionMode(value)
+                              <PlusIcon className="size-4 shrink-0" />
+                              <Trans id="chat.project.new">New project</Trans>
+                            </button>
+                            <button
+                              className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+                              onClick={() => {
+                                setProjectPickerOpen(false)
+                                chooseNewProject(undefined)
+                              }}
+                              type="button"
+                            >
+                              <CloseBoldIcon className="size-4 shrink-0" />
+                              <span className="min-w-0 flex-1 truncate">{clearProjectLabel}</span>
+                              {!project ? <CheckIcon className="size-4 shrink-0" /> : null}
+                            </button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {project ? (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <label
+                                className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-xl px-2.5 text-sm font-normal text-foreground transition-colors hover:bg-background/75 has-data-checked:bg-background/75 has-data-checked:shadow-sm has-data-disabled:cursor-not-allowed has-data-disabled:opacity-50"
+                                htmlFor="new-thread-worktree"
+                              >
+                                <Checkbox
+                                  aria-label={i18n._(
+                                    msg({ id: "chat.worktree.label", message: "Worktree" })
+                                  )}
+                                  checked={createWorktree}
+                                  className="border-foreground/25 bg-background/60 data-checked:border-foreground data-checked:bg-foreground data-checked:text-background dark:data-checked:bg-foreground"
+                                  disabled={!gitRepositoryQuery.isSuccess}
+                                  id="new-thread-worktree"
+                                  onCheckedChange={(checked) => setCreateWorktree(checked === true)}
+                                />
+                                <span>
+                                  <Trans id="chat.worktree.label">Worktree</Trans>
+                                </span>
+                              </label>
                             }
-                          }}
-                          value={permissionMode}
+                          />
+                          <TooltipContent
+                            className="max-w-80 rounded-xl px-4 py-2.5 text-center text-sm leading-5 shadow-lg"
+                            side="top"
+                            sideOffset={8}
+                          >
+                            {gitRepositoryQuery.isError
+                              ? i18n._(
+                                  msg({
+                                    id: "chat.worktree.gitRequired",
+                                    message:
+                                      "Worktrees require the project's first source folder to be a Git repository.",
+                                  })
+                                )
+                              : worktreeDescription}
+                          </TooltipContent>
+                        </Tooltip>
+                        <Select
+                          disabled={!gitRepositoryQuery.isSuccess || localBranches.length === 0}
+                          onValueChange={(value) =>
+                            setSelectedBranch(typeof value === "string" ? value : null)
+                          }
+                          value={selectedBranch}
                         >
                           <SelectTrigger
-                            aria-label={i18n._(
-                              msg({ id: "chat.permissions", message: "Permissions" })
-                            )}
-                            className="h-7 max-w-40 border-0 bg-transparent px-2 text-xs shadow-none"
-                            size="sm"
+                            aria-label={i18n._(msg({ id: "chat.branch.label", message: "Branch" }))}
+                            className="h-8 max-w-56 rounded-xl border-0 bg-transparent px-2.5 text-sm font-normal shadow-none hover:bg-background/75 aria-expanded:bg-background/75"
                           >
-                            <LockKeyHoleIcon />
-                            <SelectValue>{permissionLabel}</SelectValue>
+                            <BranchIcon />
+                            <SelectValue>
+                              {selectedBranch ??
+                                i18n._(msg({ id: "chat.branch.choose", message: "Choose branch" }))}
+                            </SelectValue>
                           </SelectTrigger>
-                          <SelectContent className="min-w-80" alignItemWithTrigger={false}>
-                            {permissionOptions.map((option) => (
-                              <SelectItem
-                                className="items-start py-2"
-                                key={option.value}
-                                value={option.value}
-                              >
-                                <span className="flex min-w-0 flex-col items-start gap-0.5 whitespace-normal">
-                                  <span className="font-medium">{option.label}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {option.description}
-                                  </span>
-                                </span>
-                              </SelectItem>
-                            ))}
+                          <SelectContent
+                            align="start"
+                            alignItemWithTrigger={false}
+                            className="min-w-72 rounded-xl p-1 shadow-lg"
+                            side="top"
+                            sideOffset={8}
+                          >
+                            <SelectGroup>
+                              <SelectLabel className="px-2 py-1.5 text-sm">
+                                <Trans id="chat.branch.local">Local branches</Trans>
+                              </SelectLabel>
+                              {localBranches.map((branch) => (
+                                <SelectItem
+                                  className="min-h-9 rounded-lg px-2"
+                                  key={branch.name}
+                                  value={branch.name}
+                                >
+                                  <BranchIcon />
+                                  <span className="min-w-0 truncate">{branch.name}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
-                      ) : null}
-                      {desktopPreferences?.showContextWindowUsage && contextUsageQuery.data ? (
-                        <ContextUsage usage={contextUsageQuery.data} />
-                      ) : null}
-                      {usageQuery.data?.threadUsage ? (
-                        <ChatComposerMeter
-                          detail={`${(
-                            usageQuery.data.threadUsage.estimatedUsageCreditsMicros / 1_000_000
-                          ).toFixed(2)} ${i18n._(
-                            msg({ id: "chat.usage.credits", message: "credits" })
-                          )}`}
-                          label={i18n._(
-                            msg({ id: "chat.usage.estimated", message: "Estimated usage" })
-                          )}
-                          max={1_000_000}
-                          value={usageQuery.data.threadUsage.estimatedUsageCreditsMicros}
-                        />
-                      ) : null}
-                    </ChatComposerUtilityBar>
-                    <ChatComposerSubmit
-                      disabled={!busy && !composer.trim() && attachments.length === 0}
-                      onStop={() => void controller.cancel()}
-                      status={composerStatus}
-                      stopLabel={i18n._(msg({ id: "chat.prompt.stop", message: "Stop" }))}
-                      submitLabel={i18n._(msg({ id: "chat.prompt.send", message: "Send" }))}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              <ChatComposerFrame className="relative z-10 max-w-none">
+                {pending ? (
+                  <PendingInteraction
+                    interaction={pending}
+                    onRespond={(response) => void controller.respond(pending.id, response)}
+                  />
+                ) : (
+                  <ChatComposerForm ref={composerForm} onSubmit={submit}>
+                    <input
+                      className="sr-only"
+                      multiple
+                      onChange={(event) => void attach(event)}
+                      ref={attachmentInput}
+                      type="file"
                     />
-                  </ChatComposerFooter>
-                  {displayedError ? (
-                    <ChatComposerBanner
-                      title={i18n._(
-                        msg({ id: "chat.error.conversation", message: "Conversation error" })
+                    {attachments.length ? (
+                      <ChatComposerHeader>
+                        <ChatComposerAttachmentList
+                          aria-label={i18n._(
+                            msg({ id: "chat.prompt.addFiles", message: "Add files" })
+                          )}
+                          items={attachments.map((attachment) => ({
+                            id: attachment.id,
+                            kind:
+                              isOwnedDraftAttachment(attachment) && attachment.kind === "image"
+                                ? "image"
+                                : "file",
+                            name: draftAttachmentName(attachment),
+                            detail:
+                              isOwnedDraftAttachment(attachment) &&
+                              attachment.status === "unavailable"
+                                ? attachment.error
+                                : draftAttachmentMimeType(attachment),
+                          }))}
+                          onRemove={(id) => {
+                            const removed = attachments.find((item) => item.id === id)
+                            setAttachments((current) => current.filter((item) => item.id !== id))
+                            if (removed) void deleteDraftAttachments([removed])
+                          }}
+                          onReorder={(ids) =>
+                            setAttachments((current) =>
+                              ids.flatMap((id) => current.find((item) => item.id === id) ?? [])
+                            )
+                          }
+                          removeLabel={(item) =>
+                            `${i18n._(msg({ id: "common.remove", message: "Remove" }))} ${item.name}`
+                          }
+                        />
+                      </ChatComposerHeader>
+                    ) : null}
+                    {queueQuery.data?.data.length ||
+                    goalQuery.data?.goal ||
+                    usageQuery.data?.threadUsage ? (
+                      <ChatComposerHeader>
+                        <ChatFixedTurnSummary>
+                          {goalQuery.data?.goal ? (
+                            <ChatFixedTurnSummaryItem
+                              kind="goal"
+                              label={goalQuery.data.goal.objective}
+                            />
+                          ) : null}
+                          {queueQuery.data?.data.length ? (
+                            <ChatFixedTurnSummaryItem
+                              kind="status"
+                              label={`${queueQuery.data.data.length} ${i18n._(
+                                msg({ id: "chat.queue.queuedCount", message: "queued" })
+                              )}`}
+                            />
+                          ) : null}
+                        </ChatFixedTurnSummary>
+                        {queueQuery.data?.data.length ? (
+                          <ChatQueuedInputList>
+                            {queueQuery.data.data.map((queued, index) => (
+                              <ChatQueuedInputItem
+                                key={queued.id}
+                                position={String(index + 1)}
+                                state="queued"
+                                stateLabel={i18n._(
+                                  msg({ id: "chat.queue.queued", message: "Queued" })
+                                )}
+                              >
+                                {queued.input
+                                  .map((input) =>
+                                    input.type === "text" ? input.text : `[${input.type}]`
+                                  )
+                                  .join(" ")}
+                              </ChatQueuedInputItem>
+                            ))}
+                          </ChatQueuedInputList>
+                        ) : null}
+                      </ChatComposerHeader>
+                    ) : null}
+                    <ChatComposerBody>
+                      {desktopPreferences?.composerPlainTextMode ? (
+                        <ChatComposerTextarea
+                          aria-label={i18n._(
+                            msg({ id: "chat.prompt.label", message: "Message Cypheria" })
+                          )}
+                          onChange={(event) => setComposer(event.currentTarget.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" || event.nativeEvent.isComposing) return
+                            if (event.shiftKey && (event.metaKey || event.ctrlKey)) {
+                              event.preventDefault()
+                              oppositeFollowUp.current = true
+                              composerForm.current?.requestSubmit()
+                            } else if (event.metaKey || event.ctrlKey) {
+                              event.preventDefault()
+                              composerForm.current?.requestSubmit()
+                            }
+                          }}
+                          submitOnEnter={
+                            desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
+                            (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
+                              !composer.includes("\n"))
+                          }
+                          placeholder={
+                            busy
+                              ? i18n._(
+                                  msg({
+                                    id: "chat.prompt.steerPlaceholder",
+                                    message: "Steer the current task…",
+                                  })
+                                )
+                              : i18n._(
+                                  msg({
+                                    id: "chat.prompt.placeholderShort",
+                                    message: "Ask anything…",
+                                  })
+                                )
+                          }
+                          value={composer}
+                        />
+                      ) : (
+                        <ChatComposerEditor
+                          key={composerEpoch}
+                          initialDocument={
+                            draftSnapshotRef.current?.text === composer
+                              ? (composerDocumentRef.current ?? undefined)
+                              : undefined
+                          }
+                          aria-label={i18n._(
+                            msg({ id: "chat.prompt.label", message: "Message Cypheria" })
+                          )}
+                          onChange={(text, document) => {
+                            composerDocumentRef.current = document
+                            setComposer(text)
+                          }}
+                          onAlternateSubmit={() => {
+                            oppositeFollowUp.current = true
+                            composerForm.current?.requestSubmit()
+                          }}
+                          onSubmit={() => composerForm.current?.requestSubmit()}
+                          onPasteFiles={(files) => void attachFiles(files)}
+                          onPasteLongText={(text) =>
+                            void attachFiles([
+                              new File([text], "Pasted text.txt", { type: "text/plain" }),
+                            ])
+                          }
+                          onCommand={(id) => {
+                            if (id === "attach") attachmentInput.current?.click()
+                            if (id === "clear") setComposer("")
+                            if (id === "new")
+                              void navigate({
+                                search: {
+                                  agent: agentId,
+                                  project: initialProjectId,
+                                  section: initialSectionId,
+                                },
+                              })
+                            if (id === "status") {
+                              setSummaryCheckpoint((current) => ({ ...current, open: true }))
+                            }
+                            if (id === "goal") {
+                              setOpenRightTabs((current) =>
+                                current.includes("goal") ? current : [...current, "goal"]
+                              )
+                              setRightTab("goal")
+                              setRightVisibility("visible")
+                            }
+                            const codexSessionId = snapshot.thread?.agentSessionId
+                            if (id === "compact" && codexSessionId) {
+                              void ensureCypheriaClient().then((client) =>
+                                client.harnesses.codex.threads.compact({
+                                  threadId: codexSessionId,
+                                })
+                              )
+                            }
+                          }}
+                          suggestions={async (trigger, query) => {
+                            if (trigger === "/") {
+                              const commands = [
+                                {
+                                  id: "attach",
+                                  label: i18n._(
+                                    msg({ id: "chat.prompt.addFiles", message: "Add files" })
+                                  ),
+                                },
+                                {
+                                  id: "clear",
+                                  label: i18n._(
+                                    msg({ id: "chat.prompt.clear", message: "Clear prompt" })
+                                  ),
+                                },
+                                {
+                                  id: "new",
+                                  label: i18n._(
+                                    msg({ id: "chat.prompt.newChat", message: "New chat" })
+                                  ),
+                                },
+                                ...(codex && snapshot.thread
+                                  ? [
+                                      {
+                                        id: "goal",
+                                        label: i18n._(
+                                          msg({ id: "chat.panel.goal", message: "Goal" })
+                                        ),
+                                      },
+                                      {
+                                        id: "status",
+                                        label: i18n._(
+                                          msg({ id: "chat.prompt.status", message: "Status" })
+                                        ),
+                                      },
+                                      {
+                                        id: "compact",
+                                        label: i18n._(
+                                          msg({
+                                            id: "chat.prompt.compact",
+                                            message: "Compact context",
+                                          })
+                                        ),
+                                      },
+                                    ]
+                                  : []),
+                              ]
+                              return commands
+                                .filter((item) =>
+                                  item.label.toLowerCase().includes(query.toLowerCase())
+                                )
+                                .map((item) => ({ ...item, kind: "command" as const }))
+                            }
+                            const client = await ensureCypheriaClient()
+                            const result = await client.threads.composer.suggest({
+                              agentId: snapshot.thread ? undefined : agentId,
+                              roots: snapshot.thread ? undefined : project?.roots,
+                              query,
+                              threadId: snapshot.thread?.id,
+                              trigger,
+                            })
+                            return result.items.map((item) => ({
+                              description: item.description ?? undefined,
+                              id: item.id,
+                              kind:
+                                item.kind === "workspace-file"
+                                  ? ("file" as const)
+                                  : item.kind === "mcp-resource"
+                                    ? ("resource" as const)
+                                    : item.kind,
+                              label: item.label,
+                              target:
+                                item.kind === "app"
+                                  ? `app://${item.id}`
+                                  : item.kind === "plugin"
+                                    ? `plugin://${item.id}`
+                                    : item.kind === "thread"
+                                      ? `thread://${item.id}`
+                                      : item.kind === "browser-tab"
+                                        ? `browser://${item.id}`
+                                        : item.kind === "mcp-resource"
+                                          ? `mcp-resource:${encodeURIComponent(item.id)}`
+                                          : item.id,
+                            }))
+                          }}
+                          submitOnEnter={
+                            desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
+                            (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
+                              !composer.includes("\n"))
+                          }
+                          placeholder={
+                            busy
+                              ? i18n._(
+                                  msg({
+                                    id: "chat.prompt.steerPlaceholder",
+                                    message: "Steer the current task…",
+                                  })
+                                )
+                              : i18n._(
+                                  msg({
+                                    id: "chat.prompt.placeholderShort",
+                                    message: "Ask anything…",
+                                  })
+                                )
+                          }
+                          value={composer}
+                        />
                       )}
-                      tone="error"
-                    >
-                      {displayedError.message}
-                    </ChatComposerBanner>
-                  ) : null}
-                </ChatComposerForm>
-              )}
-            </ChatComposerFrame>
-          </div>
-        </ChatComposerDock>
-        <ProjectCreateDialog
-          onCreated={(projectId) => chooseNewProject(projectId)}
-          onOpenChange={setProjectCreateOpen}
-          open={projectCreateOpen}
-        />
-        {codex ? (
-          <CodexSummary
-            checkpoint={summaryCheckpoint}
-            mode={summaryMode}
-            onCheckpointChange={setSummaryCheckpoint}
-            onOpenSchedule={() => void navigate({ to: "/schedules" })}
-            onOpenTab={(id) => {
-              setOpenRightTabs((current) => (current.includes(id) ? current : [...current, id]))
-              setRightTab(id)
-              setRightVisibility("visible")
-            }}
-            open={summaryCheckpoint.open}
-            project={project}
-            terminals={terminals}
-            thread={snapshot.thread}
+                    </ChatComposerBody>
+                    <ChatComposerFooter>
+                      <ChatComposerUtilityBar>
+                        <ChatComposerControl
+                          label={i18n._(msg({ id: "chat.prompt.addFiles", message: "Add files" }))}
+                          onClick={() => attachmentInput.current?.click()}
+                          size="icon-sm"
+                          tooltip={i18n._(
+                            msg({ id: "chat.prompt.addFiles", message: "Add files" })
+                          )}
+                        >
+                          <ClipIcon />
+                        </ChatComposerControl>
+                        {project && snapshot.thread ? (
+                          <ChatContextChip label={project.name} />
+                        ) : null}
+                        <ComposerModelSelector
+                          agentId={agentId}
+                          allowAgentChange={!threadId}
+                          onAgentChange={(nextAgentId) => {
+                            if (threadId || nextAgentId === agentId) return
+                            void navigate({
+                              search: {
+                                agent: nextAgentId,
+                                project: initialProjectId,
+                                prompt: composer || undefined,
+                                section: initialSectionId,
+                              },
+                              to: "/",
+                            })
+                          }}
+                          onThreadConfigChange={(patch) => controller.updateConfig(patch)}
+                          threadConfig={snapshot.thread?.config}
+                        />
+                        {codex ? (
+                          <Select
+                            onValueChange={(value) => {
+                              if (
+                                value === "auto" ||
+                                value === "guardian-approvals" ||
+                                value === "full-access" ||
+                                value === "agent-config"
+                              ) {
+                                void updatePermissionMode(value)
+                              }
+                            }}
+                            value={permissionMode}
+                          >
+                            <SelectTrigger
+                              aria-label={i18n._(
+                                msg({ id: "chat.permissions", message: "Permissions" })
+                              )}
+                              className="h-7 max-w-40 border-0 bg-transparent px-2 text-xs shadow-none"
+                              size="sm"
+                            >
+                              <LockKeyHoleIcon />
+                              <SelectValue>{permissionLabel}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="min-w-80" alignItemWithTrigger={false}>
+                              {permissionOptions.map((option) => (
+                                <SelectItem
+                                  className="items-start py-2"
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  <span className="flex min-w-0 flex-col items-start gap-0.5 whitespace-normal">
+                                    <span className="font-medium">{option.label}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {option.description}
+                                    </span>
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : null}
+                        {desktopPreferences?.showContextWindowUsage && contextUsageQuery.data ? (
+                          <ContextUsage usage={contextUsageQuery.data} />
+                        ) : null}
+                        {usageQuery.data?.threadUsage ? (
+                          <ChatComposerMeter
+                            detail={`${(
+                              usageQuery.data.threadUsage.estimatedUsageCreditsMicros / 1_000_000
+                            ).toFixed(2)} ${i18n._(
+                              msg({ id: "chat.usage.credits", message: "credits" })
+                            )}`}
+                            label={i18n._(
+                              msg({ id: "chat.usage.estimated", message: "Estimated usage" })
+                            )}
+                            max={1_000_000}
+                            value={usageQuery.data.threadUsage.estimatedUsageCreditsMicros}
+                          />
+                        ) : null}
+                      </ChatComposerUtilityBar>
+                      <ChatComposerSubmit
+                        disabled={!busy && !composer.trim() && attachments.length === 0}
+                        onStop={() => void controller.cancel()}
+                        status={composerStatus}
+                        stopLabel={i18n._(msg({ id: "chat.prompt.stop", message: "Stop" }))}
+                        submitLabel={i18n._(msg({ id: "chat.prompt.send", message: "Send" }))}
+                      />
+                    </ChatComposerFooter>
+                    {displayedError ? (
+                      <ChatComposerBanner
+                        title={i18n._(
+                          msg({ id: "chat.error.conversation", message: "Conversation error" })
+                        )}
+                        tone="error"
+                      >
+                        {displayedError.message}
+                      </ChatComposerBanner>
+                    ) : null}
+                  </ChatComposerForm>
+                )}
+              </ChatComposerFrame>
+            </div>
+          </ChatComposerDock>
+          <ProjectCreateDialog
+            onCreated={(projectId) => chooseNewProject(projectId)}
+            onOpenChange={setProjectCreateOpen}
+            open={projectCreateOpen}
           />
-        ) : null}
-      </ChatMainColumn>
-    </ChatWorkspaceShell>
+          {codex ? (
+            <CodexSummary
+              checkpoint={summaryCheckpoint}
+              mode={summaryMode}
+              onCheckpointChange={setSummaryCheckpoint}
+              onOpenSchedule={() => void navigate({ to: "/schedules" })}
+              onOpenTab={(id) => {
+                setOpenRightTabs((current) => (current.includes(id) ? current : [...current, id]))
+                setRightTab(id)
+                setRightVisibility("visible")
+              }}
+              open={summaryCheckpoint.open}
+              project={project}
+              terminals={terminals}
+              thread={snapshot.thread}
+            />
+          ) : null}
+        </ChatMainColumn>
+      </ChatWorkspaceShell>
+    </ChatMarkdownHostContext.Provider>
   )
 }

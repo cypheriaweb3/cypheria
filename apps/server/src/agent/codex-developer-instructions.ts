@@ -58,6 +58,25 @@ export type CodexInstructionCapabilities = {
   readonly tools: ReadonlySet<string>
 }
 
+/**
+ * What the first-party clients render today. Desktop renders every one of these; a client that
+ * renders no conversation yet (CLI, Expo) commits to showing the same Markdown as plain text, which
+ * the directive and link syntax is designed to survive.
+ *
+ * - `fileLinks`, `media`: `thread.paths.resolve` and `thread.files.read` back links and inline media.
+ * - `codeComments`, `artifactFollowUps`: Desktop renders the directives.
+ * - `prDiffLinks` stays off until a `cypheria://review` link can open the exact pull request.
+ * - `createdThreadDirective` follows the `create_thread` app tool.
+ */
+export const CYPHERIA_RENDERING_CAPABILITIES: Omit<CodexInstructionCapabilities, "tools"> = {
+  artifactFollowUps: true,
+  codeComments: true,
+  createdThreadDirective: false,
+  fileLinks: true,
+  media: true,
+  prDiffLinks: false,
+}
+
 export const NO_CODEX_INSTRUCTION_CAPABILITIES: CodexInstructionCapabilities = {
   artifactFollowUps: false,
   codeComments: false,
