@@ -2697,3 +2697,239 @@ msgstr "No projects found"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.project.new"
 msgstr "New project"
+
+#. placeholder {0}: provider.exposedModels
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "{0} models"
+msgstr "{0} models"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
+msgstr "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Agents"
+msgstr "Agents"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "AI gateway"
+msgstr "AI gateway"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "All time"
+msgstr "All time"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "An Agent set to a routing group has each request served by one of its members, by the group's routing."
+msgstr "An Agent set to a routing group has each request served by one of its members, by the group's routing."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "API port"
+msgstr "API port"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Cost"
+msgstr "Cost"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Enable the AI gateway"
+msgstr "Enable the AI gateway"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Errors"
+msgstr "Errors"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Failed"
+msgstr "Failed"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "Gateway"
+msgstr "Gateway"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.gateway"
+msgstr "Gateway"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Gateway port"
+msgstr "Gateway port"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.general"
+msgstr "General"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Installing…"
+msgstr "Installing…"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "It was used without reaching the gateway."
+msgstr "It was used without reaching the gateway."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its model was changed outside the gateway."
+msgstr "Its model was changed outside the gateway."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its settings no longer send it through the gateway."
+msgstr "Its settings no longer send it through the gateway."
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Key"
+msgstr "Key"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 30 days"
+msgstr "Last 30 days"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 7 days"
+msgstr "Last 7 days"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
+msgstr "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Model"
+msgstr "Model"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "No installed Agent is enabled."
+msgstr "No installed Agent is enabled."
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "No provider yet."
+msgstr "No provider yet."
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "No routing group yet."
+msgstr "No routing group yet."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Not installed"
+msgstr "Not installed"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Not ready"
+msgstr "Not ready"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Off"
+msgstr "Off"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.providers"
+msgstr "Providers"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Providers"
+msgstr "Providers"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Requests"
+msgstr "Requests"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Restart"
+msgstr "Restart"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.routing"
+msgstr "Routing"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Routing groups"
+msgstr "Routing groups"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running"
+msgstr "Running"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running since"
+msgstr "Running since"
+
+#. placeholder {0}: view.version
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
+msgstr "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Starting…"
+msgstr "Starting…"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Stopped"
+msgstr "Stopped"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Subscription"
+msgstr "Subscription"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The Agent could not be changed"
+msgstr "The Agent could not be changed"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The gateway could not be changed"
+msgstr "The gateway could not be changed"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "The requests the gateway served, their tokens and their cost."
+msgstr "The requests the gateway served, their tokens and their cost."
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
+msgstr "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Today"
+msgstr "Today"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Tokens"
+msgstr "Tokens"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Turn the gateway on to see its providers."
+msgstr "Turn the gateway on to see its providers."
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Turn the gateway on to see its routing groups."
+msgstr "Turn the gateway on to see its routing groups."
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Turn the gateway on to see its usage."
+msgstr "Turn the gateway on to see its usage."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Turn the gateway on to set up the Agents."
+msgstr "Turn the gateway on to set up the Agents."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.usage"
+msgstr "Usage"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Usage"
+msgstr "Usage"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Version"
+msgstr "Version"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Wire again"
+msgstr "Wire again"

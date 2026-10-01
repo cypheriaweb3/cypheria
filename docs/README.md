@@ -29,6 +29,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 - [Desktop](desktop.md): Electron boundary, Server Manager, Sidebar, conversation workspace, and local settings.
 - [Local Git design](git.md): Git ownership, backend selection, safety, persistence, and Agent tools.
 - [Integrations](integrations.md): Skills, MCP, plugins, marketplace sources, and Codex Apps.
+- [AI gateway](gateway.md): the magpie gateway over Cypheria's Agents, its release pin, lifecycle, ports, and scope.
 - [Web3](web3.md): networks, wallets, policies, signing, dApps, and audit.
 - [UI system](ui.md): visual principles, theme implementation, conversation components, and regression invariants.
 - [Codex conversation UI reference](codex-conversation-ui-reference.md): evidence-backed task chrome, Timeline, composer, and panel behavior for shared implementation.

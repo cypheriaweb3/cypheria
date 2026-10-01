@@ -74,4 +74,36 @@ describe("settings navigation row model", () => {
     expect(registry[0]).toMatchObject({ agent: { id: "registry-499" } })
     expect(build("missing").at(-1)).toMatchObject({ kind: "empty" })
   })
+
+  it("renders gateway header and sections directly under agent harnesses", () => {
+    const rows = buildSettingsNavigationRows({
+      agents,
+      emptyLabel: "No results",
+      gatewayExpanded: true,
+      gatewayLabel: "Gateway",
+      gatewaySections: [
+        { href: "/settings/gateway/general", id: "general", label: "General" },
+        { href: "/settings/gateway/providers", id: "providers", label: "Providers" },
+        { href: "/settings/gateway/routing", id: "routing", label: "Routing" },
+        { href: "/settings/gateway/usage", id: "usage", label: "Usage" },
+      ],
+      groups,
+      harnessGroupId: "integrations",
+      harnessLabel: "Agent harnesses",
+      harnessesExpanded: false,
+      locale: "en",
+      query: "",
+    })
+
+    const harnessIndex = rows.findIndex((row) => row.kind === "harness")
+    const gatewayIndex = rows.findIndex((row) => row.kind === "gateway")
+    expect(harnessIndex).toBeGreaterThan(-1)
+    expect(gatewayIndex).toBe(harnessIndex + 1)
+
+    const gatewaySections = rows.filter((row) => row.kind === "gateway-section")
+    expect(gatewaySections).toHaveLength(4)
+    expect(
+      gatewaySections.map((row) => (row.kind === "gateway-section" ? row.sectionId : ""))
+    ).toEqual(["general", "providers", "routing", "usage"])
+  })
 })

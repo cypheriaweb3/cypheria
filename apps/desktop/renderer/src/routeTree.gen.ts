@@ -24,6 +24,7 @@ import { Route as SettingsArchivedRouteImport } from "./routes/settings.archived
 import { Route as SettingsGeneralRouteImport } from "./routes/settings.general"
 import { Route as SettingsGitRouteImport } from "./routes/settings.git"
 import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
+import { Route as SettingsGatewaySectionIdRouteImport } from "./routes/settings.gateway.$sectionId"
 import { Route as SettingsAgentHarnessesAgentIdSectionIdRouteImport } from "./routes/settings.agent-harnesses.$agentId.$sectionId"
 
 const IndexRoute = IndexRouteImport.update({
@@ -101,6 +102,12 @@ const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
   path: "/settings/plugins",
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsGatewaySectionIdRoute =
+  SettingsGatewaySectionIdRouteImport.update({
+    id: "/settings/gateway/$sectionId",
+    path: "/settings/gateway/$sectionId",
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const SettingsAgentHarnessesAgentIdSectionIdRoute =
   SettingsAgentHarnessesAgentIdSectionIdRouteImport.update({
     id: "/settings/agent-harnesses/$agentId/$sectionId",
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/git": typeof SettingsGitRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/gateway/$sectionId": typeof SettingsGatewaySectionIdRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRoutesByTo {
@@ -142,6 +150,7 @@ export interface FileRoutesByTo {
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/git": typeof SettingsGitRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/gateway/$sectionId": typeof SettingsGatewaySectionIdRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRoutesById {
@@ -161,6 +170,7 @@ export interface FileRoutesById {
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/git": typeof SettingsGitRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/gateway/$sectionId": typeof SettingsGatewaySectionIdRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRouteTypes {
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | "/settings/general"
     | "/settings/git"
     | "/settings/plugins"
+    | "/settings/gateway/$sectionId"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | "/settings/general"
     | "/settings/git"
     | "/settings/plugins"
+    | "/settings/gateway/$sectionId"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   id:
     | "__root__"
@@ -217,6 +229,7 @@ export interface FileRouteTypes {
     | "/settings/general"
     | "/settings/git"
     | "/settings/plugins"
+    | "/settings/gateway/$sectionId"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesById: FileRoutesById
 }
@@ -236,6 +249,7 @@ export interface RootRouteChildren {
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsGitRoute: typeof SettingsGitRoute
   SettingsPluginsRoute: typeof SettingsPluginsRoute
+  SettingsGatewaySectionIdRoute: typeof SettingsGatewaySectionIdRoute
   SettingsAgentHarnessesAgentIdSectionIdRoute: typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 
@@ -346,6 +360,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsPluginsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/settings/gateway/$sectionId": {
+      id: "/settings/gateway/$sectionId"
+      path: "/settings/gateway/$sectionId"
+      fullPath: "/settings/gateway/$sectionId"
+      preLoaderRoute: typeof SettingsGatewaySectionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/settings/agent-harnesses/$agentId/$sectionId": {
       id: "/settings/agent-harnesses/$agentId/$sectionId"
       path: "/settings/agent-harnesses/$agentId/$sectionId"
@@ -372,6 +393,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsGitRoute: SettingsGitRoute,
   SettingsPluginsRoute: SettingsPluginsRoute,
+  SettingsGatewaySectionIdRoute: SettingsGatewaySectionIdRoute,
   SettingsAgentHarnessesAgentIdSectionIdRoute:
     SettingsAgentHarnessesAgentIdSectionIdRoute,
 }

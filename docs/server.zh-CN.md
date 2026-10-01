@@ -44,7 +44,8 @@ pnpm --filter @cypheria/server server stop --if-idle
 $CYPHERIA_HOME/
   agents/    当前 Agent 版本、安装回执和各 Agent 的 runtime home
               （Codex 使用 agents/codex/home 作为 CODEX_HOME）
-  toolchains/ 当前托管的 Node.js、Python 和 uv 版本
+  toolchains/ 当前托管的 Node.js、Python 和 uv 版本，以及固定版本的 magpie
+  gateway/   AI 网关的 magpie 目录、Agent 描述文件与设置（见 gateway.zh-CN.md）
   config/    config.json、network-proxy.json、PID、Server 身份和 relay key
   db/        SQLite 数据库
   logs/      Server 与 runtime 日志

@@ -20,6 +20,7 @@ import { createGitActions, type GitActions } from "./git.js"
 import { createHarnessActions, type HarnessActions } from "./harness.js"
 import { type CodexHarnessActions, createCodexHarnessActions } from "./harness-codex.js"
 import { createIntegrationActions, type IntegrationActions } from "./integration.js"
+import { createMagpieActions, type MagpieActions } from "./magpie.js"
 import {
   createProjectThreadActions,
   type ProjectActions,
@@ -114,6 +115,7 @@ export interface CypheriaApi {
   readonly server: ServerActions
   readonly sections: SectionActions
   readonly schedules: ScheduleActions
+  readonly magpie: MagpieActions
   readonly settings: SettingsActions
   readonly thread: ThreadActions
   /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
@@ -176,6 +178,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const projectThread = createProjectThreadActions(serverClient)
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
+  const magpie = createMagpieActions(serverClient)
   const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
   const artifacts = createArtifactActions(threads.timeline)
@@ -192,6 +195,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     browser,
     integrations,
     git,
+    magpie,
     projectThread,
     projects: projectThread.projects,
     harnesses: {
@@ -257,6 +261,7 @@ export type {
   CodexHarnessActions,
   HarnessActions,
   IntegrationActions,
+  MagpieActions,
   ProjectActions,
   ProjectThreadActions,
   ScheduleActions,
@@ -271,4 +276,4 @@ export type {
   TimelineActions,
   Web3Actions,
 }
-export { isAgentUpdateAvailable }
+export { createMagpieActions, isAgentUpdateAvailable }

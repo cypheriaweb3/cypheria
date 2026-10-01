@@ -43,14 +43,14 @@ import {
   probeAcpCatalog,
 } from "./acp-catalog-probe.js"
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
-import { AgentInstaller } from "./agent-installer.js"
+import { AgentInstaller, type AgentInstallReceipt } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
 import { type CodexDynamicToolHandler, CodexDynamicToolRegistry } from "./codex-dynamic-tools.js"
 import { codexGitInstructions } from "./codex-git-instructions.js"
 import { CodexRuntime } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
-import { OpenCodeRuntime } from "./opencode-runtime.js"
+import { OpenCodeRuntime, openCodeHomeEnvironment } from "./opencode-runtime.js"
 import { PiSessionRuntime } from "./pi-session-runtime.js"
 import { AgentRegistryService } from "./registry-service.js"
 import { getOrInitialize } from "./single-flight.js"
@@ -177,6 +177,29 @@ const hasRunningRuntime = async (
     [...runtimes].map(async (pending) => (await pending.catch(() => undefined))?.running ?? false)
   )
   return states.some(Boolean)
+}
+
+/** How an installed Agent is launched, without its ACP or app-server mode. */
+export type AgentLaunchSpec = {
+  readonly agentId: AgentId
+  readonly args: readonly string[]
+  readonly command: string
+  readonly cwd: string | null
+  /** Variables beyond the Server's own environment. */
+  readonly env: Readonly<Record<string, string>>
+}
+
+/**
+ * The arguments before any of the CLI's own commands. A registry binary's
+ * arguments all start its ACP mode; an npx one's follow its package; a
+ * native Agent's are its launcher script alone.
+ */
+export const launcherArgs = (
+  receipt: Pick<AgentInstallReceipt, "args" | "kind" | "source">
+): string[] => {
+  if (receipt.kind === "binary") return []
+  const index = receipt.args.indexOf(receipt.source)
+  return index >= 0 ? receipt.args.slice(0, index + 1) : [...receipt.args]
 }
 
 export class AgentManager {
@@ -1357,6 +1380,53 @@ export class AgentManager {
       if (this.#piModelRuntime === pending) this.#piModelRuntime = undefined
     })
     return this.#piModelRuntime
+  }
+
+  /**
+   * How each installed, enabled Agent is launched, for magpie's agents file
+   * (see apps/server/src/magpie): the launcher without the arguments that
+   * start its ACP or app-server mode, its folder, and the variables it gets
+   * beyond the Server's own environment — its isolated home among them.
+   */
+  async launchSpecs(): Promise<AgentLaunchSpec[]> {
+    const specs: AgentLaunchSpec[] = []
+    for (const [agentId, record] of this.#records) {
+      if (!record.enabled) continue
+      const receipt = await this.#installer.readCurrent(agentId).catch(() => undefined)
+      if (!receipt) continue
+      const environment = this.#toolchainsFor(agentId).environment({
+        ...receipt.environment,
+        ...this.#nativeHomeEnv(agentId),
+      })
+      const env: Record<string, string> = {}
+      for (const [key, value] of Object.entries(environment)) {
+        if (typeof value === "string" && process.env[key] !== value) env[key] = value
+      }
+      specs.push({
+        agentId,
+        args: launcherArgs(receipt),
+        command: receipt.command,
+        cwd: receipt.workingDirectory ?? null,
+        env,
+      })
+    }
+    return specs.sort((a, b) => a.agentId.localeCompare(b.agentId))
+  }
+
+  /** The home variables a native Agent's runtime sets for itself. */
+  #nativeHomeEnv(agentId: AgentId): Record<string, string> {
+    switch (agentId) {
+      case "claude":
+        return { CLAUDE_CONFIG_DIR: join(this.#agentHomes, "claude", "home") }
+      case "codex":
+        return { CODEX_HOME: join(this.#agentHomes, "codex", "home") }
+      case "pi":
+        return { PI_CODING_AGENT_DIR: join(this.#agentHomes, "pi", "home") }
+      case "opencode":
+        return openCodeHomeEnvironment(this.#cypheriaHome)
+      default:
+        return {}
+    }
   }
 
   async #requiredReceipt(agentId: AgentId) {

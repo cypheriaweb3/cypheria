@@ -17,6 +17,8 @@ import {
   type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
+  type MagpieClientMessage,
+  type MagpieServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -80,6 +82,10 @@ export type SessionHost = {
   handleScheduleMessage?(
     message: ScheduleClientMessage,
     send: (message: ScheduleServerMessage) => void
+  ): Promise<boolean>
+  handleMagpieMessage?(
+    message: MagpieClientMessage,
+    send: (message: MagpieServerMessage) => void
   ): Promise<boolean>
   handleAgentMessage?(
     message: ClientMessage,
@@ -388,6 +394,15 @@ export class ClientSession {
           message.type.startsWith("schedule.") &&
           this.#host.handleScheduleMessage &&
           (await this.#host.handleScheduleMessage(message as ScheduleClientMessage, (response) =>
+            this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("magpie.") &&
+          this.#host.handleMagpieMessage &&
+          (await this.#host.handleMagpieMessage(message as MagpieClientMessage, (response) =>
             this.sendTo(source, response)
           ))
         ) {

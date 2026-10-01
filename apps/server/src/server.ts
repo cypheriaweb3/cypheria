@@ -35,6 +35,8 @@ import {
   type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
+  type MagpieClientMessage,
+  type MagpieServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -74,6 +76,8 @@ import { HarnessService } from "./harness-service.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
 import { IntegrationService } from "./integration-service.js"
+import { MagpieManager } from "./magpie/magpie-manager.js"
+import { MagpieService } from "./magpie/magpie-service.js"
 import { NetworkProxyStore } from "./network-proxy-store.js"
 import { ProjectThreadService } from "./project-thread-service.js"
 import { RelayConnection } from "./relay-connection.js"
@@ -136,6 +140,8 @@ export class CypheriaServer implements HttpAppHost {
   readonly codexHarness: CodexHarnessService
   readonly harnesses: HarnessService
   readonly schedules: ScheduleService
+  readonly magpieManager: MagpieManager
+  readonly magpie: MagpieService
   readonly threadAttachments: ThreadAttachmentService
   readonly threadManager: ThreadManager
   readonly inputFiles: InputFileService
@@ -187,7 +193,16 @@ export class CypheriaServer implements HttpAppHost {
       cacheDir: this.runtime.paths.cacheDir,
       cypheriaHome: this.runtime.paths.cypheriaHome,
       persistence: createAgentRegistryPersistenceService(this.database.db),
-      publish: (message) => this.registry.broadcast(message),
+      publish: (message) => {
+        this.registry.broadcast(message)
+        // an Agent installed, removed, switched on or off changes magpie's agents file
+        if (
+          message.type === "agent.updated.notification" ||
+          message.type === "agent.operation.completed.notification"
+        ) {
+          void this.magpieManager?.refreshAgents()
+        }
+      },
       networkBootstrap: options.agentNetworkBootstrap,
       gitSettings: () => this.configStore.getSnapshot().config.git,
       claudePluginsEnabled: () =>
@@ -330,6 +345,17 @@ export class CypheriaServer implements HttpAppHost {
       requestRuntime: (method, params) => this.requestRuntime(method, params),
       threadManager: this.threadManager,
     })
+    this.magpieManager = new MagpieManager({
+      launchSpecs: () => this.agentManager.launchSpecs(),
+      logger: this.logger,
+      onStatusChange: () => this.magpie?.broadcastStatus(),
+      paths: this.runtime.paths,
+    })
+    this.magpie = new MagpieService({
+      logger: this.logger,
+      manager: this.magpieManager,
+      publish: (message) => this.registry.broadcast(message),
+    })
     this.#lifecycleHandler = options.onLifecycleRequest
   }
 
@@ -427,6 +453,7 @@ export class CypheriaServer implements HttpAppHost {
         5 * 60 * 1000
       ).unref()
       await this.schedules.start()
+      await this.magpieManager.init()
       const startedAt = new Date().toISOString()
       const id = await loadOrCreateServerId(this.runtime.paths.configDir)
       this.#identity = {
@@ -505,6 +532,7 @@ export class CypheriaServer implements HttpAppHost {
       ])
       this.web3.stop()
       this.schedules.stop()
+      await this.magpieManager.shutdown()
       this.terminals.stop()
       this.#identity = undefined
       this.#webSocketServer = undefined
@@ -637,6 +665,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.config,
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.integrations,
+      SERVER_CAPABILITIES.magpie,
       SERVER_CAPABILITIES.codexHarness,
       SERVER_CAPABILITIES.harnessManagement,
       SERVER_CAPABILITIES.projectThread,
@@ -940,6 +969,13 @@ export class CypheriaServer implements HttpAppHost {
     return this.harnesses.handle(message, sessionId, send)
   }
 
+  async handleMagpieMessage(
+    message: MagpieClientMessage,
+    send: (message: MagpieServerMessage) => void
+  ): Promise<boolean> {
+    return this.magpie.handle(message, send)
+  }
+
   async handleScheduleMessage(
     message: ScheduleClientMessage,
     send: (message: ScheduleServerMessage) => void
@@ -1069,6 +1105,7 @@ export class CypheriaServer implements HttpAppHost {
     this.terminals.stop()
     this.web3.stop()
     this.harnesses.stop()
+    await this.magpieManager.shutdown()
 
     const results = await Promise.allSettled([
       this.#closeHttpListener(),

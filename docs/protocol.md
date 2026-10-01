@@ -167,6 +167,8 @@ The common operations on `client.harnesses` cover installation-adjacent state, a
 
 `client.terminals` lists, creates, renames, closes, and captures Thread terminals; watches shared Thread directories; and observes authorized binary streams. Authentication flows expose a private terminal ID that can be observed only by the owning logical client session. The complete contract is in [Terminals](terminals.md).
 
+`client.magpie` covers the `magpie` capability: the AI gateway's status and lifecycle, its Agents, providers, routing groups, and usage. Its rules are in [AI Gateway](gateway.md).
+
 The ownership and backend-selection rules behind this capability are in [Local Git design](git.md).
 
 The `git` capability provides local repository discovery and initialization, origin provider classification without exposing the remote URL, status, branch listing and context (current, upstream, default, ahead/behind), branch creation and checkout, diff, stage, unstage, commit, push, and managed worktree listing, creation, deletion, and restoration through the Server Git executor. Each `git.*.request` returns a correlated typed response with a success value or error. Git operations use the Server host's filesystem and Git installation. Managed worktrees live under `CYPHERIA_HOME/worktrees`; Server records their repository identity and uses `refs/cypheria/worktrees/*` to restore the committed HEAD after deletion. Listings include restorable deleted worktrees. Deletion rejects uncommitted changes and the current worktree.

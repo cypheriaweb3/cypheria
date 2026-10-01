@@ -27,6 +27,8 @@ import {
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   isClientResponseMessage,
+  type MagpieClientMessage,
+  type MagpieServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -608,6 +610,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.harnessManagement
     )
     return message as HarnessServerMessage
+  }
+
+  async requestMagpie(
+    type: MagpieClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<MagpieServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("magpie"),
+        type,
+      } as MagpieClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.magpie
+    )
+    return message as MagpieServerMessage
   }
 
   async requestSchedule(

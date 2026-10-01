@@ -23,6 +23,21 @@ const reservePort = async (): Promise<number> =>
     })
   })
 
+/** OpenCode's isolated home under the Cypheria home. */
+export const openCodeHome = (cypheriaHome: string): string =>
+  join(cypheriaHome, "agents", "opencode", "home")
+
+/** The XDG folders Cypheria-managed OpenCode keeps everything in. */
+export const openCodeHomeEnvironment = (cypheriaHome: string): Record<string, string> => {
+  const home = openCodeHome(cypheriaHome)
+  return {
+    XDG_CACHE_HOME: join(home, "cache"),
+    XDG_CONFIG_HOME: join(home, "config"),
+    XDG_DATA_HOME: join(home, "data"),
+    XDG_STATE_HOME: join(home, "state"),
+  }
+}
+
 export class OpenCodeRuntime {
   readonly #cypheriaHome: string
   readonly #toolchains: ToolchainManager
@@ -54,17 +69,14 @@ export class OpenCodeRuntime {
 
   async #start(receipt: AgentInstallReceipt): Promise<void> {
     const port = await reservePort()
-    const home = join(this.#cypheriaHome, "agents", "opencode", "home")
+    const home = openCodeHome(this.#cypheriaHome)
     const serviceFile = join(home, "state", "opencode", "service.json")
     const configPath = join(home, "config", "opencode", "opencode.json")
     const existingConfig = await readJsonFile<Record<string, unknown>>(configPath)
     await writeJsonAtomic(configPath, { ...existingConfig, update: "disable" })
     const env = this.#toolchains.environment({
       ...receipt.environment,
-      XDG_CACHE_HOME: join(home, "cache"),
-      XDG_CONFIG_HOME: join(home, "config"),
-      XDG_DATA_HOME: join(home, "data"),
-      XDG_STATE_HOME: join(home, "state"),
+      ...openCodeHomeEnvironment(this.#cypheriaHome),
     })
     try {
       const endpoint = await Service.ensure({

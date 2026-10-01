@@ -44,7 +44,8 @@ pnpm --filter @cypheria/server server stop --if-idle
 $CYPHERIA_HOME/
   agents/    active Agent versions, receipts, and per-Agent runtime homes
               (Codex uses agents/codex/home as CODEX_HOME)
-  toolchains/ active managed Node.js, Python, and uv releases
+  toolchains/ active managed Node.js, Python, and uv releases, and the pinned magpie
+  gateway/   the AI gateway's magpie home, agents file, and settings (see gateway.md)
   config/    config.json, network-proxy.json, PID and Server identity, relay key
   db/        SQLite database
   logs/      Server and runtime logs

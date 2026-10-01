@@ -167,6 +167,8 @@ client.server
 
 `client.terminals` 可列出、创建、重命名、关闭和 capture Thread 终端，监视共享 Thread 目录，并观察已授权的二进制 stream。认证 flow 会暴露一个只能由所属逻辑客户端 session 观察的私有终端 ID。完整契约见[终端](terminals.zh-CN.md)。
 
+`client.magpie` 覆盖 `magpie` 能力：AI 网关的状态与生命周期、其 Agent、提供方、路由组与用量。规则见 [AI 网关](gateway.zh-CN.md)。
+
 该能力背后的归属与后端选择规则详见[本地 Git 设计](git.zh-CN.md)。
 
 `git` capability 通过 Server Git 执行器提供本地仓库发现与初始化、不暴露远程 URL 的 origin provider 分类、状态、分支列表与上下文（当前、上游、默认、领先/落后提交数）、分支创建与切换、差异、暂存、取消暂存、提交、推送，以及托管 worktree 的列举、创建、删除和恢复。每个 `git.*.request` 都返回带关联 ID 的类型化成功值或错误。Git 操作使用 Server 所在主机的文件系统和 Git 安装。托管 worktree 位于 `CYPHERIA_HOME/worktrees` 下；Server 记录其仓库身份，并通过 `refs/cypheria/worktrees/*` 在删除后恢复已提交的 HEAD。列表包括可恢复的已删除 worktree。存在未提交改动时或目标为当前工作树时拒绝删除。

@@ -43,6 +43,13 @@ import {
   type IntegrationServerMessage,
 } from "./integration.ts"
 import {
+  MAGPIE_CLIENT_SCHEMAS,
+  MAGPIE_RESPONSE_TYPES,
+  MAGPIE_SERVER_SCHEMAS,
+  type MagpieClientMessage,
+  type MagpieServerMessage,
+} from "./magpie.ts"
+import {
   CodexPermissionsModeSchema,
   PROJECT_THREAD_CLIENT_SCHEMAS,
   PROJECT_THREAD_RESPONSE_TYPES,
@@ -95,6 +102,7 @@ export * from "./git.ts"
 export * from "./harness.ts"
 export * from "./harness-codex.ts"
 export * from "./integration.ts"
+export * from "./magpie.ts"
 export * from "./project-thread.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
@@ -122,6 +130,7 @@ export const SERVER_CAPABILITIES = {
   thread: "thread",
   web3: "web3",
   integrations: "integrations",
+  magpie: "magpie",
   config: "server.config",
   diagnostics: "diagnostics",
   git: "git",
@@ -740,6 +749,7 @@ export type SessionInboundMessage =
   | ScheduleClientMessage
   | TerminalClientMessage
   | ThreadClientMessage
+  | MagpieClientMessage
   | Web3ClientMessage
 
 export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInboundMessage>([
@@ -761,6 +771,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ...SCHEDULE_CLIENT_SCHEMAS,
   ...TERMINAL_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
+  ...MAGPIE_CLIENT_SCHEMAS,
   ...WEB3_CLIENT_SCHEMAS,
 ])
 
@@ -853,6 +864,7 @@ export type SessionOutboundMessage =
   | ScheduleServerMessage
   | TerminalServerMessage
   | ThreadServerMessage
+  | MagpieServerMessage
   | Web3ServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
@@ -878,6 +890,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...SCHEDULE_SERVER_SCHEMAS,
   ...TERMINAL_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
+  ...MAGPIE_SERVER_SCHEMAS,
   ...WEB3_SERVER_SCHEMAS,
 ])
 
@@ -918,6 +931,7 @@ const clientResponseTypes = new Set<string>([
   ...SCHEDULE_RESPONSE_TYPES,
   ...TERMINAL_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
+  ...MAGPIE_RESPONSE_TYPES,
   ...WEB3_RESPONSE_TYPES,
 ])
 

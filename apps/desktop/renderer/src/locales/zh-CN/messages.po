@@ -2697,3 +2697,239 @@ msgstr "未找到项目"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.project.new"
 msgstr "新建项目"
+
+#. placeholder {0}: provider.exposedModels
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "{0} models"
+msgstr "{0} 个模型"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
+msgstr "由 magpie 运行的本地网关，为 Cypheria 管理的 Agent 提供所有模型与订阅。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Agents"
+msgstr "Agents"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "AI gateway"
+msgstr "AI 网关"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "All time"
+msgstr "全部时间"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "An Agent set to a routing group has each request served by one of its members, by the group's routing."
+msgstr "设为路由组的 Agent，每个请求都按该组的路由方式由其中一个成员处理。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "API port"
+msgstr "API 端口"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Cost"
+msgstr "费用"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Enable the AI gateway"
+msgstr "启用 AI 网关"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Errors"
+msgstr "错误"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Failed"
+msgstr "失败"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "Gateway"
+msgstr "网关"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.gateway"
+msgstr "网关"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Gateway port"
+msgstr "网关端口"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.general"
+msgstr "通用"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Installing…"
+msgstr "正在安装…"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "It was used without reaching the gateway."
+msgstr "它被使用过，但请求没有经过网关。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its model was changed outside the gateway."
+msgstr "它的模型在网关之外被修改了。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its settings no longer send it through the gateway."
+msgstr "它的设置已不再经过网关。"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Key"
+msgstr "密钥"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 30 days"
+msgstr "最近 30 天"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 7 days"
+msgstr "最近 7 天"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
+msgstr "magpie 会修改 Cypheria 管理的 Agent 在其 Cypheria 目录中的设置。为每个 Agent 选择它使用的模型或路由组。"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Model"
+msgstr "模型"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "No installed Agent is enabled."
+msgstr "没有已启用的已安装 Agent。"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "No provider yet."
+msgstr "还没有提供方。"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "No routing group yet."
+msgstr "还没有路由组。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Not installed"
+msgstr "未安装"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Not ready"
+msgstr "未就绪"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Off"
+msgstr "已关闭"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.providers"
+msgstr "提供方"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Providers"
+msgstr "提供方"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Requests"
+msgstr "请求"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Restart"
+msgstr "重启"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.routing"
+msgstr "路由"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Routing groups"
+msgstr "路由组"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running"
+msgstr "运行中"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running since"
+msgstr "启动时间"
+
+#. placeholder {0}: view.version
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
+msgstr "为 Cypheria 的 Agent 运行 magpie：用一个本地端点提供所有模型与订阅，并支持路由组和用量统计。首次开启时会安装 magpie {0}。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Starting…"
+msgstr "正在启动…"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Stopped"
+msgstr "已停止"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Subscription"
+msgstr "订阅"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The Agent could not be changed"
+msgstr "无法修改该 Agent"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The gateway could not be changed"
+msgstr "无法修改网关"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "The requests the gateway served, their tokens and their cost."
+msgstr "网关处理的请求、其 token 数与费用。"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
+msgstr "Cypheria 所管理 Agent 的订阅（登录信息保存在这些 Agent 自己的位置），以及用密钥添加的提供方。"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Today"
+msgstr "今天"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Tokens"
+msgstr "Token"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Turn the gateway on to see its providers."
+msgstr "开启网关后可查看其提供方。"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Turn the gateway on to see its routing groups."
+msgstr "开启网关后可查看其路由组。"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Turn the gateway on to see its usage."
+msgstr "开启网关后可查看其用量。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Turn the gateway on to set up the Agents."
+msgstr "开启网关后可设置 Agent。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.usage"
+msgstr "用量"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Usage"
+msgstr "用量"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Version"
+msgstr "版本"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Wire again"
+msgstr "重新接入"

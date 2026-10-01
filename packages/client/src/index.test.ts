@@ -20,6 +20,7 @@ describe("Cypheria client facade", () => {
       "git",
       "harnesses",
       "integrations",
+      "magpie",
       "on",
       "projectThread",
       "projects",

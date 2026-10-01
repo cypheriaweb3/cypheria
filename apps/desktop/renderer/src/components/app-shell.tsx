@@ -70,6 +70,7 @@ import {
   GitBranch,
   LoaderCircle,
   MoreHorizontal,
+  Network,
   Palette,
   Plus,
   Search,
@@ -498,6 +499,7 @@ function SettingsNavigation({
   const { i18n: activeI18n } = useLingui()
   const [searchQuery, setSearchQuery] = useState("")
   const [harnessesExpanded, setHarnessesExpanded] = useState(true)
+  const [gatewayExpanded, setGatewayExpanded] = useState(true)
   const [installDialogOpen, setInstallDialogOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -513,9 +515,35 @@ function SettingsNavigation({
     const harnessLabel = activeI18n._(
       msg({ id: "settings.agentHarnesses", message: "Agent harnesses" })
     )
+    const gatewayLabel = activeI18n._(msg({ id: "settings.gateway", message: "Gateway" }))
+    const gatewaySections = [
+      {
+        href: "/settings/gateway/general",
+        id: "general",
+        label: activeI18n._(msg({ id: "settings.gateway.general", message: "General" })),
+      },
+      {
+        href: "/settings/gateway/providers",
+        id: "providers",
+        label: activeI18n._(msg({ id: "settings.gateway.providers", message: "Providers" })),
+      },
+      {
+        href: "/settings/gateway/routing",
+        id: "routing",
+        label: activeI18n._(msg({ id: "settings.gateway.routing", message: "Routing" })),
+      },
+      {
+        href: "/settings/gateway/usage",
+        id: "usage",
+        label: activeI18n._(msg({ id: "settings.gateway.usage", message: "Usage" })),
+      },
+    ]
     return buildSettingsNavigationRows<HarnessNavigationAgent, ReactNode>({
       agents: agents.data?.agents ?? nativeHarnessNavigationAgents,
       emptyLabel: activeI18n._(msg({ id: "settings.search.empty", message: "No results found" })),
+      gatewayExpanded,
+      gatewayLabel,
+      gatewaySections,
       groups: settingsGroups.map((group) => ({
         id: group.id,
         items: settingsItems
@@ -533,7 +561,7 @@ function SettingsNavigation({
       locale: activeI18n.locale,
       query: searchQuery,
     })
-  }, [activeI18n, agents.data?.agents, harnessesExpanded, searchQuery])
+  }, [activeI18n, agents.data?.agents, gatewayExpanded, harnessesExpanded, searchQuery])
   const virtualizer = useVirtualizer({
     count: rows.length,
     estimateSize: (index) =>
@@ -543,7 +571,7 @@ function SettingsNavigation({
     overscan: 8,
   })
 
-  const navigationLayoutKey = `${harnessesExpanded}:${rows.length}`
+  const navigationLayoutKey = `${harnessesExpanded}:${gatewayExpanded}:${rows.length}`
   useEffect(() => {
     if (!navigationLayoutKey) return
     virtualizer.measure()
@@ -551,13 +579,16 @@ function SettingsNavigation({
 
   useEffect(() => {
     if (pathname.startsWith("/settings/agent-harnesses/")) setHarnessesExpanded(true)
+    if (pathname.startsWith("/settings/gateway/")) setGatewayExpanded(true)
   }, [pathname])
 
   useEffect(() => {
     const activeIndex = rows.findIndex((row) =>
       row.kind === "agent"
         ? pathname.startsWith(`/settings/agent-harnesses/${row.agent.id}/`)
-        : row.kind === "item" && pathname === row.href
+        : row.kind === "gateway-section"
+          ? pathname === row.href
+          : row.kind === "item" && pathname === row.href
     )
     if (activeIndex >= 0) virtualizer.scrollToIndex(activeIndex, { align: "auto" })
   }, [pathname, rows, virtualizer])
@@ -718,6 +749,43 @@ function SettingsNavigation({
                         <HarnessNavigationMenu
                           active={pathname.startsWith(`/settings/agent-harnesses/${row.agent.id}/`)}
                           agent={row.agent}
+                        />
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  ) : null}
+                  {row.kind === "gateway" ? (
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          onClick={() => setGatewayExpanded((value) => !value)}
+                          tooltip={row.label}
+                        >
+                          {gatewayExpanded ? (
+                            <ChevronDown className="size-4" />
+                          ) : (
+                            <ChevronRight className="size-4" />
+                          )}
+                          <Network className="size-4" />
+                          <span>{row.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  ) : null}
+                  {row.kind === "gateway-section" ? (
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          className="pl-7"
+                          isActive={pathname === row.href}
+                          render={
+                            <Link
+                              to="/settings/gateway/$sectionId"
+                              params={{ sectionId: row.sectionId }}
+                            >
+                              <span>{row.label}</span>
+                            </Link>
+                          }
+                          tooltip={row.label}
                         />
                       </SidebarMenuItem>
                     </SidebarMenu>

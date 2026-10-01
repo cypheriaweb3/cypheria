@@ -1,0 +1,13 @@
+{
+  "sourceRepository": "cypheriaweb3/magpie",
+  "releasesRepository": "cypheriaweb3/magpie-releases",
+  "version": "0.1.575-cypheria",
+  "cliSha256": {
+    "darwin-arm64": "d1e2b1d0abfb46474c32f69506474a67dccbbb8a820d90f72e5dcd104dd4561f",
+    "darwin-x64": "02bc82e36e5602c27c1d3b102cea64b083bc41f2a19c197d0ede153c387d2882",
+    "linux-arm64": "d47e80f21a02f142f58495d807b665e3b5c5aadc4177647d7802c8bc85bf0350",
+    "linux-x64": "bf03a25dd8ce72418267cc2547507dc79814da8c531060790893260ef0f1831b",
+    "win32-arm64": "24121f8904bf3902f5f08208c41943bc7b226327151ba84b665918f361148af4",
+    "win32-x64": "9b26fc5f94569eed5f74e3da44d663ac7280dafb7a30685dbf914843bfd565c5"
+  }
+}
