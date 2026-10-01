@@ -73,6 +73,7 @@ const harness = (threads: AppToolThread[] = []) => {
   const created: unknown[] = []
   const store = new Map(threads.map((entry) => [entry.id, entry]))
   const service = new AppToolService({
+    automations: { call: async (args) => ({ echoed: args.mode }) },
     attachments: {
       attachPullRequest: async (_threadId, url) => {
         const entry = {
@@ -403,6 +404,15 @@ describe("AppToolService", () => {
     expect((await call("reorder_sidebar_sections", { sectionIds: ["s1", "pinned"] })).success).toBe(
       true
     )
+  })
+
+  describe("automation_update", () => {
+    it("hands the arguments and the calling thread to the automation tool", async () => {
+      const { call } = harness([thread("caller")])
+      const { success, value } = await call("automation_update", { mode: "view" })
+      expect(success).toBe(true)
+      expect(JSON.parse(value)).toEqual({ echoed: "view" })
+    })
   })
 
   describe("handoff", () => {

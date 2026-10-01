@@ -70,6 +70,7 @@ import { type WebSocket, WebSocketServer } from "ws"
 import { AgentManager } from "./agent/agent-manager.js"
 import { CYPHERIA_RENDERING_CAPABILITIES } from "./agent/codex-developer-instructions.js"
 import { mapCodexInput } from "./agent/managed-thread-adapter.js"
+import { AutomationTool } from "./app-tools/automation.js"
 import { HandoffService } from "./app-tools/handoff.js"
 import { AppToolService } from "./app-tools/service.js"
 import { BrowserToolsService } from "./browser-tools/service.js"
@@ -346,7 +347,41 @@ export class CypheriaServer implements HttpAppHost {
       },
       () => this.configStore.getSnapshot().config.git
     )
+    const projectRequest = async (type: string, payload: unknown): Promise<unknown> => {
+      let result: unknown
+      await this.projectThread.handle(
+        { payload, requestId: createThreadId(), type } as ProjectThreadClientMessage,
+        (message) => {
+          result = (message as { payload?: unknown }).payload
+        }
+      )
+      const outcome = result as
+        | { ok: true; value: unknown }
+        | { error: { message: string }; ok: false }
+        | undefined
+      if (!outcome?.ok) throw new Error(outcome?.error.message ?? "Request failed")
+      return outcome.value
+    }
     this.appTools = new AppToolService({
+      automations: new AutomationTool({
+        agentOf: async (threadId) =>
+          (await this.threadManager.get(threadId).catch(() => undefined))?.agentId,
+        defaultAgentId: "codex",
+        projectRoot: async (projectId) => {
+          const project = (await projectRequest("project.read.request", { projectId })) as {
+            roots: string[]
+          }
+          return project.roots[0] as string
+        },
+        schedules: {
+          create: (input) => this.schedules.create(input),
+          delete: (id) => this.schedules.delete(id),
+          get: (id) => this.schedules.get(id),
+          pause: (id) => this.schedules.pause(id),
+          resume: (id) => this.schedules.resume(id),
+          update: (input) => this.schedules.update(input),
+        },
+      }),
       handoff: new HandoffService({
         git: this.git,
         randomId: () => randomUUID(),
@@ -360,21 +395,7 @@ export class CypheriaServer implements HttpAppHost {
           () => false
         ),
       pinnedSectionId: PINNED_SECTION_ID,
-      projectThread: async (type, payload) => {
-        let result: unknown
-        await this.projectThread.handle(
-          { payload, requestId: createThreadId(), type } as ProjectThreadClientMessage,
-          (message) => {
-            result = (message as { payload?: unknown }).payload
-          }
-        )
-        const outcome = result as
-          | { ok: true; value: unknown }
-          | { error: { message: string }; ok: false }
-          | undefined
-        if (!outcome?.ok) throw new Error(outcome?.error.message ?? "Request failed")
-        return outcome.value
-      },
+      projectThread: projectRequest,
       randomId: () => randomUUID(),
       threads: this.threadManager,
       worktrees: {
