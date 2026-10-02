@@ -53,6 +53,7 @@ import type {
   GitOrigin,
   GitRepositoryChangedNotification,
   GitReviewFile,
+  GitReviewFileContents,
   GitReviewLineCount,
   GitServerMessage,
   GitSettings,
@@ -85,6 +86,8 @@ export type GitStatus = {
   readonly entries: readonly { readonly code: string; readonly path: string }[]
   readonly head: string | null
   readonly repository: GitRepository
+  /** Untracked files left out of `entries` because there were too many to list. */
+  readonly untrackedOmitted: number
 }
 
 const trimmed = (value: string): string => value.trimEnd()
@@ -189,6 +192,12 @@ const parseIndexEntries = (output: string): GitIndexEntry[] =>
         path: match[4] ?? "",
       }
     })
+
+const unavailableText = Symbol("unavailable text")
+/** Most untracked files a status lists; beyond it they are counted and left out. */
+const statusUntrackedLimit = 2000
+/** Largest file side, in bytes, that a Review reads in full. */
+const reviewTextLimit = 4 * 1024 * 1024
 
 export class GitService {
   readonly #executor: GitExecutor
@@ -358,6 +367,14 @@ export class GitService {
             message.payload.revision,
             message.payload.path
           )
+          break
+        case "git.review-file-contents.request": {
+          const { cwd, ...input } = message.payload
+          value = await this.reviewFileContents(cwd, input)
+          break
+        }
+        case "git.generated-paths.request":
+          value = await this.generatedPaths(message.payload.cwd, message.payload.paths)
           break
         case "git.blame-file.request":
           value = await this.blameFile(message.payload.cwd, message.payload.path)
@@ -2576,6 +2593,119 @@ export class GitService {
     return { status: "success", content: bytes.toString("utf8") }
   }
 
+  /**
+   * Both complete sides of a Review file as UTF-8 text: the index or `HEAD` against the working
+   * tree or index for local sources, and the pinned revisions for branch, commit, and last-turn
+   * sources. A missing side is null; binary or oversized content makes the file unavailable.
+   */
+  async reviewFileContents(
+    cwd: string,
+    input: {
+      source: "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
+      path: string
+      oldPath?: string
+      base?: string
+      head?: string
+    }
+  ): Promise<GitReviewFileContents> {
+    const { root } = await this.discover(cwd)
+    const newPath = this.#historicalPath(root, input.path)
+    const oldPath = input.oldPath ? this.#historicalPath(root, input.oldPath) : newPath
+    const pinned =
+      input.source === "branch" || input.source === "commit" || input.source === "last-turn"
+    if (pinned && (!input.base || !input.head))
+      throw new Error("Pinned Review sources require base and head revisions")
+    const oldRevision = pinned
+      ? (input.base as string)
+      : input.source === "unstaged"
+        ? ":0"
+        : "HEAD"
+    const [oldContent, newContent] = await Promise.all([
+      this.#textAtRevision(root, oldRevision, oldPath),
+      pinned
+        ? this.#textAtRevision(root, input.head as string, newPath)
+        : input.source === "staged"
+          ? this.#textAtRevision(root, ":0", newPath)
+          : this.#workingTreeText(root, newPath),
+    ])
+    if (oldContent === unavailableText || newContent === unavailableText)
+      return { status: "unavailable" }
+    return { status: "success", oldContent, newContent }
+  }
+
+  async #textAtRevision(
+    root: string,
+    revision: string,
+    path: string
+  ): Promise<string | null | typeof unavailableText> {
+    const object = await this.#executor
+      .run(root, ["rev-parse", "--verify", "--quiet", "--end-of-options", `${revision}:${path}`], {
+        readOnly: true,
+      })
+      .then((result) => trimmed(result.stdout))
+      .catch(() => null)
+    if (!object) return null
+    if (!/^[a-f0-9]{40,64}$/iu.test(object)) throw new Error("Git returned an invalid object")
+    const kind = trimmed(
+      (await this.#executor.run(root, ["cat-file", "-t", object], { readOnly: true })).stdout
+    )
+    if (kind !== "blob") return unavailableText
+    const size = Number(
+      trimmed(
+        (await this.#executor.run(root, ["cat-file", "-s", object], { readOnly: true })).stdout
+      )
+    )
+    if (!Number.isSafeInteger(size) || size < 0) throw new Error("Git returned invalid blob size")
+    if (size > reviewTextLimit) return unavailableText
+    const bytes = await this.#executor.readBlob(root, object, reviewTextLimit)
+    return bytes.length !== size || bytes.includes(0) || !isUtf8(bytes)
+      ? unavailableText
+      : bytes.toString("utf8")
+  }
+
+  async #workingTreeText(
+    root: string,
+    path: string
+  ): Promise<string | null | typeof unavailableText> {
+    const [safePath] = await this.#paths(root, [path]).catch(() => [null])
+    if (!safePath) return null
+    const absolute = resolve(root, safePath)
+    const info = await lstat(absolute).catch(() => null)
+    if (!info) return null
+    if (!info.isFile() || info.size > reviewTextLimit) return unavailableText
+    const handle = await open(absolute, constants.O_RDONLY | constants.O_NOFOLLOW)
+    try {
+      const stats = await handle.stat()
+      if (!stats.isFile() || stats.size > reviewTextLimit) return unavailableText
+      const bytes = await handle.readFile()
+      return bytes.length > reviewTextLimit || bytes.includes(0) || !isUtf8(bytes)
+        ? unavailableText
+        : bytes.toString("utf8")
+    } finally {
+      await handle.close()
+    }
+  }
+
+  /** The paths the repository's attributes mark `linguist-generated`, in request order. */
+  async generatedPaths(cwd: string, paths: readonly string[]): Promise<string[]> {
+    const { root } = await this.discover(cwd)
+    const safe = paths.map((path) => this.#historicalPath(root, path))
+    const generated = new Set<string>()
+    for (let index = 0; index < safe.length; index += 200) {
+      const { stdout } = await this.#executor.run(
+        root,
+        ["check-attr", "-z", "linguist-generated", "--", ...safe.slice(index, index + 200)],
+        { readOnly: true }
+      )
+      const fields = stdout.split("\0")
+      for (let field = 0; field + 2 < fields.length; field += 3) {
+        const value = fields[field + 2]
+        if (value === "set" || value === "true") generated.add(fields[field] ?? "")
+      }
+    }
+    return paths.filter((_, index) => generated.has(safe[index] ?? ""))
+  }
+
   async blameFile(cwd: string, path: string): Promise<GitBlameLine[]> {
     const { root } = await this.discover(cwd)
     const safePath = this.#historicalPath(root, path)
@@ -2771,16 +2901,26 @@ export class GitService {
     ])
     const records = porcelain.stdout.split("\0")
     const entries: { code: string; path: string }[] = []
+    let untracked = 0
     for (let index = 0; index < records.length; index += 1) {
       const record = records[index]
       if (!record) continue
       const code = record.slice(0, 2)
       const path = record.slice(3)
       if (!path) continue
+      if (code === "??") untracked += 1
       entries.push({ code, path })
       if (code.includes("R") || code.includes("C")) index += 1
     }
-    return { branch, entries, head, repository }
+    if (untracked > statusUntrackedLimit)
+      return {
+        branch,
+        entries: entries.filter((entry) => entry.code !== "??"),
+        head,
+        repository,
+        untrackedOmitted: untracked,
+      }
+    return { branch, entries, head, repository, untrackedOmitted: 0 }
   }
 
   async diff(

@@ -40,6 +40,7 @@ import type {
   GitRemoteIdentity,
   GitRepository,
   GitReviewFile,
+  GitReviewFileContents,
   GitReviewLineCount,
   GitReviewUndoEntry,
   GitServerMessage,
@@ -116,6 +117,18 @@ export interface GitActions {
     path: string,
     options?: RequestOptions
   ): Promise<GitTextBlob>
+  reviewFileContents(
+    cwd: string,
+    input: {
+      source: "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
+      path: string
+      oldPath?: string
+      base?: string
+      head?: string
+    },
+    options?: RequestOptions
+  ): Promise<GitReviewFileContents>
+  generatedPaths(cwd: string, paths: string[], options?: RequestOptions): Promise<string[]>
   blameFile(cwd: string, path: string, options?: RequestOptions): Promise<GitBlameLine[]>
   indexInfo(cwd: string, options?: RequestOptions): Promise<{ lastModified: number }>
   init(cwd: string, options?: RequestOptions): Promise<GitRepository>
@@ -681,6 +694,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.submodule-paths.request", { cwd }, options)),
   textBlob: async (cwd, revision, path, options) =>
     unwrap(await client.requestGit("git.text-blob.request", { cwd, revision, path }, options)),
+  reviewFileContents: async (cwd, input, options) =>
+    unwrap(await client.requestGit("git.review-file-contents.request", { cwd, ...input }, options)),
+  generatedPaths: async (cwd, paths, options) =>
+    unwrap(await client.requestGit("git.generated-paths.request", { cwd, paths }, options)),
   blameFile: async (cwd, path, options) =>
     unwrap(await client.requestGit("git.blame-file.request", { cwd, path }, options)),
   indexInfo: async (cwd, options) =>

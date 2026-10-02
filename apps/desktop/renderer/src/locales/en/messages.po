@@ -3393,3 +3393,48 @@ msgstr "Copy path"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.diff.openInGitHub"
 msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideImports"
+msgstr "Hide imports"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideGenerated"
+msgstr "Hide generated files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.largeDiff"
+msgstr "This diff is large, so it shows one file at a time."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.previousFile"
+msgstr "Previous file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.nextFile"
+msgstr "Next file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.title"
+msgstr "Showing tracked changes only"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.description"
+msgstr "Review skipped {count} untracked files to stay responsive. If they are generated, ignore or clean them up, then refresh."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.copyCleanup"
+msgstr "Copy cleanup command"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.refresh"
+msgstr "Refresh"

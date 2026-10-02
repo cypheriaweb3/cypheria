@@ -18,7 +18,10 @@ import {
   ChatDiffViewer,
   ChatReviewFileTree,
   type ChatReviewTreeFile,
+  chatDiffFileSections,
   chatDiffFingerprints,
+  chatHideImportOnlyHunks,
+  isLikelyGeneratedPath,
   parseChatDiffFiles,
 } from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
@@ -706,7 +709,33 @@ export function GitHubPrPanel({
       ) : null}
     </div>
   )
-  const prFingerprints = useMemo(() => chatDiffFingerprints(prDiff.data ?? ""), [prDiff.data])
+  const prSections = useMemo(
+    () =>
+      chatDiffFileSections(prDiff.data ?? "").filter(
+        (section) => !diffDisplay.hideGenerated || !isLikelyGeneratedPath(section.path)
+      ),
+    [diffDisplay.hideGenerated, prDiff.data]
+  )
+  const prVisiblePatch = useMemo(
+    () => prSections.map((section) => section.text).join(""),
+    [prSections]
+  )
+  const prLargeDiff = prSections.length > 60 || prVisiblePatch.length > 1_000_000
+  const prPagedIndex = prLargeDiff
+    ? Math.max(
+        0,
+        prSections.findIndex((section) => section.path === prSelectedFile)
+      )
+    : -1
+  const prShownPatch = useMemo(() => {
+    const patch = prPagedIndex >= 0 ? (prSections[prPagedIndex]?.text ?? "") : prVisiblePatch
+    return diffDisplay.hideImports ? chatHideImportOnlyHunks(patch) : patch
+  }, [diffDisplay.hideImports, prPagedIndex, prSections, prVisiblePatch])
+  const showPrPage = (index: number) => {
+    const path = prSections[index]?.path
+    if (path) setPrSelectedFile(path)
+  }
+  const prFingerprints = useMemo(() => chatDiffFingerprints(prVisiblePatch), [prVisiblePatch])
   const prViewed = useViewedFiles(`pr:${selected.data?.url ?? cwd}`, prFingerprints)
   const prShownCollapsed = useMemo(
     () => new Set([...prCollapsedPaths, ...prViewed.viewedPaths]),
@@ -757,23 +786,21 @@ export function GitHubPrPanel({
       ? `${match[1]}/blob/${pr.headRefOid}/${path.split("/").map(encodeURIComponent).join("/")}`
       : null
   }
-  const prDiffFiles: ChatReviewTreeFile[] = parseChatDiffFiles(prDiff.data ?? "").map(
-    ({ file }) => ({
-      viewed: prViewed.markedPaths.has(file.name),
-      additions: file.hunks.reduce((total, hunk) => total + hunk.additionLines, 0),
-      comments: (threads.data?.threads ?? []).filter((thread) => thread.path === file.name).length,
-      deletions: file.hunks.reduce((total, hunk) => total + hunk.deletionLines, 0),
-      path: file.name,
-      status:
-        file.type === "new"
-          ? "added"
-          : file.type === "deleted"
-            ? "deleted"
-            : file.type === "rename-pure" || file.type === "rename-changed"
-              ? "renamed"
-              : "modified",
-    })
-  )
+  const prDiffFiles: ChatReviewTreeFile[] = parseChatDiffFiles(prVisiblePatch).map(({ file }) => ({
+    viewed: prViewed.markedPaths.has(file.name),
+    additions: file.hunks.reduce((total, hunk) => total + hunk.additionLines, 0),
+    comments: (threads.data?.threads ?? []).filter((thread) => thread.path === file.name).length,
+    deletions: file.hunks.reduce((total, hunk) => total + hunk.deletionLines, 0),
+    path: file.name,
+    status:
+      file.type === "new"
+        ? "added"
+        : file.type === "deleted"
+          ? "deleted"
+          : file.type === "rename-pure" || file.type === "rename-changed"
+            ? "renamed"
+            : "modified",
+  }))
   const canCommentInline =
     cliAvailable && selected.data?.state === "OPEN" && Boolean(selected.data.headRefOid)
   const postInlineComment = (target: ChatDiffTarget) =>
@@ -1894,13 +1921,43 @@ export function GitHubPrPanel({
                           {...(loadPrFiles
                             ? { fullFiles: prFullFiles, onFullFilesChange: setPrFullFiles }
                             : {})}
-                          {...(prDiff.data ? { patch: prDiff.data } : {})}
+                          {...(prVisiblePatch ? { patch: prVisiblePatch } : {})}
                         />
                       </span>
                     ) : null}
                   </div>
                   {showDiff ? (
                     <div className="space-y-2">
+                      {prLargeDiff ? (
+                        <div className="flex items-center gap-2 rounded border px-2 py-1 text-xs">
+                          <span className="min-w-0 flex-1 text-muted-foreground">
+                            <Trans id="git.diff.largeDiff">
+                              This diff is large, so it shows one file at a time.
+                            </Trans>
+                          </span>
+                          <Button
+                            disabled={prPagedIndex <= 0}
+                            onClick={() => showPrPage(prPagedIndex - 1)}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trans id="git.diff.previousFile">Previous file</Trans>
+                          </Button>
+                          <span className="tabular-nums">
+                            {prPagedIndex + 1}/{prSections.length}
+                          </span>
+                          <Button
+                            disabled={prPagedIndex >= prSections.length - 1}
+                            onClick={() => showPrPage(prPagedIndex + 1)}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trans id="git.diff.nextFile">Next file</Trans>
+                          </Button>
+                        </div>
+                      ) : null}
                       <div className="flex min-h-0 flex-col rounded border @container">
                         <div className="flex min-h-0 flex-col @2xl:flex-row">
                           {prDiffFiles.length > 1 ? (
@@ -2006,6 +2063,7 @@ export function GitHubPrPanel({
                               wordDiffs={diffDisplay.wordDiffs}
                               wrap={diffDisplay.wrap}
                               {...(loadPrFiles && prFullFiles ? { loadFiles: loadPrFiles } : {})}
+                              patch={prShownPatch}
                               fallback={
                                 <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
                                   {prDiff.isError
@@ -2028,7 +2086,6 @@ export function GitHubPrPanel({
                                     },
                                   }
                                 : {})}
-                              patch={prDiff.data ?? ""}
                             />
                           </div>
                         </div>
