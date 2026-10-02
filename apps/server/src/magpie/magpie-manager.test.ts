@@ -91,6 +91,8 @@ describe.skipIf(process.platform === "win32")("MagpieManager", () => {
   let home: string
   let fakeLog: string
   let previousLog: string | undefined
+  /** Processes and managers a test starts; stopped even when the test fails or times out. */
+  let cleanups: Array<() => Promise<void> | void>
 
   beforeEach(async () => {
     home = await mkdtemp(join(tmpdir(), "cypheria-magpie-"))
@@ -99,21 +101,21 @@ describe.skipIf(process.platform === "win32")("MagpieManager", () => {
     process.env.FAKE_LOG = fakeLog
     const executable = join(home, "toolchains", "magpie", MAGPIE_RELEASE.version, "magpie")
     await mkdir(join(executable, ".."), { recursive: true })
-    await writeFile(join(home, "fake-magpie.cjs"), FAKE_MAGPIE)
-    await writeFile(
-      executable,
-      `#!/bin/sh\nexec "${process.execPath}" "${join(home, "fake-magpie.cjs")}" "$@"\n`
-    )
+    cleanups = []
+    // The fake runs as the executable itself, so `ps` shows its path the way it shows the real
+    // binary's, which is how the manager recognizes a magpie it left running.
+    await writeFile(executable, `#!${process.execPath}\n${FAKE_MAGPIE}`)
     await chmod(executable, 0o755)
   })
 
   afterEach(async () => {
+    for (const cleanup of cleanups.reverse()) await cleanup()
     process.env.FAKE_LOG = previousLog
     await rm(home, { force: true, recursive: true })
   })
 
-  const manager = (taken: number[] = []) =>
-    new MagpieManager({
+  const manager = (taken: number[] = []) => {
+    const created = new MagpieManager({
       download: async () => {
         throw new Error("no download in tests")
       },
@@ -124,6 +126,9 @@ describe.skipIf(process.platform === "win32")("MagpieManager", () => {
       paths: buildRuntimePaths({ env: { CYPHERIA_HOME: home } }),
       portAvailable: async (port) => !taken.includes(port),
     })
+    cleanups.push(() => created.shutdown())
+    return created
+  }
 
   const logged = async () =>
     (await readFile(fakeLog, "utf8").catch(() => ""))
@@ -209,6 +214,9 @@ describe.skipIf(process.platform === "win32")("MagpieManager", () => {
     const leftover = spawn(executable, ["web", "--addr", "127.0.0.1:0"], {
       env: { ...process.env, MAGPIE_WEB_KEY: "x" },
       stdio: "ignore",
+    })
+    cleanups.push(() => {
+      if (leftover.exitCode === null && leftover.signalCode === null) leftover.kill("SIGKILL")
     })
     await new Promise((resolve) => setTimeout(resolve, 300))
     await mkdir(join(home, "gateway"), { recursive: true })
