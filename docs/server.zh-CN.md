@@ -120,12 +120,15 @@ Codex、Pi 和 ACP 进程生命周期记录包含 Agent ID、进程 ID、退出�
 | `POST` | `/api/v1/runtime/request` | 经校验的特权 runtime 请求 |
 | `POST` | `/api/v1/lifecycle/restart` | 受监管的 worker 重启 |
 | `POST` | `/api/v1/lifecycle/shutdown` | 完整关闭 Server |
+| `GET` | `/api/v1/app-tools/tools` | 供 `cypheria-app-tools` 插件使用的 app 与 Git 工具目录 |
+| `POST` | `/api/v1/app-tools/call` | 为发起调用的 Thread 执行 app tool |
+| `POST` | `/api/v1/app-tools/git` | 为插件执行 Git 操作 |
 
 大多数产品操作使用 `/api/v1/ws`；REST 运维接口不会落入 SPA fallback。
 
 ## 认证与网络安全
 
-默认只监听 loopback。未配置 Server token 时拒绝非 loopback 地址。HTTP 使用 Bearer header。浏览器 WebSocket 无法设置任意认证 header，因此通过协商的 Cypheria subprotocol 携带 token。
+默认只监听 loopback。未配置 Server token 时拒绝非 loopback 地址。HTTP 使用 Bearer header。`/api/v1/app-tools/*` 路由则要求 Server 交给其 Agent 进程的 app tools token，见 [Cypheria app tools](integrations.zh-CN.md#cypheria-app-tools)。浏览器 WebSocket 无法设置任意认证 header，因此通过协商的 Cypheria subprotocol 携带 token。
 
 允许没有 `Origin` header 的原生客户端。浏览器连接默认仅允许同源；跨源访问需要显式 allowlist。Token 不通过 URL 传递，也不会编译进 Expo bundle。TLS 在 Node 进程之外终止。
 

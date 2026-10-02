@@ -71,8 +71,9 @@ import { AgentManager } from "./agent/agent-manager.js"
 import { CYPHERIA_RENDERING_CAPABILITIES } from "./agent/codex-developer-instructions.js"
 import { mapCodexInput } from "./agent/managed-thread-adapter.js"
 import { AutomationTool } from "./app-tools/automation.js"
+import { type AppToolGrant, AppToolGrants, codexCallerSessionIds } from "./app-tools/grants.js"
 import { HandoffService } from "./app-tools/handoff.js"
-import { AppToolService } from "./app-tools/service.js"
+import { type AppToolMcpResult, AppToolService, toMcpResult } from "./app-tools/service.js"
 import { BrowserToolsService } from "./browser-tools/service.js"
 import { browserToolSpecs } from "./browser-tools/tools.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
@@ -148,6 +149,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly browserTools: BrowserToolsService
   readonly projectThread: ProjectThreadService
   readonly appTools: AppToolService
+  readonly appToolGrants = new AppToolGrants()
   readonly integrations: IntegrationService
   readonly codexHarness: CodexHarnessService
   readonly harnesses: HarnessService
@@ -232,7 +234,25 @@ export class CypheriaServer implements HttpAppHost {
         tools: AppToolService.toolNames,
       }),
       agentDefaults: () => ({}),
-      agentEnvironment: (_agentId, base) => this.networkProxy.environment(base),
+      agentEnvironment: (agentId, base) => {
+        // Agent processes, and the commands they run, reach the Server only through app tools
+        // tokens; the Server's own token stays out of their environment.
+        const { CYPHERIA_SERVER_TOKEN: _serverToken, ...environment } = base
+        return this.networkProxy.environment(
+          agentId === "codex"
+            ? {
+                ...environment,
+                CYPHERIA_APP_TOOLS_TOKEN: this.appToolGrants.forCodex(),
+                CYPHERIA_SERVER_URL: this.#appToolsServerUrl(),
+              }
+            : environment
+        )
+      },
+      prepareAppTools: (agentId) => this.integrations.ensureBundledPlugin(agentId),
+      appToolsThreadEnvironment: (threadId) => ({
+        CYPHERIA_APP_TOOLS_TOKEN: this.appToolGrants.forThread(threadId),
+        CYPHERIA_SERVER_URL: this.#appToolsServerUrl(),
+      }),
     })
     this.integrations = new IntegrationService(this.agentManager, {
       marketplaces: createPluginMarketplacePersistenceService(this.database.db),
@@ -470,11 +490,6 @@ export class CypheriaServer implements HttpAppHost {
       await this.agentManager.start()
       this.agentManager.registerCodexDynamicTools(browserToolSpecs(), (request, context) =>
         this.browserTools.callCodexTool(request, context)
-      )
-      this.agentManager.registerCodexDynamicTools(
-        AppToolService.specs,
-        (request, context) => this.appTools.call(request, context),
-        { decorate: this.appTools.decorateSpecs }
       )
       await this.projectThread.initialize()
       await this.threadManager.initialize()
@@ -1052,6 +1067,56 @@ export class CypheriaServer implements HttpAppHost {
     source: SessionTransport
   ): Promise<boolean> {
     return this.terminals.handleBinaryFrame(frame, sessionId, source)
+  }
+
+  /** The URL Agent processes on this host use to reach the Server, before and after it listens. */
+  #appToolsServerUrl(): string {
+    const port = this.#address?.port ?? this.config.port
+    const host = this.config.host
+    if (host === "::1") return `http://[::1]:${port}`
+    if (["", "0.0.0.0", "::", "localhost", "127.0.0.1"].includes(host)) {
+      return `http://127.0.0.1:${port}`
+    }
+    return `http://${host.includes(":") ? `[${host}]` : host}:${port}`
+  }
+
+  verifyAppToolToken(token: string | undefined): AppToolGrant | null {
+    return this.appToolGrants.verify(token)
+  }
+
+  async listAppTools() {
+    return await this.appTools.mcpTools()
+  }
+
+  /**
+   * Runs an app tool for the caller a token speaks for. A Codex call names its Thread through the
+   * turn metadata Codex attaches; a Claude call is bound to its Thread by the token itself.
+   */
+  async callAppTool(
+    grant: AppToolGrant,
+    request: { name: string; arguments?: unknown; codexTurnMetadata?: unknown },
+    signal?: AbortSignal
+  ): Promise<AppToolMcpResult> {
+    const context =
+      grant.kind === "thread"
+        ? this.agentManager.appToolContextForThread(grant.threadId)
+        : this.agentManager.appToolContextForCodexSession(
+            codexCallerSessionIds(request.codexTurnMetadata)
+          )
+    if (!context) {
+      return {
+        content: [
+          { text: "Cypheria could not find the Thread that made this call.", type: "text" },
+        ],
+        isError: true,
+      }
+    }
+    return toMcpResult(
+      await this.appTools.call(
+        { arguments: request.arguments ?? {}, tool: request.name },
+        { ...context, ...(signal ? { signal } : {}) }
+      )
+    )
   }
 
   async handleGitMessage(

@@ -4,8 +4,9 @@ import type { v2 } from "@cypheria/protocol/codex-types"
  * Descriptions and schemas of the Cypheria app tools. They are the official Codex desktop's, word
  * for word, except where Cypheria differs: it has no ChatGPT conversations, remote hosts, or Work
  * cloud, and no pinned worktrees. Pinning a thread is `move_thread_to_sidebar_section` with
- * `pinned`, so there is no `set_thread_pinned`. Tools are deferred, so Codex discovers them through
- * tool search, except `list_artifacts`, which the worktree instructions name.
+ * `pinned`, so there is no `set_thread_pinned`. The `cypheria-app-tools` plugin serves them over MCP.
+ * `deferLoading` picks the plugin server that lists a tool to Codex: deferred tools are found through
+ * tool search, and `list_artifacts`, which the worktree instructions name, is listed directly.
  */
 export const APP_TOOL_SPECS: readonly v2.DynamicToolSpec[] = [
   {

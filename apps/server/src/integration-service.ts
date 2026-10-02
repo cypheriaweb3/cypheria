@@ -55,6 +55,10 @@ export class IntegrationService {
     return this.#hub.provider(agentId)
   }
 
+  async ensureBundledPlugin(agentId: AgentId): Promise<void> {
+    await this.#plugin(agentId).ensureBundledPlugin?.()
+  }
+
   listComposerSkills(cwd?: string) {
     return this.#listSkills(cwd)
   }

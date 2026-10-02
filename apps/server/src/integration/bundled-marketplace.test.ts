@@ -30,10 +30,27 @@ describe("bundled Cypheria marketplace", () => {
   it("keeps each Agent's MCP declaration in its own file", async () => {
     const codex = await json("plugins/cypheria-app-tools/.codex-mcp.json")
     const claude = await json("plugins/cypheria-app-tools/.claude-mcp.json")
-    expect(Object.keys(codex.mcpServers)).toEqual(["cypheria_app_tools"])
+    expect(Object.keys(codex.mcpServers)).toEqual([
+      "cypheria_app_tools",
+      "cypheria_app",
+      "cypheria_app_direct",
+    ])
     expect(claude.mcpServers.cypheria_app_tools.args).toEqual([
       `\${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs`,
     ])
     await expect(readFile(`${root}plugins/cypheria-app-tools/.mcp.json`)).rejects.toThrow()
+  })
+
+  it("gives every Agent process the app tools token instead of the Server token", async () => {
+    const codex = await json("plugins/cypheria-app-tools/.codex-mcp.json")
+    const claude = await json("plugins/cypheria-app-tools/.claude-mcp.json")
+    for (const server of Object.values(codex.mcpServers) as { env_vars: string[] }[]) {
+      expect(server.env_vars).toEqual(["CYPHERIA_SERVER_URL", "CYPHERIA_APP_TOOLS_TOKEN"])
+    }
+    expect(codex.mcpServers.cypheria_app_direct.omit_tools_from).toEqual(["deferred"])
+    expect(claude.mcpServers.cypheria_app_tools.env.CYPHERIA_APP_TOOLS_TOKEN).toBe(
+      `\${CYPHERIA_APP_TOOLS_TOKEN:-}`
+    )
+    expect(JSON.stringify([codex, claude])).not.toContain("CYPHERIA_SERVER_TOKEN")
   })
 })

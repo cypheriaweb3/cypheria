@@ -120,12 +120,15 @@ Codex, Pi, and ACP process lifecycle records include Agent ID, process ID, exit 
 | `POST` | `/api/v1/runtime/request` | Validated privileged runtime request |
 | `POST` | `/api/v1/lifecycle/restart` | Supervised worker restart |
 | `POST` | `/api/v1/lifecycle/shutdown` | Full Server shutdown |
+| `GET` | `/api/v1/app-tools/tools` | App and Git tool catalog for the `cypheria-app-tools` plugin |
+| `POST` | `/api/v1/app-tools/call` | Run an app tool for the calling Thread |
+| `POST` | `/api/v1/app-tools/git` | Run a Git operation for the plugin |
 
 Most product operations use `/api/v1/ws`; REST operations never fall through to the hosted SPA.
 
 ## Authentication and network safety
 
-Loopback is the default. A non-loopback listener is rejected unless a Server token is configured. HTTP uses a Bearer header. Browser WebSocket clients encode the token in the negotiated Cypheria subprotocol because the browser WebSocket API cannot set arbitrary authorization headers.
+Loopback is the default. A non-loopback listener is rejected unless a Server token is configured. HTTP uses a Bearer header. The `/api/v1/app-tools/*` routes instead require an app tools token that Server gives its Agent processes; see [Cypheria app tools](integrations.md#cypheria-app-tools). Browser WebSocket clients encode the token in the negotiated Cypheria subprotocol because the browser WebSocket API cannot set arbitrary authorization headers.
 
 Native clients without an `Origin` are accepted. Browser connections are same-origin by default; cross-origin access requires an explicit allowlist. Tokens are not accepted in URLs or compiled into the Expo bundle. TLS termination is external to the Node process.
 
