@@ -3618,3 +3618,23 @@ msgstr "压缩并合并"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.mergeMethod.merge"
 msgstr "创建合并提交"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewUncommitted"
+msgstr "代码审查：未提交的变更"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewBranch"
+msgstr "对照 {branch} 进行代码审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment"
+msgstr "忽略"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment.tooltip"
+msgstr "从 diff 中隐藏此评论；它仍保留在对话中"

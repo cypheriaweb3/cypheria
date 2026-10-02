@@ -1,6 +1,6 @@
 import { atomWithValidatedStorage } from "@cypheria/storage/jotai"
 import type { SetStateAction } from "jotai/vanilla"
-import { getDefaultStore, type WritableAtom } from "jotai/vanilla"
+import { atom, getDefaultStore, type WritableAtom } from "jotai/vanilla"
 import { z } from "zod"
 import {
   type ClientSettingDefinition,
@@ -79,6 +79,8 @@ export const pinnedSidebarSortAtom = atomFor(clientSettingDefinitions.pinnedSide
 export const chatSidebarSortAtom = atomFor(clientSettingDefinitions.chatSidebarSort)
 export const gitReviewSourceAtom = atomFor(clientSettingDefinitions.gitReviewSource)
 export const gitReviewDiffDisplayAtom = atomFor(clientSettingDefinitions.gitReviewDiffDisplay)
+/** Base branch the Branch Review source compares with; empty uses the default branch. */
+export const gitReviewBaseAtom = atom("")
 export const unreadThreadIdsAtom = atomFor(clientSettingDefinitions.unreadThreadIds)
 
 const draftAtoms = new Map<string, ClientStateAtom<ComposerDraft | null>>()
@@ -230,5 +232,23 @@ export const reviewViewedAtom = (scope: string): ClientStateAtom<Record<string, 
     { getOnInit: true, version: 1 }
   ) as unknown as ClientStateAtom<Record<string, string>>
   reviewViewedAtoms.set(scope, created)
+  return created
+}
+
+const dismissedAgentCommentAtoms = new Map<string, ClientStateAtom<string[]>>()
+/**
+ * Agent code comments hidden from the Review diff in one Thread; they stay in the conversation.
+ */
+export const dismissedAgentCommentsAtom = (threadId: string): ClientStateAtom<string[]> => {
+  const existing = dismissedAgentCommentAtoms.get(threadId)
+  if (existing) return existing
+  const created = atomWithValidatedStorage<string[]>(
+    `review-dismissed-agent-comments:${threadId}`,
+    [],
+    desktopClientStorage.keyValue,
+    z.array(z.string().min(1).max(500)).max(2000),
+    { getOnInit: true, version: 1 }
+  ) as unknown as ClientStateAtom<string[]>
+  dismissedAgentCommentAtoms.set(threadId, created)
   return created
 }
