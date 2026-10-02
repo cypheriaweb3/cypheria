@@ -13,7 +13,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { homedir, tmpdir } from "node:os"
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type { AuditLogService } from "@cypheria/db"
 import type {
@@ -523,10 +523,12 @@ export class GitService {
           value = { succeeded: true }
           break
         case "git.github-availability.request":
-          value = await this.githubAvailability(message.payload.cwd)
+          value = message.payload.cwd
+            ? await this.githubAvailability(message.payload.cwd)
+            : await this.#github.availability(homedir())
           break
         case "git.github-pr-board.request":
-          value = await this.#github.board(message.payload.cwd, message.payload)
+          value = await this.#github.board(message.payload.cwd ?? homedir(), message.payload)
           break
         case "git.github-app-availability.request":
           value = await this.githubAppAvailability(message.payload.cwd, message.payload.threadId)
@@ -863,7 +865,12 @@ export class GitService {
       }
       const failedResult =
         value && typeof value === "object" && "status" in value && value.status === "error"
-      if (auditedOperations.has(message.type) && !failedResult && "cwd" in message.payload) {
+      if (
+        auditedOperations.has(message.type) &&
+        !failedResult &&
+        "cwd" in message.payload &&
+        message.payload.cwd
+      ) {
         const changed = await this.discover(message.payload.cwd).catch(() => null)
         if (changed) this.#markChanged(changed.root)
       }

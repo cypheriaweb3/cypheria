@@ -3148,3 +3148,138 @@ msgstr "拉取请求"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.mergeRequestSection"
 msgstr "合并请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.needsReview"
+msgstr "待我审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.authored"
+msgstr "我创建的"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.reviewed"
+msgstr "我审查过的"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.all"
+msgstr "全部"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.title"
+msgstr "拉取请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.subtitleAccount"
+msgstr "以 {0} 身份审查并跟踪 GitHub 上的工作。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.subtitle"
+msgstr "审查并跟踪 GitHub 上的工作。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.checking"
+msgstr "正在检查 GitHub 访问权限"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.setupTitle"
+msgstr "需要设置 GitHub CLI"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.setupBody"
+msgstr "请在运行 Cypheria Server 的电脑上安装并登录 GitHub CLI，然后再检查。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.checkAgain"
+msgstr "再次检查"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.search"
+msgstr "搜索拉取请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.repository"
+msgstr "仓库"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.status"
+msgstr "状态"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.open"
+msgstr "打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.merged"
+msgstr "已合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.closed"
+msgstr "已关闭"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.allStates"
+msgstr "全部状态"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.filter"
+msgstr "筛选"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.retry"
+msgstr "重试"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.noMatches"
+msgstr "没有符合搜索条件的拉取请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.caughtUp"
+msgstr "全部处理完毕"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.askPrompt"
+msgstr "审查这个拉取请求：{url}"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.ask"
+msgstr "询问 Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.openBrowser"
+msgstr "在浏览器中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.loadMore"
+msgstr "加载更多"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "navigation.pullRequests"
+msgstr "拉取请求"

@@ -297,12 +297,13 @@ export interface GitActions {
     options?: RequestOptions
   ): Promise<{ backupRef: string }>
   undoSync(cwd: string, path: string, options?: RequestOptions): Promise<void>
-  githubAvailability(cwd: string, options?: RequestOptions): Promise<GitHubAvailability>
+  /** `null` checks only the CLI and its account, outside any repository. */
+  githubAvailability(cwd: string | null, options?: RequestOptions): Promise<GitHubAvailability>
   githubPrBoard(
-    cwd: string,
+    cwd: string | null,
     input?: {
       state?: "open" | "closed" | "merged" | "all"
-      scope?: "all" | "authored" | "reviewing"
+      scope?: "all" | "authored" | "reviewing" | "reviewed"
       repository?: string
       query?: string
       limit?: number
@@ -804,9 +805,15 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.synced-branch-undo.request", { cwd, path }, options))
   },
   githubAvailability: async (cwd, options) =>
-    unwrap(await client.requestGit("git.github-availability.request", { cwd }, options)),
+    unwrap(await client.requestGit("git.github-availability.request", cwd ? { cwd } : {}, options)),
   githubPrBoard: async (cwd, input = {}, options) =>
-    unwrap(await client.requestGit("git.github-pr-board.request", { cwd, ...input }, options)),
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-board.request",
+        { ...(cwd ? { cwd } : {}), ...input },
+        options
+      )
+    ),
   githubAppAvailability: async (cwd, threadId, options) =>
     unwrap(
       await client.requestGit("git.github-app-availability.request", { cwd, threadId }, options)

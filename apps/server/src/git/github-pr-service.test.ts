@@ -86,6 +86,12 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
         repository: "org/repo",
       },
     ])
+    await service.board(cwd, { scope: "reviewed" })
+    expect(
+      (await readFile(log, "utf8"))
+        .split("\n")
+        .some((line) => line.includes('"--reviewed-by"') && line.includes('"@me"'))
+    ).toBe(true)
     await expect(service.board(cwd, { repository: "../other" })).rejects.toThrow()
     expect(await service.forBranch(cwd, "feature")).toEqual(pr)
     expect(await service.forBranch(cwd, "tester:feature")).toEqual(pr)

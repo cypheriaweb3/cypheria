@@ -17,6 +17,7 @@ import { Route as DebugRouteImport } from "./routes/debug"
 import { Route as NetworksRouteImport } from "./routes/networks"
 import { Route as PluginsRouteImport } from "./routes/plugins"
 import { Route as PoliciesRouteImport } from "./routes/policies"
+import { Route as PullRequestsRouteImport } from "./routes/pull-requests"
 import { Route as SchedulesRouteImport } from "./routes/schedules"
 import { Route as WalletsRouteImport } from "./routes/wallets"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
@@ -65,6 +66,11 @@ const PluginsRoute = PluginsRouteImport.update({
 const PoliciesRoute = PoliciesRouteImport.update({
   id: "/policies",
   path: "/policies",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PullRequestsRoute = PullRequestsRouteImport.update({
+  id: "/pull-requests",
+  path: "/pull-requests",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SchedulesRoute = SchedulesRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
+  "/pull-requests": typeof PullRequestsRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
+  "/pull-requests": typeof PullRequestsRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
+  "/pull-requests": typeof PullRequestsRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | "/networks"
     | "/plugins"
     | "/policies"
+    | "/pull-requests"
     | "/schedules"
     | "/wallets"
     | "/settings/appearance"
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | "/networks"
     | "/plugins"
     | "/policies"
+    | "/pull-requests"
     | "/schedules"
     | "/wallets"
     | "/settings/appearance"
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | "/networks"
     | "/plugins"
     | "/policies"
+    | "/pull-requests"
     | "/schedules"
     | "/wallets"
     | "/settings/appearance"
@@ -242,6 +254,7 @@ export interface RootRouteChildren {
   NetworksRoute: typeof NetworksRoute
   PluginsRoute: typeof PluginsRoute
   PoliciesRoute: typeof PoliciesRoute
+  PullRequestsRoute: typeof PullRequestsRoute
   SchedulesRoute: typeof SchedulesRoute
   WalletsRoute: typeof WalletsRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
@@ -309,6 +322,13 @@ declare module "@tanstack/react-router" {
       path: "/policies"
       fullPath: "/policies"
       preLoaderRoute: typeof PoliciesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/pull-requests": {
+      id: "/pull-requests"
+      path: "/pull-requests"
+      fullPath: "/pull-requests"
+      preLoaderRoute: typeof PullRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/schedules": {
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   NetworksRoute: NetworksRoute,
   PluginsRoute: PluginsRoute,
   PoliciesRoute: PoliciesRoute,
+  PullRequestsRoute: PullRequestsRoute,
   SchedulesRoute: SchedulesRoute,
   WalletsRoute: WalletsRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
