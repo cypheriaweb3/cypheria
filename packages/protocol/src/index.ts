@@ -14,6 +14,13 @@ import {
   type BrowserServerMessage,
 } from "./browser.ts"
 import {
+  CODE_REVIEW_CLIENT_SCHEMAS,
+  CODE_REVIEW_RESPONSE_TYPES,
+  CODE_REVIEW_SERVER_SCHEMAS,
+  type CodeReviewClientMessage,
+  type CodeReviewServerMessage,
+} from "./code-review.ts"
+import {
   GIT_CLIENT_SCHEMAS,
   GIT_RESPONSE_TYPES,
   GIT_SERVER_SCHEMAS,
@@ -49,6 +56,13 @@ import {
   type MagpieClientMessage,
   type MagpieServerMessage,
 } from "./magpie.ts"
+import {
+  MCP_APP_CLIENT_SCHEMAS,
+  MCP_APP_RESPONSE_TYPES,
+  MCP_APP_SERVER_SCHEMAS,
+  type McpAppClientMessage,
+  type McpAppServerMessage,
+} from "./mcp-app.ts"
 import {
   CodexPermissionsModeSchema,
   PROJECT_THREAD_CLIENT_SCHEMAS,
@@ -95,6 +109,7 @@ export * from "./agent/pi.ts"
 export * from "./agent/registry.ts"
 export * from "./binary-frame.ts"
 export * from "./browser.ts"
+export * from "./code-review.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
 export * from "./file-transfer-binary.ts"
@@ -103,6 +118,7 @@ export * from "./harness.ts"
 export * from "./harness-codex.ts"
 export * from "./integration.ts"
 export * from "./magpie.ts"
+export * from "./mcp-app.ts"
 export * from "./project-thread.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
@@ -131,6 +147,8 @@ export const SERVER_CAPABILITIES = {
   web3: "web3",
   integrations: "integrations",
   magpie: "magpie",
+  mcpApps: "mcp-apps",
+  codeReview: "code-review",
   config: "server.config",
   diagnostics: "diagnostics",
   git: "git",
@@ -378,7 +396,8 @@ export const GitSettingsSchema = z
     pullRequestMergeMethod: z.enum(["merge", "squash"]),
     reviewMode: z.enum(["full", "last-turn-only"]),
     showSidebarPrIcons: z.boolean(),
-    githubConnectorEnabled: z.boolean().default(true),
+    /** Whether `/review` starts in the current chat or in a separate review chat. */
+    reviewDelivery: z.enum(["inline", "detached"]).default("inline"),
     worktreeRoot: z
       .string()
       .trim()
@@ -402,7 +421,7 @@ export const DEFAULT_GIT_SETTINGS: GitSettings = {
   pullRequestMergeMethod: "merge",
   reviewMode: "full",
   showSidebarPrIcons: true,
-  githubConnectorEnabled: true,
+  reviewDelivery: "inline",
   worktreeRoot: null,
   commitInstructions: "",
   prInstructions: "",
@@ -411,6 +430,52 @@ export const DEFAULT_GIT_SETTINGS: GitSettings = {
   upstreamRefreshMode: "best-effort",
   worktreeAutoCleanupEnabled: true,
   worktreeKeepCount: 15,
+}
+
+/** The GitHub account linked in ChatGPT that Code Review uses on one host. */
+export const CodeReviewConnectionSchema = z
+  .object({
+    hostname: z.string().min(1),
+    connectorId: z.string().min(1),
+    accountLinkId: z.string().min(1),
+  })
+  .strict()
+export type CodeReviewConnection = z.infer<typeof CodeReviewConnectionSchema>
+
+export const CodeReviewSidebarSectionSchema = z.enum([
+  "waiting_for_review",
+  "needs_my_review",
+  "needs_my_teams_review",
+  "merged",
+  "recents",
+])
+export type CodeReviewSidebarSection = z.infer<typeof CodeReviewSidebarSectionSchema>
+
+/** Code Review preferences, shared by every client of this Server. */
+export const CodeReviewSettingsSchema = z
+  .object({
+    gitHostingProvider: z.enum(["github", "gitlab"]),
+    /** GitHub account Code Review uses; null uses the github.com account ChatGPT links. */
+    githubConnection: CodeReviewConnectionSchema.nullable(),
+    /** GitLab connector Code Review uses; null uses gitlab.com. */
+    gitlabConnectorId: z.string().trim().min(1).nullable(),
+    githubLinkTarget: z.enum(["code-review-tab", "in-app-browser", "external-browser"]),
+    localReviewInstructions: z.string().max(100_000),
+    sidebarSections: z.array(CodeReviewSidebarSectionSchema).max(5),
+    sidebarLayout: z.enum(["compact", "detailed"]),
+    activityNotifications: z.boolean(),
+  })
+  .strict()
+export type CodeReviewSettings = z.infer<typeof CodeReviewSettingsSchema>
+export const DEFAULT_CODE_REVIEW_SETTINGS: CodeReviewSettings = {
+  gitHostingProvider: "github",
+  githubConnection: null,
+  gitlabConnectorId: null,
+  githubLinkTarget: "code-review-tab",
+  localReviewInstructions: "",
+  sidebarSections: ["waiting_for_review", "needs_my_review", "needs_my_teams_review"],
+  sidebarLayout: "detailed",
+  activityNotifications: false,
 }
 
 /** Agent access to Desktop browser tabs. Off by default because tabs share signed-in state. */
@@ -515,6 +580,7 @@ export const PersistedServerConfigSchema = z
         codex: { permissionsMode: "auto" },
       }),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
+    codeReview: CodeReviewSettingsSchema.default(DEFAULT_CODE_REVIEW_SETTINGS),
     browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),
     workspace: z
       .object({ projectlessRoot: z.string().trim().min(1).nullable() })
@@ -589,6 +655,7 @@ export const PersistedServerConfigPatchSchema = z
       .strict()
       .optional(),
     git: GitSettingsSchema.partial().strict().optional(),
+    codeReview: CodeReviewSettingsSchema.partial().strict().optional(),
     browserTools: BrowserToolsSettingsSchema.partial().strict().optional(),
     workspace: z
       .object({ projectlessRoot: z.string().trim().min(1).nullable().optional() })
@@ -750,6 +817,8 @@ export type SessionInboundMessage =
   | TerminalClientMessage
   | ThreadClientMessage
   | MagpieClientMessage
+  | McpAppClientMessage
+  | CodeReviewClientMessage
   | Web3ClientMessage
 
 export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInboundMessage>([
@@ -772,6 +841,8 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ...TERMINAL_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
   ...MAGPIE_CLIENT_SCHEMAS,
+  ...MCP_APP_CLIENT_SCHEMAS,
+  ...CODE_REVIEW_CLIENT_SCHEMAS,
   ...WEB3_CLIENT_SCHEMAS,
 ])
 
@@ -865,6 +936,8 @@ export type SessionOutboundMessage =
   | TerminalServerMessage
   | ThreadServerMessage
   | MagpieServerMessage
+  | McpAppServerMessage
+  | CodeReviewServerMessage
   | Web3ServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
@@ -891,6 +964,8 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...TERMINAL_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
   ...MAGPIE_SERVER_SCHEMAS,
+  ...MCP_APP_SERVER_SCHEMAS,
+  ...CODE_REVIEW_SERVER_SCHEMAS,
   ...WEB3_SERVER_SCHEMAS,
 ])
 
@@ -932,6 +1007,8 @@ const clientResponseTypes = new Set<string>([
   ...TERMINAL_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
   ...MAGPIE_RESPONSE_TYPES,
+  ...MCP_APP_RESPONSE_TYPES,
+  ...CODE_REVIEW_RESPONSE_TYPES,
   ...WEB3_RESPONSE_TYPES,
 ])
 

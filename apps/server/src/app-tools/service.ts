@@ -197,9 +197,12 @@ export type AppToolCallContext = {
 /** A tool as a bundled plugin's MCP server lists it. */
 export type AppToolMcpTool = {
   readonly name: string
+  readonly title?: string
   readonly description: string
   readonly inputSchema: unknown
   readonly annotations?: { readonly readOnlyHint?: boolean; readonly openWorldHint?: boolean }
+  /** MCP tool metadata, such as the MCP App resource and visibility under `ui`. */
+  readonly _meta?: Record<string, unknown>
 }
 
 export type AppToolMcpResult = {
@@ -208,6 +211,8 @@ export type AppToolMcpResult = {
     | { readonly type: "image" | "audio"; readonly data: string; readonly mimeType: string }
   >
   readonly isError: boolean
+  /** Machine-readable result an MCP App reads; models read `content`. */
+  readonly structuredContent?: Record<string, unknown>
 }
 
 /** An app tool result in MCP form. Media arrive as data URLs; any other URL stays text. */

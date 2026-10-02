@@ -22,6 +22,13 @@ import { type CodexHarnessActions, createCodexHarnessActions } from "./harness-c
 import { createIntegrationActions, type IntegrationActions } from "./integration.js"
 import { createMagpieActions, type MagpieActions } from "./magpie.js"
 import {
+  type CodeReviewActions,
+  CodeReviewRequestError,
+  createCodeReviewActions,
+  createMcpAppActions,
+  type McpAppActions,
+} from "./mcp-app.js"
+import {
   createProjectThreadActions,
   type ProjectActions,
   type ProjectThreadActions,
@@ -116,6 +123,10 @@ export interface CypheriaApi {
   readonly sections: SectionActions
   readonly schedules: ScheduleActions
   readonly magpie: MagpieActions
+  /** MCP App resources and tools, read and called through the Server. */
+  readonly mcpApps: McpAppActions
+  /** Code Review's host operations: provider connections and host-run provider requests. */
+  readonly codeReview: CodeReviewActions
   readonly settings: SettingsActions
   readonly thread: ThreadActions
   /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
@@ -179,6 +190,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
   const magpie = createMagpieActions(serverClient)
+  const mcpApps = createMcpAppActions(serverClient)
+  const codeReview = createCodeReviewActions(serverClient)
   const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
   const artifacts = createArtifactActions(threads.timeline)
@@ -196,6 +209,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     integrations,
     git,
     magpie,
+    mcpApps,
+    codeReview,
     projectThread,
     projects: projectThread.projects,
     harnesses: {
@@ -258,10 +273,12 @@ export type {
   AgentManagementActions,
   ArtifactActions,
   BrowserActions,
+  CodeReviewActions,
   CodexHarnessActions,
   HarnessActions,
   IntegrationActions,
   MagpieActions,
+  McpAppActions,
   ProjectActions,
   ProjectThreadActions,
   ScheduleActions,
@@ -276,4 +293,4 @@ export type {
   TimelineActions,
   Web3Actions,
 }
-export { createMagpieActions, isAgentUpdateAvailable }
+export { CodeReviewRequestError, createMagpieActions, isAgentUpdateAvailable }

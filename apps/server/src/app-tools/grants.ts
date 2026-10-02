@@ -8,8 +8,11 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 export type AppToolGrant =
   | { readonly kind: "codex" }
   | { readonly kind: "thread"; readonly threadId: string }
+  /** A private Code Review's Codex process, which may only read its own review's context. */
+  | { readonly kind: "review"; readonly runId: string }
 
 const THREAD_PREFIX = "cat1.t."
+const REVIEW_PREFIX = "cat1.r."
 const CODEX_TOKEN_BODY = "cat1.codex"
 
 /**
@@ -33,6 +36,11 @@ export class AppToolGrants {
     return `${body}.${this.#sign(body)}`
   }
 
+  forReview(runId: string): string {
+    const body = `${REVIEW_PREFIX}${Buffer.from(runId).toString("base64url")}`
+    return `${body}.${this.#sign(body)}`
+  }
+
   forCodex(): string {
     return `${CODEX_TOKEN_BODY}.${this.#sign(CODEX_TOKEN_BODY)}`
   }
@@ -46,6 +54,10 @@ export class AppToolGrants {
     const provided = Buffer.from(token.slice(separator + 1))
     if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) return null
     if (body === CODEX_TOKEN_BODY) return { kind: "codex" }
+    if (body.startsWith(REVIEW_PREFIX)) {
+      const runId = Buffer.from(body.slice(REVIEW_PREFIX.length), "base64url").toString()
+      return runId ? { kind: "review", runId } : null
+    }
     if (!body.startsWith(THREAD_PREFIX)) return null
     const threadId = Buffer.from(body.slice(THREAD_PREFIX.length), "base64url").toString()
     return threadId ? { kind: "thread", threadId } : null

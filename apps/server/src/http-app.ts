@@ -35,7 +35,7 @@ import { OWNER_SESSION_ADMISSION } from "./session/connection-registry.js"
 export type HttpAppHost = SessionHost & {
   /** The caller an app tools token speaks for; app tools routes accept no other credential. */
   verifyAppToolToken?(token: string | undefined): AppToolGrant | null
-  listAppTools?(server: string): Promise<AppToolMcpTool[] | undefined>
+  listAppTools?(grant: AppToolGrant, server: string): Promise<AppToolMcpTool[] | undefined>
   callAppTool?(
     grant: AppToolGrant,
     request: { server: string; name: string; arguments?: unknown; codexTurnMetadata?: unknown },
@@ -151,8 +151,11 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
   )
   app.post("/api/v1/config/reload", async (context) => context.json(await host.reloadConfig()))
   app.get(`${APP_TOOLS_PATH}tools`, async (context) => {
-    if (!host.listAppTools) return context.json(jsonError("App tools are unavailable"), 503)
-    const tools = await host.listAppTools(context.req.query("server") ?? "")
+    const grant = appToolGrant(context)
+    if (!grant || !host.listAppTools) {
+      return context.json(jsonError("App tools are unavailable"), 503)
+    }
+    const tools = await host.listAppTools(grant, context.req.query("server") ?? "")
     if (!tools) return context.json(jsonError("Unknown app tools server", "NOT_FOUND"), 404)
     return context.json({ tools })
   })

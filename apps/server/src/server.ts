@@ -8,6 +8,7 @@ import { promisify } from "node:util"
 import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
+  createCodeReviewPersistenceService,
   createPluginMarketplacePersistenceService,
   createProjectThreadPersistenceService,
   createSchedulePersistenceService,
@@ -26,6 +27,8 @@ import {
   type BrowserServerMessage,
   type ClientKind,
   type ClientMessage,
+  type CodeReviewClientMessage,
+  type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   CYPHERIA_PROTOCOL_VERSION,
@@ -40,6 +43,8 @@ import {
   type IntegrationServerMessage,
   type MagpieClientMessage,
   type MagpieServerMessage,
+  type McpAppClientMessage,
+  type McpAppServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -71,7 +76,6 @@ import { AgentManager } from "./agent/agent-manager.js"
 import { CYPHERIA_RENDERING_CAPABILITIES } from "./agent/codex-developer-instructions.js"
 import { mapCodexInput } from "./agent/managed-thread-adapter.js"
 import { AutomationTool } from "./app-tools/automation.js"
-import { CODE_REVIEW_TOOLS, CodeReviewTools } from "./app-tools/code-review.js"
 import { type AppToolGrant, AppToolGrants, codexCallerSessionIds } from "./app-tools/grants.js"
 import { HandoffService } from "./app-tools/handoff.js"
 import {
@@ -83,6 +87,12 @@ import {
 } from "./app-tools/service.js"
 import { BrowserToolsService } from "./browser-tools/service.js"
 import { browserToolSpecs } from "./browser-tools/tools.js"
+import { CodeReviewBackend } from "./code-review/backend.js"
+import { ChatGptSession } from "./code-review/chatgpt-session.js"
+import { CodeReviewHostService } from "./code-review/host-service.js"
+import { PrivateReviews } from "./code-review/private-reviews.js"
+import { accountKey, CODE_REVIEW_APP_URI, CODE_REVIEW_SERVER } from "./code-review/schemas.js"
+import { CodeReviewTools } from "./code-review/tools.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
@@ -90,9 +100,11 @@ import { GitService } from "./git/git-service.js"
 import { HarnessService } from "./harness-service.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
+import { bundledMarketplaceDirectory } from "./integration/plugin-utils.js"
 import { IntegrationService } from "./integration-service.js"
 import { MagpieManager } from "./magpie/magpie-manager.js"
 import { MagpieService } from "./magpie/magpie-service.js"
+import { McpAppService, readCodeReviewAppHtml } from "./mcp-apps/service.js"
 import { NetworkProxyStore } from "./network-proxy-store.js"
 import { ProjectThreadService } from "./project-thread-service.js"
 import { RelayConnection } from "./relay-connection.js"
@@ -158,6 +170,9 @@ export class CypheriaServer implements HttpAppHost {
   readonly appTools: AppToolService
   readonly appToolGrants = new AppToolGrants()
   readonly codeReviewTools: CodeReviewTools
+  readonly codeReviewHost: CodeReviewHostService
+  readonly privateReviews: PrivateReviews
+  readonly mcpApps: McpAppService
   readonly integrations: IntegrationService
   readonly codexHarness: CodexHarnessService
   readonly harnesses: HarnessService
@@ -441,10 +456,110 @@ export class CypheriaServer implements HttpAppHost {
         start: (input) => this.git.startWorktreeJob({ ...input }),
       },
     })
+    const codexHome = join(this.runtime.paths.cypheriaHome, "agents", "codex", "home")
+    const codeReviewBackend = new CodeReviewBackend(
+      new ChatGptSession((refresh) =>
+        this.agentManager.callCodex("getAuthStatus", { includeToken: true, refreshToken: refresh })
+      )
+    )
+    const codeReviewSettings = () => this.configStore.getSnapshot().config.codeReview
+    this.privateReviews = new PrivateReviews({
+      backend: codeReviewBackend,
+      codex: async (args) => {
+        const spec = await this.agentManager.authTerminalSpec("codex", args, {
+          CODEX_HOME: codexHome,
+        })
+        return {
+          args: spec.args,
+          command: spec.command,
+          env: { ...spec.env, CODEX_HOME: codexHome },
+        }
+      },
+      repository: createCodeReviewPersistenceService(this.database.db),
+      reviewContextServer: async (runId) => ({
+        args: [
+          join(
+            await bundledMarketplaceDirectory(".agents/plugins/marketplace.json"),
+            "plugins",
+            "code-review",
+            "mcp",
+            "server.mjs"
+          ),
+          "--server",
+          "review_context",
+        ],
+        command: "node",
+        env: {
+          CYPHERIA_APP_TOOLS_TOKEN: this.appToolGrants.forReview(runId),
+          CYPHERIA_SERVER_URL: this.#appToolsServerUrl(),
+        },
+      }),
+      verifyAccount: async (account) => {
+        const current = await this.codeReviewTools.currentAccount(
+          account.hostname,
+          account.connection
+        )
+        if (accountKey(current.account) !== accountKey(account)) {
+          throw new Error(
+            "The GitHub account changed or is signed out. Reopen Code Review and try again."
+          )
+        }
+      },
+    })
     this.codeReviewTools = new CodeReviewTools({
-      checks: ({ cwd, number, repository }) =>
-        this.git.githubPrChecksForRepository(cwd, repository, number),
-      fallbackCwd: homedir(),
+      backend: codeReviewBackend,
+      reviews: this.privateReviews,
+      settings: codeReviewSettings,
+    })
+    this.codeReviewHost = new CodeReviewHostService({
+      backend: codeReviewBackend,
+      codexAccount: () => this.codexHarness.account(false),
+      installedPlugins: async () => {
+        const installed = (await this.agentManager.callCodex("plugin/installed", {
+          cwds: null,
+          installSuggestionPluginNames: null,
+        })) as unknown as v2.PluginInstalledResponse
+        return new Set(
+          installed.marketplaces.flatMap((marketplace) =>
+            marketplace.plugins.filter((plugin) => plugin.installed).map((plugin) => plugin.name)
+          )
+        )
+      },
+      settings: codeReviewSettings,
+    })
+    this.mcpApps = new McpAppService({
+      [CODE_REVIEW_SERVER]: {
+        callTool: (name, args, signal) => this.codeReviewTools.call(name, args, signal),
+        listTools: () => this.codeReviewTools.list(),
+        readResource: async (uri) => {
+          if (uri !== CODE_REVIEW_APP_URI) throw new Error(`Unknown Code Review resource: ${uri}`)
+          return [
+            {
+              _meta: {
+                ui: {
+                  csp: {
+                    resourceDomains: [
+                      "blob:",
+                      "data:",
+                      "https://github.com",
+                      "https://avatars.githubusercontent.com",
+                      "https://camo.githubusercontent.com",
+                      "https://private-user-images.githubusercontent.com",
+                      "https://raw.githubusercontent.com",
+                      "https://user-images.githubusercontent.com",
+                      "https://secure.gravatar.com",
+                    ],
+                  },
+                  permissions: { clipboardWrite: {} },
+                },
+              },
+              mimeType: "text/html;profile=mcp-app",
+              text: await readCodeReviewAppHtml(),
+              uri,
+            },
+          ]
+        },
+      },
     })
     this.codexHarness = new CodexHarnessService(
       this.agentManager,
@@ -745,6 +860,8 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.integrations,
       SERVER_CAPABILITIES.magpie,
+      SERVER_CAPABILITIES.mcpApps,
+      SERVER_CAPABILITIES.codeReview,
       SERVER_CAPABILITIES.codexHarness,
       SERVER_CAPABILITIES.harnessManagement,
       SERVER_CAPABILITIES.projectThread,
@@ -1053,6 +1170,20 @@ export class CypheriaServer implements HttpAppHost {
     return this.harnesses.handle(message, sessionId, send)
   }
 
+  async handleMcpAppMessage(
+    message: McpAppClientMessage,
+    send: (message: McpAppServerMessage) => void
+  ): Promise<boolean> {
+    return this.mcpApps.handle(message, send)
+  }
+
+  async handleCodeReviewMessage(
+    message: CodeReviewClientMessage,
+    send: (message: CodeReviewServerMessage) => void
+  ): Promise<boolean> {
+    return this.codeReviewHost.handle(message, send)
+  }
+
   async handleMagpieMessage(
     message: MagpieClientMessage,
     send: (message: MagpieServerMessage) => void
@@ -1124,10 +1255,21 @@ export class CypheriaServer implements HttpAppHost {
     )
   }
 
-  /** The tools of one bundled plugin server: `cypheria_app_tools` or `code-review`. */
-  async listAppTools(server: string): Promise<AppToolMcpTool[] | undefined> {
+  /**
+   * The tools of one bundled plugin server for the caller a token speaks for. Codex hides the Code
+   * Review App's tools from its model itself; a Claude session is given only the model's tools. A
+   * private review's Codex process sees only its `review_context` tools.
+   */
+  async listAppTools(grant: AppToolGrant, server: string): Promise<AppToolMcpTool[] | undefined> {
+    if (grant.kind === "review") {
+      return server === "review_context" ? this.privateReviews.contextTools() : undefined
+    }
     if (server === "cypheria_app_tools") return await this.appTools.mcpTools()
-    if (server === "code-review") return [...CODE_REVIEW_TOOLS]
+    if (server === CODE_REVIEW_SERVER) {
+      return grant.kind === "codex"
+        ? this.codeReviewTools.list()
+        : this.codeReviewTools.listForModel()
+    }
     return undefined
   }
 
@@ -1140,6 +1282,23 @@ export class CypheriaServer implements HttpAppHost {
     request: { server: string; name: string; arguments?: unknown; codexTurnMetadata?: unknown },
     signal?: AbortSignal
   ): Promise<AppToolMcpResult> {
+    if (grant.kind === "review") {
+      return request.server === "review_context"
+        ? this.privateReviews.callContextTool(grant.runId, request.name, request.arguments)
+        : { content: [{ text: "This review cannot call that tool.", type: "text" }], isError: true }
+    }
+    if (request.server === CODE_REVIEW_SERVER) {
+      if (
+        grant.kind === "thread" &&
+        !this.codeReviewTools.listForModel().some((tool) => tool.name === request.name)
+      ) {
+        return {
+          content: [{ text: `Unknown code-review tool: ${request.name}`, type: "text" }],
+          isError: true,
+        }
+      }
+      return this.codeReviewTools.call(request.name, request.arguments ?? {}, signal)
+    }
     const context =
       grant.kind === "thread"
         ? this.agentManager.appToolContextForThread(grant.threadId)
@@ -1155,9 +1314,6 @@ export class CypheriaServer implements HttpAppHost {
       }
     }
     const callContext = { ...context, ...(signal ? { signal } : {}) }
-    if (request.server === "code-review") {
-      return this.codeReviewTools.call(request.name, request.arguments ?? {}, callContext)
-    }
     return toMcpResult(
       await this.appTools.call(
         { arguments: request.arguments ?? {}, tool: request.name },
@@ -1269,6 +1425,7 @@ export class CypheriaServer implements HttpAppHost {
     this.terminals.stop()
     this.web3.stop()
     this.harnesses.stop()
+    await this.privateReviews.dispose()
     await this.magpieManager.shutdown()
 
     const results = await Promise.allSettled([

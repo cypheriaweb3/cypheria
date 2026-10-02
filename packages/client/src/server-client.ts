@@ -8,6 +8,8 @@ import {
   ClientDescriptorSchema,
   type ClientKind,
   type ClientMessage,
+  type CodeReviewClientMessage,
+  type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   type ConnectionOfferV2,
@@ -29,6 +31,8 @@ import {
   isClientResponseMessage,
   type MagpieClientMessage,
   type MagpieServerMessage,
+  type McpAppClientMessage,
+  type McpAppServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -629,6 +633,34 @@ export class ServerClient {
       SERVER_CAPABILITIES.magpie
     )
     return message as MagpieServerMessage
+  }
+
+  async requestMcpApp(
+    type: McpAppClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<McpAppServerMessage> {
+    const message = await this.#request(
+      { payload, requestId: this.#nextRequestId("mcp-app"), type } as McpAppClientMessage,
+      type.replace(/\.request$/, ".response"),
+      options,
+      SERVER_CAPABILITIES.mcpApps
+    )
+    return message as McpAppServerMessage
+  }
+
+  async requestCodeReview(
+    type: CodeReviewClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<CodeReviewServerMessage> {
+    const message = await this.#request(
+      { payload, requestId: this.#nextRequestId("code-review"), type } as CodeReviewClientMessage,
+      type.replace(/\.request$/, ".response"),
+      options,
+      SERVER_CAPABILITIES.codeReview
+    )
+    return message as CodeReviewServerMessage
   }
 
   async requestSchedule(

@@ -1,6 +1,7 @@
 // An MCP server that relays one Cypheria tool server (`--server <name>`) to the Cypheria Server.
 // It runs no tool itself: the Server lists the tools and runs each call for the calling Thread.
-// The bundled `cypheria-app-tools` and `code-review` plugins ship this same file.
+// The bundled `cypheria-app-tools` and `code-review` plugins ship this same file, and a private
+// Code Review runs it as `--server review_context` to read its pinned pull request.
 import { createInterface } from "node:readline"
 
 const serverUrl = process.env.CYPHERIA_SERVER_URL || "http://127.0.0.1:6768"
@@ -100,7 +101,13 @@ const handle = async (request) => {
           params?._meta,
           controller.signal
         )
-        reply(id, { content: result.content, isError: result.isError === true })
+        reply(id, {
+          content: result.content,
+          isError: result.isError === true,
+          ...(result.structuredContent === undefined
+            ? {}
+            : { structuredContent: result.structuredContent }),
+        })
       } catch (error) {
         if (controller.signal.aborted) return
         reply(id, {

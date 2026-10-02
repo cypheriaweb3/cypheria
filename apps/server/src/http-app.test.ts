@@ -16,7 +16,7 @@ const setup = () => {
   }))
   const host = {
     callAppTool,
-    listAppTools: async (server: string) =>
+    listAppTools: async (_grant: unknown, server: string) =>
       server !== "cypheria_app_tools"
         ? undefined
         : [

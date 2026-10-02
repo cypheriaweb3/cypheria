@@ -7,6 +7,8 @@ import {
   type ClientDescriptor,
   type ClientKind,
   type ClientMessage,
+  type CodeReviewClientMessage,
+  type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   type CypheriaBinaryFrame,
@@ -19,6 +21,8 @@ import {
   type IntegrationServerMessage,
   type MagpieClientMessage,
   type MagpieServerMessage,
+  type McpAppClientMessage,
+  type McpAppServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -83,6 +87,14 @@ export type SessionHost = {
   handleScheduleMessage?(
     message: ScheduleClientMessage,
     send: (message: ScheduleServerMessage) => void
+  ): Promise<boolean>
+  handleMcpAppMessage?(
+    message: McpAppClientMessage,
+    send: (message: McpAppServerMessage) => void
+  ): Promise<boolean>
+  handleCodeReviewMessage?(
+    message: CodeReviewClientMessage,
+    send: (message: CodeReviewServerMessage) => void
   ): Promise<boolean>
   handleMagpieMessage?(
     message: MagpieClientMessage,
@@ -396,6 +408,25 @@ export class ClientSession {
           this.#host.handleScheduleMessage &&
           (await this.#host.handleScheduleMessage(message as ScheduleClientMessage, (response) =>
             this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("mcpApp.") &&
+          this.#host.handleMcpAppMessage &&
+          (await this.#host.handleMcpAppMessage(message as McpAppClientMessage, (response) =>
+            this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("codeReview.") &&
+          this.#host.handleCodeReviewMessage &&
+          (await this.#host.handleCodeReviewMessage(
+            message as CodeReviewClientMessage,
+            (response) => this.sendTo(source, response)
           ))
         ) {
           break
