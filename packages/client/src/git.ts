@@ -303,7 +303,7 @@ export interface GitActions {
     cwd: string | null,
     input?: {
       state?: "open" | "closed" | "merged" | "all"
-      scope?: "all" | "authored" | "reviewing" | "reviewed"
+      scope?: "all" | "authored" | "reviewing" | "team-reviewing" | "reviewed"
       repository?: string
       query?: string
       limit?: number

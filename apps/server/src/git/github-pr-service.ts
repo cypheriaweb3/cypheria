@@ -149,7 +149,7 @@ export class GitHubPrService {
     cwd: string,
     options: {
       state?: "open" | "closed" | "merged" | "all"
-      scope?: "all" | "authored" | "reviewing" | "reviewed"
+      scope?: "all" | "authored" | "reviewing" | "team-reviewing" | "reviewed"
       repository?: string
       query?: string
       limit?: number
@@ -176,10 +176,17 @@ export class GitHubPrService {
     if (options.state === "open" || options.state === "closed") args.push("--state", options.state)
     if (options.state === "merged") args.push("--merged")
     if (options.scope === "authored") args.push("--author", "@me")
-    if (options.scope === "reviewing") args.push("--review-requested", "@me")
     if (options.scope === "reviewed") args.push("--reviewed-by", "@me")
-    if (options.query?.trim()) args.push(options.query.trim())
     args.push("--json", "number,title,url,updatedAt,repository,state")
+    // Search qualifiers tell a direct review request from one made to a team the user is on.
+    const terms =
+      options.scope === "reviewing"
+        ? ["user-review-requested:@me"]
+        : options.scope === "team-reviewing"
+          ? ["review-requested:@me", "-user-review-requested:@me"]
+          : []
+    if (options.query?.trim()) terms.push(options.query.trim())
+    if (terms.length > 0) args.push("--", ...terms)
     const raw = JSON.parse(await this.#run(cwd, args)) as unknown
     const parsed = z
       .array(

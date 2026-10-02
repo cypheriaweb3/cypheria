@@ -3283,3 +3283,28 @@ msgstr "加载更多"
 #: renderer/src/routes/pull-requests.tsx
 msgid "navigation.pullRequests"
 msgstr "拉取请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.needsTeamReview"
+msgstr "待我的团队审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.checksSummary"
+msgstr "{failing, plural, =0 {} other {# 个失败 · }}{pending, plural, =0 {} other {# 个进行中 · }}{passed} 个通过"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.fixFailingChecks"
+msgstr "修复失败的检查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.openCheck"
+msgstr "打开检查详情"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.checksIncomplete"
+msgstr "部分检查详情无法加载。"
