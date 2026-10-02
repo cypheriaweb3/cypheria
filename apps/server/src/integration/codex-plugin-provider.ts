@@ -21,7 +21,7 @@ import type {
 } from "./plugin-provider.js"
 import {
   BUNDLED_MARKETPLACE_NAME,
-  BUNDLED_PLUGIN_NAME,
+  BUNDLED_PLUGIN_NAMES,
   bundledMarketplaceDirectory,
   pluginImage,
   webUrl,
@@ -97,7 +97,9 @@ export class CodexPluginProvider implements PluginProvider {
           (marketplace) =>
             marketplace.name === BUNDLED_MARKETPLACE_NAME &&
             marketplace.plugins.some(
-              (plugin) => plugin.name === BUNDLED_PLUGIN_NAME && plugin.installed
+              (plugin) =>
+                (BUNDLED_PLUGIN_NAMES as readonly string[]).includes(plugin.name) &&
+                plugin.installed
             )
         )
       ) {
@@ -323,14 +325,16 @@ export class CodexPluginProvider implements PluginProvider {
       cwds: null,
       installSuggestionPluginNames: null,
     })
-    const entry = installed.marketplaces
-      .find((marketplace) => marketplace.name === BUNDLED_MARKETPLACE_NAME)
-      ?.plugins.find((plugin) => plugin.name === BUNDLED_PLUGIN_NAME)
-    if (!entry?.installed || entry.localVersion !== entry.version) {
+    const plugins = installed.marketplaces.find(
+      (marketplace) => marketplace.name === BUNDLED_MARKETPLACE_NAME
+    )?.plugins
+    for (const pluginName of BUNDLED_PLUGIN_NAMES) {
+      const entry = plugins?.find((plugin) => plugin.name === pluginName)
+      if (entry?.installed && entry.localVersion === entry.version) continue
       await this.#call<v2.PluginInstallResponse>("plugin/install", {
         installAttemptId: randomUUID(),
         marketplacePath: join(registered.installedRoot, ".agents", "plugins", "marketplace.json"),
-        pluginName: BUNDLED_PLUGIN_NAME,
+        pluginName,
         remoteMarketplaceName: null,
       })
     }

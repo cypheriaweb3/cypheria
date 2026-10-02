@@ -71,9 +71,16 @@ import { AgentManager } from "./agent/agent-manager.js"
 import { CYPHERIA_RENDERING_CAPABILITIES } from "./agent/codex-developer-instructions.js"
 import { mapCodexInput } from "./agent/managed-thread-adapter.js"
 import { AutomationTool } from "./app-tools/automation.js"
+import { CODE_REVIEW_TOOLS, CodeReviewTools } from "./app-tools/code-review.js"
 import { type AppToolGrant, AppToolGrants, codexCallerSessionIds } from "./app-tools/grants.js"
 import { HandoffService } from "./app-tools/handoff.js"
-import { type AppToolMcpResult, AppToolService, toMcpResult } from "./app-tools/service.js"
+import {
+  type AppToolAgent,
+  type AppToolMcpResult,
+  type AppToolMcpTool,
+  AppToolService,
+  toMcpResult,
+} from "./app-tools/service.js"
 import { BrowserToolsService } from "./browser-tools/service.js"
 import { browserToolSpecs } from "./browser-tools/tools.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
@@ -150,6 +157,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly projectThread: ProjectThreadService
   readonly appTools: AppToolService
   readonly appToolGrants = new AppToolGrants()
+  readonly codeReviewTools: CodeReviewTools
   readonly integrations: IntegrationService
   readonly codexHarness: CodexHarnessService
   readonly harnesses: HarnessService
@@ -228,11 +236,15 @@ export class CypheriaServer implements HttpAppHost {
           () => false
         ),
       projectlessWorkspace: (cwd) => this.#projectlessWorkspaceFor(cwd),
-      codexInstructionCapabilities: () => ({
-        ...CYPHERIA_RENDERING_CAPABILITIES,
-        createdThreadDirective: true,
-        tools: AppToolService.toolNames,
-      }),
+      codexInstructionCapabilities: async () => {
+        // App tools reach Codex only through the bundled plugin, so their sections follow it.
+        const appTools = await this.codexHarness.appToolsPluginEnabled()
+        return {
+          ...CYPHERIA_RENDERING_CAPABILITIES,
+          createdThreadDirective: appTools,
+          tools: appTools ? AppToolService.toolNames : new Set<string>(),
+        }
+      },
       agentDefaults: () => ({}),
       agentEnvironment: (agentId, base) => {
         // Agent processes, and the commands they run, reach the Server only through app tools
@@ -383,7 +395,7 @@ export class CypheriaServer implements HttpAppHost {
       return outcome.value
     }
     this.appTools = new AppToolService({
-      models: async () => (await this.codexHarness.models(false)).map((model) => model),
+      agents: () => this.#appToolAgents(),
       automations: new AutomationTool({
         agentOf: async (threadId) =>
           (await this.threadManager.get(threadId).catch(() => undefined))?.agentId,
@@ -428,6 +440,11 @@ export class CypheriaServer implements HttpAppHost {
         restore: (cwd, path) => this.git.restoreWorktree(cwd, path),
         start: (input) => this.git.startWorktreeJob({ ...input }),
       },
+    })
+    this.codeReviewTools = new CodeReviewTools({
+      checks: ({ cwd, number, repository }) =>
+        this.git.githubPrChecksForRepository(cwd, repository, number),
+      fallbackCwd: homedir(),
     })
     this.codexHarness = new CodexHarnessService(
       this.agentManager,
@@ -1084,8 +1101,34 @@ export class CypheriaServer implements HttpAppHost {
     return this.appToolGrants.verify(token)
   }
 
-  async listAppTools() {
-    return await this.appTools.mcpTools()
+  /** The installed, enabled Agents and the models each one offers, for the app tools guidance. */
+  async #appToolAgents(): Promise<AppToolAgent[]> {
+    const agents = (await this.agentManager.list("app-tools")).filter(
+      (agent) => agent.installed && agent.enabled
+    )
+    return Promise.all(
+      agents.map(async (agent) => {
+        const catalog = await this.harnesses.catalog.get(agent.id).catch(() => undefined)
+        return {
+          id: agent.id,
+          models: (catalog?.models ?? [])
+            .filter((model) => model.isSelectable)
+            .map((model) => ({
+              description: model.description,
+              id: model.id,
+              reasoningEfforts: model.thinkingOptions.map((option) => option.id),
+            })),
+          name: agent.name,
+        }
+      })
+    )
+  }
+
+  /** The tools of one bundled plugin server: `cypheria_app_tools` or `code-review`. */
+  async listAppTools(server: string): Promise<AppToolMcpTool[] | undefined> {
+    if (server === "cypheria_app_tools") return await this.appTools.mcpTools()
+    if (server === "code-review") return [...CODE_REVIEW_TOOLS]
+    return undefined
   }
 
   /**
@@ -1094,7 +1137,7 @@ export class CypheriaServer implements HttpAppHost {
    */
   async callAppTool(
     grant: AppToolGrant,
-    request: { name: string; arguments?: unknown; codexTurnMetadata?: unknown },
+    request: { server: string; name: string; arguments?: unknown; codexTurnMetadata?: unknown },
     signal?: AbortSignal
   ): Promise<AppToolMcpResult> {
     const context =
@@ -1111,10 +1154,14 @@ export class CypheriaServer implements HttpAppHost {
         isError: true,
       }
     }
+    const callContext = { ...context, ...(signal ? { signal } : {}) }
+    if (request.server === "code-review") {
+      return this.codeReviewTools.call(request.name, request.arguments ?? {}, callContext)
+    }
     return toMcpResult(
       await this.appTools.call(
         { arguments: request.arguments ?? {}, tool: request.name },
-        { ...context, ...(signal ? { signal } : {}) }
+        callContext
       )
     )
   }

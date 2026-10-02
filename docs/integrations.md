@@ -42,24 +42,27 @@ Plugin views retain source type, marketplace identity, install policy, availabil
 
 Codex remote plugins have a catalog ID distinct from their displayed name. Server resolves that ID from a fresh `plugin/list` result before remote detail or install requests, so a visible plugin is not sent to Codex's install endpoint under its display name.
 
-When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs `cypheria-app-tools` in that Agent's managed home. This MCP plugin carries the Cypheria app tools and the local Git tools described in [Cypheria app tools](#cypheria-app-tools). It declares no OpenAI App ID and has no GitHub or GitLab connector credentials.
-The bundled marketplace is a dual-format plugin root: it carries a Codex marketplace and manifest and a Claude marketplace and manifest, and each Agent's MCP declaration lives in its own file next to the shared server implementation.
+When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs its plugins, `cypheria-app-tools` and `code-review`, in that Agent's managed home, as the official desktop bundles `codex-app-tools` and `code-review`. They are described in [Cypheria app tools](#cypheria-app-tools). They declare no OpenAI App ID and have no GitHub or GitLab connector credentials.
+The bundled marketplace is a dual-format plugin root: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, and each Agent's MCP declaration lives in its own file next to the plugin's server.
 When an installed bundled plugin is discovered after a Cypheria update, Server checks its local version and updates it from the bundled marketplace before returning the plugin list.
-The Git backend and Agent-tool relationship are explained in [Local Git design](git.md).
-Its worktree tools create detached worktrees under `CYPHERIA_HOME/worktrees`, list managed and external worktrees, and delete or restore clean managed worktrees from a saved commit ref.
 
 ### Cypheria app tools
 
-`cypheria-app-tools` is the one path through which Codex and Claude reach Cypheria's own tools: the Thread, project, sidebar, worktree, handoff, and automation tools listed in [Agent harnesses](agent-harnesses.md#codex), and the Git tools generated from the public Git protocol. Codex dynamic tools carry only the browser tools. The plugin runs no tool itself: it lists and calls tools through `/api/v1/app-tools/*` on the Server, and the Server executes each call for the calling Thread with the same code the clients use.
+The bundled plugins are how Codex and Claude reach Cypheria's own tools. Each declares one MCP server, and both run the same relay, which runs no tool itself: it lists and calls the tools of its server through `/api/v1/app-tools/*`, and Server executes each call for the calling Thread with the same code the clients use. Codex dynamic tools carry only the browser tools.
+
+- `cypheria-app-tools`, server `cypheria_app_tools`: the Thread, project, sidebar, worktree, handoff, and automation tools listed in [Agent harnesses](agent-harnesses.md#codex).
+- `code-review`, server `code-review`: `pull_requests.checks`, the one tool the official `code-review` plugin shows the model. Cypheria reads a GitHub pull request's checks, named by host, owner, repository, and number, through the Server's GitHub CLI, without job logs. The official plugin's other tools serve its embedded pull request app, which Desktop replaces with its own pull request panel.
+
+Agents do local Git work with `git` and `gh` in their own commands; the Server Git protocol stays a client contract and is not offered to the model, as in the official desktop.
 
 Those routes accept only an app tools token, never the Server's own token, and Server removes `CYPHERIA_SERVER_TOKEN` from every Agent environment. Server derives tokens from a secret held in memory and passes them to the Agent processes it starts, together with `CYPHERIA_SERVER_URL`:
 
-- A Claude session receives a token bound to its Thread through the SDK environment, and the Claude manifest expands it into the MCP server's environment. Claude does not tell an MCP server which session calls it, so the token is the Thread identity. Commands Claude runs can read the token, which allows only what that Thread's Agent may already do.
+- A Claude session receives a token bound to its Thread through the SDK environment, and the Claude manifests expand it into the MCP servers' environment. Claude does not tell an MCP server which session calls it, so the token is the Thread identity. Commands Claude runs can read the token, which allows only what that Thread's Agent may already do.
 - The Codex app-server serves every Codex Thread from one process, so it receives one token for the process. Codex attaches `x-codex-turn-metadata` to each MCP call, and Server resolves its `thread_id`, then `parent_thread_id` for a subagent, then `session_id`, to the live Cypheria Thread. Commands Codex runs inherit that environment unless the user's `shell_environment_policy` excludes the variable, so they can also call app tools, which already act on any Thread by ID.
 
-The Codex manifest runs the server three times, because Codex sets tool exposure and approval per server: `cypheria_app_tools` for the Git tools with Codex's default approval, `cypheria_app` for app tools found through tool search, and `cypheria_app_direct` for `list_artifacts`, which Codex lists directly. Both app tool servers approve calls without prompting and allow an hour per call. Claude uses one server for every tool, under Claude's own permission mode. When the MCP client cancels a call, the plugin aborts the HTTP request and Server stops waiting in `wait_threads`.
+The Codex manifest of `cypheria-app-tools` matches the official `codex-app-tools`: Codex lists every tool directly instead of through tool search, approves calls without prompting except `create_thread`, `send_message_to_thread`, `fork_thread`, `handoff_thread`, and `automation_update`, and allows an hour per call. `pull_requests.checks` is marked read-only, so Codex runs it without prompting. Claude applies its own permission mode to both servers. When the MCP client cancels a call, the relay aborts the HTTP request and Server stops waiting in `wait_threads`.
 
-Before a Codex Thread starts, resumes, or forks, and before a Claude turn starts, Server installs or updates the bundled plugin once per Server process. An Agent whose plugins are turned off has no app tools.
+Before a Codex Thread starts, resumes, or forks, and before a Claude turn starts, Server installs or updates the bundled plugins once per Server process. An Agent whose plugins are turned off has no app tools, and Codex developer instructions then leave out the sections that name them, as they do when the user turns off `cypheria-app-tools` alone.
 
 ### Claude plugin management
 

@@ -37,7 +37,7 @@ import type {
 } from "./plugin-provider.js"
 import {
   BUNDLED_MARKETPLACE_NAME,
-  BUNDLED_PLUGIN_NAME,
+  BUNDLED_PLUGIN_NAMES,
   bundledMarketplaceDirectory,
 } from "./plugin-utils.js"
 
@@ -222,7 +222,11 @@ export class ClaudePluginProvider implements PluginProvider {
         views.some(
           (view) =>
             view.sourceKind === "cypheria" &&
-            view.plugins.some((plugin) => plugin.name === BUNDLED_PLUGIN_NAME && plugin.installed)
+            view.plugins.some(
+              (plugin) =>
+                (BUNDLED_PLUGIN_NAMES as readonly string[]).includes(plugin.name) &&
+                plugin.installed
+            )
         )
       ) {
         void this.#ensureBundled().catch(() => undefined)
@@ -535,15 +539,18 @@ export class ClaudePluginProvider implements PluginProvider {
 
   async #installBundled(): Promise<void> {
     const source = await this.#registerBundledMarketplace()
-    const id = `${BUNDLED_PLUGIN_NAME}@${BUNDLED_MARKETPLACE_NAME}`
-    const bundledVersion = await bundledPluginVersion(source)
-    const current = (await this.#cli.listInstalled()).find((plugin) => plugin.id === id)
-    if (!current) {
-      const result = await this.#cli.mutate(["install", id, "--scope", "user"])
-      if (result.outcome === "failed") throw new ClaudeCliError(result.message)
-    } else if (bundledVersion && current.version !== bundledVersion) {
-      const result = await this.#cli.mutate(["update", id, "--scope", current.scope])
-      if (result.outcome === "failed") throw new ClaudeCliError(result.message)
+    const installed = await this.#cli.listInstalled()
+    for (const name of BUNDLED_PLUGIN_NAMES) {
+      const id = `${name}@${BUNDLED_MARKETPLACE_NAME}`
+      const bundledVersion = await bundledPluginVersion(source, name)
+      const current = installed.find((plugin) => plugin.id === id)
+      if (!current) {
+        const result = await this.#cli.mutate(["install", id, "--scope", "user"])
+        if (result.outcome === "failed") throw new ClaudeCliError(result.message)
+      } else if (bundledVersion && current.version !== bundledVersion) {
+        const result = await this.#cli.mutate(["update", id, "--scope", current.scope])
+        if (result.outcome === "failed") throw new ClaudeCliError(result.message)
+      }
     }
     await this.#reloadSessions()
   }
@@ -675,10 +682,13 @@ const httpUrl = (value: string | null | undefined): string | null => {
   }
 }
 
-const bundledPluginVersion = async (marketplaceDirectory: string): Promise<string | undefined> => {
+const bundledPluginVersion = async (
+  marketplaceDirectory: string,
+  name: string
+): Promise<string | undefined> => {
   try {
     const text = await readFile(
-      join(marketplaceDirectory, "plugins", BUNDLED_PLUGIN_NAME, ".claude-plugin", "plugin.json"),
+      join(marketplaceDirectory, "plugins", name, ".claude-plugin", "plugin.json"),
       "utf8"
     )
     const version = (JSON.parse(text) as { version?: unknown }).version

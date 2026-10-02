@@ -2049,6 +2049,15 @@ export class GitService {
     return this.#github.checks((await this.discover(cwd)).root, number)
   }
 
+  /** Checks of a pull request named by repository, run from any local directory. */
+  async githubPrChecksForRepository(
+    cwd: string,
+    repository: string,
+    number: number
+  ): Promise<GitHubPullRequestChecks> {
+    return this.#github.checks(cwd, number, repository)
+  }
+
   async githubPrActivity(cwd: string, number: number): Promise<GitHubPullRequestActivity> {
     return this.#github.activity((await this.discover(cwd)).root, number)
   }

@@ -140,7 +140,6 @@ export const cadenceToRrule = (cadence: ScheduleCadence): string | null => {
 }
 
 export const AUTOMATION_UPDATE_SPEC: v2.DynamicToolSpec = {
-  deferLoading: true,
   description:
     "Create, view, update, or delete a recurring automation. A heartbeat automation wakes a thread on a schedule and continues in that thread; a cron automation starts a new task for each run. Schedules are RRULE strings. Times are wall-clock times in the Server's time zone, so do not include DTSTART. Supported forms are FREQ=MINUTELY or HOURLY with INTERVAL (HOURLY also takes BYMINUTE), and DAILY, WEEKLY, or MONTHLY with BYHOUR, BYMINUTE, and BYDAY or BYMONTHDAY.",
   inputSchema: {

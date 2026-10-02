@@ -125,7 +125,9 @@ export type AgentManagerOptions = {
   /** The generated workspace of a projectless Thread, or null for any other directory. */
   projectlessWorkspace?: (cwd: string) => { cwd: string; outputsDirectory: string } | null
   /** What Cypheria can honor in Codex instructions right now. */
-  codexInstructionCapabilities?: () => CodexInstructionCapabilities
+  codexInstructionCapabilities?: () =>
+    | CodexInstructionCapabilities
+    | Promise<CodexInstructionCapabilities>
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   agentEnvironment?: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
   /**
@@ -241,7 +243,9 @@ export class AgentManager {
   readonly #managedShellEnvironment: (cwd: string) => Promise<Record<string, string> | null>
   readonly #isGitWorkspace: (cwd: string) => Promise<boolean>
   readonly #projectlessWorkspace: (cwd: string) => { cwd: string; outputsDirectory: string } | null
-  readonly #codexInstructionCapabilities: () => CodexInstructionCapabilities
+  readonly #codexInstructionCapabilities: () =>
+    | CodexInstructionCapabilities
+    | Promise<CodexInstructionCapabilities>
   readonly #installer: Pick<
     AgentInstaller,
     "cleanupInterrupted" | "install" | "readCurrent" | "uninstall"
@@ -447,7 +451,7 @@ export class AgentManager {
   async codexDeveloperInstructions(cwd: string | null): Promise<string> {
     const projectless = cwd ? this.#projectlessWorkspace(cwd) : null
     return buildCodexDeveloperInstructions({
-      capabilities: this.#codexInstructionCapabilities(),
+      capabilities: await this.#codexInstructionCapabilities(),
       git: this.#gitSettings(),
       isGitWorkspace: cwd && !projectless ? await this.#isGitWorkspace(cwd) : false,
       ...(projectless ? { projectless } : {}),
