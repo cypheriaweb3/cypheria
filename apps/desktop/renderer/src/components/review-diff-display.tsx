@@ -4,6 +4,7 @@ import {
   ChatJumpToFile,
   chatGitApplyCommand,
 } from "@cypheria/ui/components/chat"
+import { DropdownMenuCheckboxItem } from "@cypheria/ui/components/dropdown-menu"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { useAtom } from "jotai"
@@ -142,6 +143,22 @@ export function ReviewDiffControls({
             }
           : {})}
       >
+        <DropdownMenuCheckboxItem
+          checked={display.hideImports}
+          onCheckedChange={(checked) =>
+            setDisplay((value) => ({ ...value, hideImports: checked === true }))
+          }
+        >
+          {i18n._(msg({ id: "git.diff.hideImports", message: "Hide imports" }))}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={display.hideGenerated}
+          onCheckedChange={(checked) =>
+            setDisplay((value) => ({ ...value, hideGenerated: checked === true }))
+          }
+        >
+          {i18n._(msg({ id: "git.diff.hideGenerated", message: "Hide generated files" }))}
+        </DropdownMenuCheckboxItem>
         {children}
       </ChatDiffOptionsMenu>
     </span>

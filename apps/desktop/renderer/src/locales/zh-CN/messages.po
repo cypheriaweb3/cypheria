@@ -3393,3 +3393,48 @@ msgstr "复制路径"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.diff.openInGitHub"
 msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideImports"
+msgstr "隐藏导入"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideGenerated"
+msgstr "隐藏生成的文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.largeDiff"
+msgstr "此差异较大，每次只显示一个文件。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.previousFile"
+msgstr "上一个文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.nextFile"
+msgstr "下一个文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.title"
+msgstr "仅显示已跟踪的变更"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.description"
+msgstr "为保持响应，Review 跳过了 {count} 个未跟踪文件。如果它们是生成的文件，请忽略或清理后刷新。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.copyCleanup"
+msgstr "复制清理命令"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.refresh"
+msgstr "刷新"

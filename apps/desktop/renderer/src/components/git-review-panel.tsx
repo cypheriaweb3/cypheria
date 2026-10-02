@@ -21,6 +21,8 @@ import {
   ChatReviewToolbar,
   type ChatReviewTreeFile,
   chatDiffFingerprints,
+  chatHideImportOnlyHunks,
+  isLikelyGeneratedPath,
 } from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
 import {
@@ -127,6 +129,7 @@ export function GitReviewPanel({
   const [diffDisplay] = useReviewDiffDisplay()
   const diffViewerLabels = useDiffViewerLabels()
   const [collapsedPaths, setCollapsedPaths] = useState<ReadonlySet<string>>(new Set())
+  const [fullFiles, setFullFiles] = useState(false)
   const [commentDraft, setCommentDraft] = useState<ChatDiffTarget | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [reviewComments, setReviewComments] = useAtom(reviewCommentsAtom(threadId ?? `cwd:${cwd}`))
@@ -296,10 +299,23 @@ export function GitReviewPanel({
                   ? code[1] !== " "
                   : true
             ) ?? [])
+  const entryPaths = entries.map((entry) => entry.path)
+  const generatedPaths = useQuery({
+    enabled: diffDisplay.hideGenerated && entryPaths.length > 0,
+    queryKey: ["git", cwd, "generated-paths", entryPaths],
+    queryFn: async () =>
+      (await ensureCypheriaClient()).git.generatedPaths(cwd, entryPaths.slice(0, 5000)),
+    retry: false,
+    staleTime: 30_000,
+  })
+  const generated = new Set(generatedPaths.data ?? [])
   const fileSearchTerm = fileSearch.trim().toLowerCase()
-  const visibleEntries = fileSearchTerm
-    ? entries.filter((entry) => entry.path.toLowerCase().includes(fileSearchTerm))
-    : entries
+  const visibleEntries = entries.filter(
+    (entry) =>
+      (!fileSearchTerm || entry.path.toLowerCase().includes(fileSearchTerm)) &&
+      (!diffDisplay.hideGenerated ||
+        !(generated.has(entry.path) || isLikelyGeneratedPath(entry.path)))
+  )
   const activePath = visibleEntries.some((entry) => entry.path === selectedPath)
     ? selectedPath
     : visibleEntries[0]?.path
@@ -425,6 +441,20 @@ export function GitReviewPanel({
     refetchInterval: 3_000,
     retry: false,
   })
+  const loadFiles = async (file: { path: string; prevPath?: string }) => {
+    const snapshot = reviewSnapshot
+    const contents = await (await ensureCypheriaClient()).git.reviewFileContents(cwd, {
+      source,
+      path: file.path,
+      ...(file.prevPath ? { oldPath: file.prevPath } : {}),
+      ...(snapshot ? { base: snapshot.base, head: snapshot.head } : {}),
+    })
+    if (contents.status !== "success") throw new Error("The full file is unavailable")
+    return { newContents: contents.newContent ?? "", oldContents: contents.oldContent }
+  }
+  const displayedPatch = diffDisplay.hideImports
+    ? chatHideImportOnlyHunks(diff.data?.diff ?? "")
+    : (diff.data?.diff ?? "")
   const diffFingerprints = useMemo(
     () => chatDiffFingerprints(diff.data?.diff ?? ""),
     [diff.data?.diff]
@@ -803,11 +833,56 @@ export function GitReviewPanel({
         </label>
         <ReviewDiffControls
           files={visibleEntries.map((entry) => entry.path)}
+          fullFiles={fullFiles}
           onError={setActionError}
+          onFullFilesChange={setFullFiles}
           onJumpToFile={setSelectedPath}
           {...(diff.data?.diff ? { patch: diff.data.diff } : {})}
         />
       </div>
+      {status.data && status.data.untrackedOmitted > 0 ? (
+        <div className="space-y-1 border-b p-2 text-xs">
+          <p className="font-medium">
+            <Trans id="git.review.untrackedOmitted.title">Showing tracked changes only</Trans>
+          </p>
+          <p className="text-muted-foreground">
+            {i18n._({
+              ...msg({
+                id: "git.review.untrackedOmitted.description",
+                message:
+                  "Review skipped {count} untracked files to stay responsive. If they are generated, ignore or clean them up, then refresh.",
+              }),
+              values: { count: status.data.untrackedOmitted },
+            })}
+          </p>
+          <div className="flex gap-1">
+            <Button
+              onClick={() => {
+                const root = status.data?.repository.root
+                if (!root) return
+                void navigator.clipboard
+                  .writeText(`cd '${root.replaceAll("'", "'\\''")}' && git clean -i -d`)
+                  .catch((error: unknown) =>
+                    setActionError(error instanceof Error ? error.message : String(error))
+                  )
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.untrackedOmitted.copyCleanup">Copy cleanup command</Trans>
+            </Button>
+            <Button
+              onClick={() => void queryClient.invalidateQueries({ queryKey: ["git", cwd] })}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <Trans id="git.review.untrackedOmitted.refresh">Refresh</Trans>
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {lineCounts.isError ? (
         <p className="border-b p-2 text-xs text-destructive">{lineCounts.error.message}</p>
       ) : null}
@@ -963,7 +1038,9 @@ export function GitReviewPanel({
                   className="max-h-[40rem]"
                   collapsedPaths={shownCollapsed}
                   diffStyle={diffDisplay.diffStyle}
+                  expandUnchanged={fullFiles}
                   labels={diffViewerLabels}
+                  {...(fullFiles ? { loadFiles } : {})}
                   onToggleCollapsed={toggleCollapsed}
                   onToggleViewed={viewed.setViewed}
                   viewedPaths={viewed.viewedPaths}
@@ -989,7 +1066,7 @@ export function GitReviewPanel({
                     setCommentBody("")
                     setCommentDraft(target)
                   }}
-                  patch={diff.data?.diff ?? ""}
+                  patch={displayedPatch}
                   wrap={diffDisplay.wrap}
                 />
                 {source === "staged" || source === "unstaged" ? (

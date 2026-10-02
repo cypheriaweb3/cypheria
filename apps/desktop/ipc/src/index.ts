@@ -428,6 +428,8 @@ export type ClientSettingDefinitions = Readonly<{
   >
   gitReviewDiffDisplay: ClientSettingDefinition<{
     diffStyle: "auto" | "split" | "unified"
+    hideGenerated: boolean
+    hideImports: boolean
     wordDiffs: boolean
     wrap: boolean
   }>
@@ -591,11 +593,19 @@ export const clientSettingDefinitions: ClientSettingDefinitions = {
   }),
   gitReviewDiffDisplay: defineClientSetting({
     category: "git-ui",
-    defaultValue: { diffStyle: "auto" as const, wordDiffs: true, wrap: true },
+    defaultValue: {
+      diffStyle: "auto" as const,
+      hideGenerated: false,
+      hideImports: false,
+      wordDiffs: true,
+      wrap: true,
+    },
     key: "gitReviewDiffDisplay",
     schema: z
       .object({
         diffStyle: z.enum(["auto", "split", "unified"]),
+        hideGenerated: z.boolean(),
+        hideImports: z.boolean(),
         wordDiffs: z.boolean(),
         wrap: z.boolean(),
       })

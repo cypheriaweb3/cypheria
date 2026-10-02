@@ -49,6 +49,8 @@ export const GitStatusSchema = z
     entries: z.array(z.object({ code: z.string().length(2), path }).strict()),
     head: z.string().nullable(),
     repository: GitRepositorySchema,
+    /** Untracked files left out of `entries` because there were too many to list. */
+    untrackedOmitted: z.number().int().nonnegative(),
   })
   .strict()
 export const GitBranchSchema = z
@@ -120,6 +122,17 @@ export const GitIndexEntrySchema = z
   .strict()
 export const GitTextBlobSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("success"), content: z.string() }).strict(),
+  z.object({ status: z.literal("unavailable") }).strict(),
+])
+/** Both complete sides of a Review file; a side is null when the file does not exist there. */
+export const GitReviewFileContentsSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      status: z.literal("success"),
+      oldContent: z.string().nullable(),
+      newContent: z.string().nullable(),
+    })
+    .strict(),
   z.object({ status: z.literal("unavailable") }).strict(),
 ])
 export const GitBlameLineSchema = z
@@ -534,6 +547,31 @@ export const GitSubmodulePathsRequestSchema = input(
 export const GitTextBlobRequestSchema = input(
   "git.text-blob.request",
   z.object({ cwd: path, revision: z.string().regex(/^[a-f0-9]{40,64}$/iu), path }).strict()
+)
+export const GitReviewFileContentsRequestSchema = input(
+  "git.review-file-contents.request",
+  z
+    .object({
+      cwd: path,
+      source: z.enum(["unstaged", "staged", "uncommitted", "branch", "commit", "last-turn"]),
+      path,
+      /** Previous path of a renamed file, read on the old side. */
+      oldPath: path.optional(),
+      /** Pinned old and new revisions; required for branch, commit, and last-turn sources. */
+      base: z
+        .string()
+        .regex(/^[a-f0-9]{40,64}$/iu)
+        .optional(),
+      head: z
+        .string()
+        .regex(/^[a-f0-9]{40,64}$/iu)
+        .optional(),
+    })
+    .strict()
+)
+export const GitGeneratedPathsRequestSchema = input(
+  "git.generated-paths.request",
+  z.object({ cwd: path, paths: z.array(path).max(5000) }).strict()
 )
 export const GitBlameFileRequestSchema = input(
   "git.blame-file.request",
@@ -1349,6 +1387,11 @@ export const GitIndexEntriesResponseSchema = output(
 )
 export const GitSubmodulePathsResponseSchema = output("git.submodule-paths.response", z.array(path))
 export const GitTextBlobResponseSchema = output("git.text-blob.response", GitTextBlobSchema)
+export const GitGeneratedPathsResponseSchema = output("git.generated-paths.response", z.array(path))
+export const GitReviewFileContentsResponseSchema = output(
+  "git.review-file-contents.response",
+  GitReviewFileContentsSchema
+)
 export const GitBlameFileResponseSchema = output(
   "git.blame-file.response",
   z.array(GitBlameLineSchema)
@@ -1700,6 +1743,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitIndexEntriesRequestSchema,
   GitSubmodulePathsRequestSchema,
   GitTextBlobRequestSchema,
+  GitReviewFileContentsRequestSchema,
+  GitGeneratedPathsRequestSchema,
   GitBlameFileRequestSchema,
   GitIndexInfoRequestSchema,
   GitInitRequestSchema,
@@ -1808,6 +1853,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitIndexEntriesResponseSchema,
   GitSubmodulePathsResponseSchema,
   GitTextBlobResponseSchema,
+  GitReviewFileContentsResponseSchema,
+  GitGeneratedPathsResponseSchema,
   GitBlameFileResponseSchema,
   GitIndexInfoResponseSchema,
   GitInitResponseSchema,
@@ -1919,6 +1966,7 @@ export type GitBranchComparison = z.infer<typeof GitBranchComparisonSchema>
 export type GitCloneState = z.infer<typeof GitCloneStateSchema>
 export type GitIndexEntry = z.infer<typeof GitIndexEntrySchema>
 export type GitTextBlob = z.infer<typeof GitTextBlobSchema>
+export type GitReviewFileContents = z.infer<typeof GitReviewFileContentsSchema>
 export type GitBlameLine = z.infer<typeof GitBlameLineSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitSyncedBranchState = z.infer<typeof GitSyncedBranchStateSchema>

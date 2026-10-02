@@ -425,6 +425,72 @@ describe("GitService", () => {
     )
   }, 30_000)
 
+  it("reports linguist-generated paths and leaves out excess untracked files", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(
+      join(root, ".gitattributes"),
+      "gen/** linguist-generated\nkeep.txt -linguist-generated\n"
+    )
+    await mkdir(join(root, "gen"), { recursive: true })
+    await writeFile(join(root, "gen", "a.ts"), "x\n")
+    await writeFile(join(root, "keep.txt"), "x\n")
+    expect(await service.generatedPaths(root, ["keep.txt", "gen/a.ts", "src/b.ts"])).toEqual([
+      "gen/a.ts",
+    ])
+    await expect(service.generatedPaths(root, ["../outside"])).rejects.toThrow(
+      "outside the repository"
+    )
+    const status = await service.status(root)
+    expect(status.untrackedOmitted).toBe(0)
+    await mkdir(join(root, "many"))
+    await Promise.all(
+      Array.from({ length: 2001 }, (_, index) => writeFile(join(root, "many", `${index}.txt`), ""))
+    )
+    const crowded = await service.status(root)
+    expect(crowded.untrackedOmitted).toBe(2004)
+    expect(crowded.entries.some((entry) => entry.code === "??")).toBe(false)
+  }, 30_000)
+
+  it("reads both complete sides of a Review file for each source", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "a.txt"), "base\n")
+    await writeFile(join(root, "binary.dat"), Buffer.from([0, 1]))
+    await service.stage(root, ["a.txt", "binary.dat"])
+    const base = await service.commit(root, "Base")
+    await writeFile(join(root, "a.txt"), "staged\n")
+    await service.stage(root, ["a.txt"])
+    await writeFile(join(root, "a.txt"), "worktree\n")
+    await writeFile(join(root, "new.txt"), "added\n")
+    expect(await service.reviewFileContents(root, { source: "unstaged", path: "a.txt" })).toEqual({
+      status: "success",
+      oldContent: "staged\n",
+      newContent: "worktree\n",
+    })
+    expect(await service.reviewFileContents(root, { source: "staged", path: "a.txt" })).toEqual({
+      status: "success",
+      oldContent: "base\n",
+      newContent: "staged\n",
+    })
+    expect(
+      await service.reviewFileContents(root, { source: "uncommitted", path: "new.txt" })
+    ).toEqual({ status: "success", oldContent: null, newContent: "added\n" })
+    const head = await service.commit(root, "Next")
+    expect(
+      await service.reviewFileContents(root, { source: "commit", path: "a.txt", base, head })
+    ).toEqual({ status: "success", oldContent: "base\n", newContent: "staged\n" })
+    expect(
+      await service.reviewFileContents(root, { source: "uncommitted", path: "binary.dat" })
+    ).toEqual({ status: "unavailable" })
+    await expect(
+      service.reviewFileContents(root, { source: "branch", path: "a.txt" })
+    ).rejects.toThrow("require base and head")
+    await expect(
+      service.reviewFileContents(root, { source: "unstaged", path: "../outside" })
+    ).rejects.toThrow("outside the repository")
+  }, 30_000)
+
   it("reads bounded UTF-8 blobs and blame metadata without exposing binary content", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))
