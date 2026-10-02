@@ -2203,6 +2203,11 @@ export function ConversationWorkspace({
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <ThreadGitActions
             cwd={snapshot.thread.roots[0]}
+            onAddToChat={(text) =>
+              setComposer(
+                (current) => `${current}${current && !/\s$/u.test(current) ? " " : ""}${text} `
+              )
+            }
             onOpenPullRequest={(url) => {
               clientStateStore.set(reviewFocusAtom, {
                 line: null,

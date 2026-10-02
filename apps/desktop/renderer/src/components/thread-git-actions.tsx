@@ -1,5 +1,13 @@
 import { Button } from "@cypheria/ui/components/button"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@cypheria/ui/components/dropdown-menu"
 import { BranchIcon } from "@cypheria/ui/components/icons"
 import { Input } from "@cypheria/ui/components/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@cypheria/ui/components/popover"
@@ -19,10 +27,13 @@ import { commitChanges, hasCommittableChanges } from "./git-commit-actions.js"
  */
 export function ThreadGitActions({
   cwd,
+  onAddToChat,
   onOpenPullRequest,
   onOpenReview,
 }: Readonly<{
   cwd: string
+  /** Adds text, such as a pull request link, to the chat composer. */
+  onAddToChat?: (text: string) => void
   onOpenPullRequest: (url: string) => void
   onOpenReview: () => void
 }>) {
@@ -56,6 +67,17 @@ export function ThreadGitActions({
     },
     queryKey: ["github-pr", cwd, "for-branch", branch],
     refetchInterval: 30_000,
+    retry: false,
+  })
+  const prNumber = pullRequest.data?.number
+  const checks = useQuery({
+    enabled: cliAvailable && prNumber !== undefined && pullRequest.data?.state === "OPEN",
+    queryFn: async () => {
+      if (prNumber === undefined) throw new Error("A pull request is required")
+      return (await ensureCypheriaClient()).git.githubPrChecks(cwd, prNumber)
+    },
+    queryKey: ["github-pr", cwd, "header-checks", prNumber, pullRequest.data?.headRefOid],
+    refetchInterval: 60_000,
     retry: false,
   })
   if (!status.data) return null
@@ -181,9 +203,69 @@ export function ThreadGitActions({
         </PopoverContent>
       </Popover>
       {pr ? (
-        <Button onClick={() => onOpenPullRequest(pr.url)} size="sm" type="button" variant="outline">
-          <Trans id="thread.git.viewPr">View PR</Trans>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                aria-label={i18n._({
+                  ...msg({
+                    id: "thread.git.prActions",
+                    message: "Actions for pull request #{number}",
+                  }),
+                  values: { number: pr.number },
+                })}
+                size="sm"
+                type="button"
+                variant="outline"
+              />
+            }
+          >
+            <span>#{pr.number}</span>
+            <span className="text-muted-foreground text-xs">
+              {pr.isDraft
+                ? i18n._(msg({ id: "thread.git.prDraft", message: "Draft" }))
+                : pr.state === "MERGED"
+                  ? i18n._(msg({ id: "thread.git.prMerged", message: "Merged" }))
+                  : pr.state === "CLOSED"
+                    ? i18n._(msg({ id: "thread.git.prClosed", message: "Closed" }))
+                    : i18n._(msg({ id: "thread.git.prOpen", message: "Open" }))}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-52">
+            {checks.data ? (
+              <DropdownMenuLabel className="text-muted-foreground text-xs">
+                {checks.data.length === 0
+                  ? i18n._(msg({ id: "thread.git.noChecks", message: "No CI checks" }))
+                  : checks.data.some((check) => check.bucket === "fail")
+                    ? i18n._(msg({ id: "thread.git.checksFailing", message: "Checks failing" }))
+                    : checks.data.some((check) => check.bucket === "pending")
+                      ? i18n._(msg({ id: "thread.git.checksPending", message: "Checks pending" }))
+                      : i18n._(
+                          msg({ id: "thread.git.checksSuccessful", message: "Checks successful" })
+                        )}
+              </DropdownMenuLabel>
+            ) : null}
+            <DropdownMenuItem onClick={() => onOpenPullRequest(pr.url)}>
+              <Trans id="thread.git.viewPr">View PR</Trans>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => void window.cypheria?.app.openExternal(pr.url).catch(() => undefined)}
+            >
+              <Trans id="thread.git.openPrInGitHub">Open in GitHub</Trans>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => void navigator.clipboard.writeText(pr.url).catch(() => undefined)}
+            >
+              <Trans id="thread.git.copyPrLink">Copy link</Trans>
+            </DropdownMenuItem>
+            {onAddToChat ? (
+              <DropdownMenuItem onClick={() => onAddToChat(pr.url)}>
+                <Trans id="thread.git.addPrToChat">Add to chat</Trans>
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : cliAvailable && branch && pullRequest.isSuccess ? (
         <Button onClick={onOpenReview} size="sm" type="button" variant="outline">
           <Trans id="thread.git.createPr">Create PR</Trans>

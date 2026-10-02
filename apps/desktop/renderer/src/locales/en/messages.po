@@ -3006,6 +3006,86 @@ msgstr "View PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prActions"
+msgstr "Actions for pull request #{number}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prDraft"
+msgstr "Draft"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prMerged"
+msgstr "Merged"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prClosed"
+msgstr "Closed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prOpen"
+msgstr "Open"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChecks"
+msgstr "No CI checks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksFailing"
+msgstr "Checks failing"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksPending"
+msgstr "Checks pending"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksSuccessful"
+msgstr "Checks successful"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openPrInGitHub"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.copyPrLink"
+msgstr "Copy link"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.addPrToChat"
+msgstr "Add to chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions"
+msgstr "Mention a GitHub user"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions.loading"
+msgstr "Searching GitHub users…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions.error"
+msgstr "Couldn’t search GitHub users"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions.empty"
+msgstr "No GitHub users found"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.createPr"
 msgstr "Create PR"
 

@@ -3006,6 +3006,86 @@ msgstr "查看 PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prActions"
+msgstr "拉取请求 #{number} 的操作"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prDraft"
+msgstr "草稿"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prMerged"
+msgstr "已合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prClosed"
+msgstr "已关闭"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prOpen"
+msgstr "打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChecks"
+msgstr "没有 CI 检查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksFailing"
+msgstr "检查失败"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksPending"
+msgstr "检查进行中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksSuccessful"
+msgstr "检查通过"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openPrInGitHub"
+msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.copyPrLink"
+msgstr "复制链接"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.addPrToChat"
+msgstr "添加到聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions"
+msgstr "提及 GitHub 用户"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions.loading"
+msgstr "正在搜索 GitHub 用户…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions.error"
+msgstr "无法搜索 GitHub 用户"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/mention-textarea.tsx
+msgid "git.github.mentions.empty"
+msgstr "未找到 GitHub 用户"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.createPr"
 msgstr "创建 PR"
 
