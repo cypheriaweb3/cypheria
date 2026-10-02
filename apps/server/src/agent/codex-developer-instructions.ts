@@ -25,7 +25,6 @@ export const CODEX_APP_TOOL_NAMES = [
   "wait_threads",
   "send_message_to_thread",
   "handoff_thread",
-  "set_thread_pinned",
   "set_thread_archived",
   "set_thread_title",
   "list_projects",
@@ -153,7 +152,6 @@ const THREAD_TOOLS_ORDER: readonly CodexAppToolName[] = [
   "wait_threads",
   "send_message_to_thread",
   "handoff_thread",
-  "set_thread_pinned",
   "set_thread_archived",
   "set_thread_title",
 ]
@@ -217,10 +215,7 @@ const automations = (tools: ReadonlySet<string>): string | null => {
 const threadCoordination = (capabilities: CodexInstructionCapabilities): string | null => {
   const { tools } = capabilities
   if (!tools.has("read_thread")) return null
-  const sidebar = tools.has("create_sidebar_section")
-  const listed = THREAD_TOOLS_ORDER.filter(
-    (name) => tools.has(name) && !(sidebar && name === "set_thread_pinned")
-  )
+  const listed = THREAD_TOOLS_ORDER.filter((name) => tools.has(name))
   const lines = [
     "### Thread Coordination",
     '- Treat the terms "task", "thread", "chat", and "conversation" as synonyms when they clearly refer to conversations in Codex. Use "chat" when referring to conversations in the product. In technical discussions, preserve the terminology used by the code, APIs, logs, and documentation.',

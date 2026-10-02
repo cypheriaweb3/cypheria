@@ -500,3 +500,49 @@ describe("AppToolService", () => {
     })
   })
 })
+
+describe("model guidance", () => {
+  const service = (
+    models: () => Promise<
+      { description: string; model: string; reasoningEfforts: { value: string }[] }[]
+    >
+  ) => new AppToolService({ models } as never)
+  const modelDescription = (specs: readonly unknown[], name: string): string => {
+    const spec = specs.find((entry) => (entry as { name: string }).name === name) as {
+      inputSchema: { properties: { model: { description: string } } }
+    }
+    return spec.inputSchema.properties.model.description
+  }
+
+  it("lists the models and their reasoning efforts on create_thread and send_message_to_thread only", async () => {
+    const decorated = await service(async () => [
+      {
+        description: " Fast ",
+        model: "gpt-a",
+        reasoningEfforts: [{ value: "low" }, { value: "high" }],
+      },
+      { description: "", model: "gpt-b", reasoningEfforts: [] },
+    ]).decorateSpecs(AppToolService.specs)
+    for (const name of ["create_thread", "send_message_to_thread"]) {
+      expect(modelDescription(decorated, name)).toMatch(
+        /Models and supported reasoning efforts on the calling host: gpt-a \(Fast; supported reasoning efforts: low, high\), gpt-b \(no reasoning effort overrides\)\.$/u
+      )
+    }
+    const fork = decorated.find((entry) => (entry as { name: string }).name === "fork_thread")
+    expect(JSON.stringify(fork)).not.toContain("Models and supported")
+  })
+
+  it("leaves the specs unchanged when there are no models", async () => {
+    expect(await service(async () => []).decorateSpecs(AppToolService.specs)).toBe(
+      AppToolService.specs
+    )
+  })
+
+  it("rejects when the lookup fails, so the registry keeps the plain specs", async () => {
+    await expect(
+      service(async () => {
+        throw new Error("down")
+      }).decorateSpecs(AppToolService.specs)
+    ).rejects.toThrow("down")
+  })
+})

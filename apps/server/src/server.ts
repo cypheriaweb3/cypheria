@@ -363,6 +363,7 @@ export class CypheriaServer implements HttpAppHost {
       return outcome.value
     }
     this.appTools = new AppToolService({
+      models: async () => (await this.codexHarness.models(false)).map((model) => model),
       automations: new AutomationTool({
         agentOf: async (threadId) =>
           (await this.threadManager.get(threadId).catch(() => undefined))?.agentId,
@@ -470,8 +471,10 @@ export class CypheriaServer implements HttpAppHost {
       this.agentManager.registerCodexDynamicTools(browserToolSpecs(), (request, context) =>
         this.browserTools.callCodexTool(request, context)
       )
-      this.agentManager.registerCodexDynamicTools(AppToolService.specs, (request, context) =>
-        this.appTools.call(request, context)
+      this.agentManager.registerCodexDynamicTools(
+        AppToolService.specs,
+        (request, context) => this.appTools.call(request, context),
+        { decorate: this.appTools.decorateSpecs }
       )
       await this.projectThread.initialize()
       await this.threadManager.initialize()

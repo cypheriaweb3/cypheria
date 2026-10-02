@@ -155,7 +155,19 @@ export type AppToolAttachments = {
   list(threadId: string): Promise<AppToolAttachment[]>
 }
 
+/** A model Codex offers, as the model picker lists it. */
+export type AppToolModel = {
+  readonly description: string
+  readonly model: string
+  readonly reasoningEfforts: readonly { readonly value: string }[]
+}
+
+const MODEL_GUIDANCE_TIMEOUT_MS = 5000
+const MODEL_GUIDANCE_TOOLS = new Set(["create_thread", "send_message_to_thread"])
+
 export type AppToolServiceOptions = {
+  /** The models a thread can use, for the guidance appended to `model` descriptions. */
+  readonly models?: () => Promise<readonly AppToolModel[]>
   readonly automations: Pick<AutomationTool, "call">
   readonly handoff: Pick<HandoffService, "start" | "status">
   readonly attachments: AppToolAttachments
@@ -262,6 +274,60 @@ export class AppToolService {
       spec.type === "function" ? [spec.name] : []
     )
   )
+
+  /**
+   * Appends the models and their reasoning efforts to the `model` description of the tools that
+   * take one, the way the official desktop does. A lookup that fails or takes longer than five
+   * seconds leaves the descriptions unchanged.
+   */
+  decorateSpecs = async (
+    specs: readonly v2.DynamicToolSpec[]
+  ): Promise<readonly v2.DynamicToolSpec[]> => {
+    const load = this.#options.models
+    if (!load) return specs
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const models = await Promise.race([
+      load(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Timed out loading thread tool model guidance.")),
+          MODEL_GUIDANCE_TIMEOUT_MS
+        )
+      }),
+    ]).finally(() => clearTimeout(timer))
+    if (models.length === 0) return specs
+    const guidance = models
+      .map((model) => {
+        const efforts = model.reasoningEfforts.map(({ value }) => value).join(", ")
+        const note = efforts
+          ? `supported reasoning efforts: ${efforts}`
+          : "no reasoning effort overrides"
+        const description = model.description.trim()
+        return description ? `${model.model} (${description}; ${note})` : `${model.model} (${note})`
+      })
+      .join(", ")
+    return specs.map((spec) => {
+      if (spec.type !== "function" || !MODEL_GUIDANCE_TOOLS.has(spec.name)) return spec
+      const schema = record(spec.inputSchema)
+      const properties = record(schema.properties)
+      const model = properties.model
+      if (!model) return spec
+      const field = model as { description?: string }
+      return {
+        ...spec,
+        inputSchema: {
+          ...schema,
+          properties: {
+            ...properties,
+            model: {
+              ...field,
+              description: `${field.description ?? ""} Models and supported reasoning efforts on the calling host: ${guidance}.`,
+            },
+          },
+        },
+      } as v2.DynamicToolSpec
+    })
+  }
 
   async call(
     request: v2.DynamicToolCallParams,

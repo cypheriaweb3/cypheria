@@ -52,4 +52,18 @@ describe("CodexDynamicToolRegistry", () => {
       "already registered"
     )
   })
+
+  it("sends decorated specs at thread start and falls back when a decorator fails", async () => {
+    const registry = new CodexDynamicToolRegistry()
+    const other = { ...spec, name: "wallet_other" }
+    registry.register([spec], vi.fn(), {
+      decorate: (specs) => specs.map((entry) => ({ ...entry, description: "decorated" })),
+    })
+    registry.register([other], vi.fn(), {
+      decorate: () => {
+        throw new Error("lookup failed")
+      },
+    })
+    expect(await registry.resolveSpecs()).toEqual([{ ...spec, description: "decorated" }, other])
+  })
 })

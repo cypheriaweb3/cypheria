@@ -50,7 +50,11 @@ import {
   type CodexInstructionCapabilities,
   NO_CODEX_INSTRUCTION_CAPABILITIES,
 } from "./codex-developer-instructions.js"
-import { type CodexDynamicToolHandler, CodexDynamicToolRegistry } from "./codex-dynamic-tools.js"
+import {
+  type CodexDynamicToolHandler,
+  CodexDynamicToolRegistry,
+  type CodexDynamicToolSpecDecorator,
+} from "./codex-dynamic-tools.js"
 import { CodexRuntime } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
@@ -390,9 +394,10 @@ export class AgentManager {
 
   registerCodexDynamicTools(
     specs: readonly import("@cypheria/protocol/codex-types").v2.DynamicToolSpec[],
-    handler: CodexDynamicToolHandler
+    handler: CodexDynamicToolHandler,
+    options?: { decorate?: CodexDynamicToolSpecDecorator }
   ): () => void {
-    return this.codexDynamicTools.register(specs, handler)
+    return this.codexDynamicTools.register(specs, handler, options)
   }
 
   async disposeSession(sessionId: string): Promise<void> {
