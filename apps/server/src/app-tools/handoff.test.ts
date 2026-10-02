@@ -8,8 +8,8 @@ const setup = (options: { fail?: boolean; running?: boolean } = {}) => {
   const service = new HandoffService({
     git: {
       handoffThread: async (_threadId, onPhase) => {
-        onPhase("creating-worktree")
-        onPhase("moving")
+        onPhase("create-new-worktree")
+        onPhase("switching-thread")
         if (options.fail) throw new Error("Another thread owns the target worktree")
         return { direction: "to-worktree", path: "/wt/a" }
       },

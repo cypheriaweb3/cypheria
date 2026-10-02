@@ -1047,53 +1047,128 @@ describe("GitService", () => {
     expect(state.worktree?.ownerThreadId).toBeNull()
   }, 30_000)
 
-  it("hands a thread off to a new worktree and back to its checkout", async () => {
-    const root = await repository()
-    const home = await mkdtemp(join(tmpdir(), "cypheria-git-handoff-toggle-"))
-    created.push(home)
-    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf402"
-    const thread = {
-      id: threadId,
-      agentId: "claude",
-      agentSessionId: null,
-      roots: [root],
-      activeTurn: null as { id: string } | null,
-      pendingInteractions: [] as unknown[],
+  describe("thread handoff", () => {
+    const setup = async (options: { failMove?: boolean } = {}) => {
+      const root = await repository()
+      const home = await mkdtemp(join(tmpdir(), "cypheria-git-handoff-toggle-"))
+      created.push(home)
+      const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf402"
+      const thread = {
+        id: threadId,
+        agentId: "claude",
+        agentSessionId: null,
+        roots: [root],
+        activeTurn: null as { id: string } | null,
+        pendingInteractions: [] as unknown[],
+      }
+      const threads = {
+        get: async () => thread,
+        moveWorkingDirectory: async (_id: string, cwd: string) => {
+          if (options.failMove) throw new Error("move failed")
+          thread.roots = [cwd]
+          return thread
+        },
+      } as unknown as ThreadManager
+      const service = new GitService(join(home, "cache"), home, {
+        agents: {} as AgentManager,
+        threadAttachments: {
+          attachPullRequest: vi.fn(),
+          attachWorktree: vi.fn(),
+          detachWorktree: vi.fn(),
+        },
+        threads,
+      })
+      await run("git", ["-C", root, "checkout", "-q", "-B", "main"])
+      await writeFile(join(root, "file.txt"), "base\n")
+      await service.stage(root, ["file.txt"])
+      await service.commit(root, "Base")
+      return { root, service, thread }
     }
-    const threads = {
-      get: async () => thread,
-      moveWorkingDirectory: async (_id: string, cwd: string) => {
-        thread.roots = [cwd]
-        return thread
-      },
-    } as unknown as ThreadManager
-    const service = new GitService(join(home, "cache"), home, {
-      agents: {} as AgentManager,
-      threadAttachments: {
-        attachPullRequest: vi.fn(),
-        attachWorktree: vi.fn(),
-        detachWorktree: vi.fn(),
-      },
-      threads,
-    })
-    await writeFile(join(root, "file.txt"), "base\n")
-    await service.stage(root, ["file.txt"])
-    await service.commit(root, "Base")
-    await writeFile(join(root, "local.txt"), "local\n")
-    const phases: string[] = []
-    const out = await service.handoffThread(threadId, (phase) => phases.push(phase))
-    expect(out.direction).toBe("to-worktree")
-    expect(phases).toEqual(["creating-worktree", "moving"])
-    expect(thread.roots[0]).toBe(out.path)
-    expect(await readFile(join(out.path, "local.txt"), "utf8")).toBe("local\n")
-    // The checkout keeps its copy of the changes, so returning to it needs it clean.
-    await expect(service.handoffThread(threadId)).rejects.toThrow(/clean/u)
-    await rm(join(root, "local.txt"))
-    const back = await service.handoffThread(threadId)
-    expect(back.direction).toBe("to-checkout")
-    expect(await readFile(join(root, "local.txt"), "utf8")).toBe("local\n")
-    expect(thread.roots[0]).toBe(await realpath(root))
-  }, 45_000)
+    const branch = async (path: string) =>
+      (await run("git", ["-C", path, "branch", "--show-current"])).stdout.trim()
+
+    it("moves a thread on the default branch into a worktree on a new branch, changes included", async () => {
+      const { root, service, thread } = await setup()
+      await writeFile(join(root, "file.txt"), "changed\n")
+      await writeFile(join(root, "local.txt"), "local\n")
+      const steps: string[] = []
+      const out = await service.handoffThread(thread.id, (step) => steps.push(step))
+      expect(out.direction).toBe("to-worktree")
+      expect(steps).toEqual([
+        "create-new-worktree",
+        "stash-source-changes",
+        "checkout-worktree-branch",
+        "apply-changes-to-worktree",
+        "switching-thread",
+      ])
+      expect(thread.roots[0]).toBe(out.path)
+      expect(await branch(root)).toBe("main")
+      expect((await service.status(root)).entries).toHaveLength(0)
+      expect(await branch(out.path)).toMatch(/handoff-/u)
+      expect(await readFile(join(out.path, "file.txt"), "utf8")).toBe("changed\n")
+      expect(await readFile(join(out.path, "local.txt"), "utf8")).toBe("local\n")
+      const refs = (await run("git", ["-C", root, "for-each-ref", "refs/cypheria/handoff"])).stdout
+      expect(refs).toBe("")
+    }, 45_000)
+
+    it("moves a feature branch with the thread and leaves the checkout on the default branch", async () => {
+      const { root, service, thread } = await setup()
+      await run("git", ["-C", root, "checkout", "-q", "-b", "feature"])
+      await writeFile(join(root, "local.txt"), "local\n")
+      const out = await service.handoffThread(thread.id)
+      expect(await branch(root)).toBe("main")
+      expect(await branch(out.path)).toBe("feature")
+      expect(await readFile(join(out.path, "local.txt"), "utf8")).toBe("local\n")
+      expect((await service.status(root)).entries).toHaveLength(0)
+    }, 45_000)
+
+    it("hands the thread and its changes back to the checkout and frees the branch", async () => {
+      const { root, service, thread } = await setup()
+      await run("git", ["-C", root, "checkout", "-q", "-b", "feature"])
+      const out = await service.handoffThread(thread.id)
+      await writeFile(join(out.path, "later.txt"), "later\n")
+      const back = await service.handoffThread(thread.id)
+      expect(back.direction).toBe("to-checkout")
+      expect(thread.roots[0]).toBe(await realpath(root))
+      expect(await branch(root)).toBe("feature")
+      expect(await readFile(join(root, "later.txt"), "utf8")).toBe("later\n")
+      expect(await branch(out.path)).toBe("")
+      expect((await service.status(out.path)).entries).toHaveLength(0)
+    }, 60_000)
+
+    it("restores the checkout, its branch, and its changes when the move fails", async () => {
+      const { root, service, thread } = await setup({ failMove: true })
+      await run("git", ["-C", root, "checkout", "-q", "-b", "feature"])
+      await writeFile(join(root, "file.txt"), "changed\n")
+      await writeFile(join(root, "local.txt"), "local\n")
+      await expect(service.handoffThread(thread.id)).rejects.toThrow("move failed")
+      expect(await branch(root)).toBe("feature")
+      expect(await readFile(join(root, "file.txt"), "utf8")).toBe("changed\n")
+      expect(await readFile(join(root, "local.txt"), "utf8")).toBe("local\n")
+      expect(
+        (await service.worktrees(root)).filter((entry) => entry.active && entry.managed)
+      ).toEqual([])
+      expect(thread.roots[0]).toBe(root)
+      expect((await run("git", ["-C", root, "for-each-ref", "refs/cypheria/handoff"])).stdout).toBe(
+        ""
+      )
+    }, 60_000)
+
+    it("refuses a detached checkout and a dirty destination without touching anything", async () => {
+      const { root, service, thread } = await setup()
+      await run("git", ["-C", root, "checkout", "-q", "--detach"])
+      await writeFile(join(root, "local.txt"), "local\n")
+      await expect(service.handoffThread(thread.id)).rejects.toThrow(/detached/u)
+      expect(await readFile(join(root, "local.txt"), "utf8")).toBe("local\n")
+      await run("git", ["-C", root, "checkout", "-q", "main"])
+      await rm(join(root, "local.txt"))
+      const out = await service.handoffThread(thread.id)
+      await run("git", ["-C", root, "checkout", "-q", "-b", "other"])
+      await writeFile(join(root, "blocker.txt"), "x\n")
+      await expect(service.handoffThread(thread.id)).rejects.toThrow(/checkout has uncommitted/u)
+      expect(thread.roots[0]).toBe(out.path)
+    }, 60_000)
+  })
 
   it("cancels a running worktree setup and permits skipping it", async () => {
     const root = await repository()
