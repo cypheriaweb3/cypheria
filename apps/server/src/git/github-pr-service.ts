@@ -842,13 +842,15 @@ export class GitHubPrService {
     ])
   }
 
-  async checks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {
+  /** Checks of a pull request in the repository of `cwd`, or in `repository` (`[HOST/]OWNER/REPO`). */
+  async checks(cwd: string, number: number, repository?: string): Promise<GitHubPullRequestChecks> {
     const result = await this.#run(
       cwd,
       [
         "pr",
         "checks",
         String(number),
+        ...(repository ? ["--repo", repository] : []),
         "--json",
         "bucket,completedAt,link,name,startedAt,state,workflow",
       ],

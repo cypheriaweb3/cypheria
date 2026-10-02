@@ -156,6 +156,35 @@ describe("CodexHarnessService", () => {
     expect(callCodex).not.toHaveBeenCalledWith("config/batchWrite", expect.anything())
   })
 
+  it("reports the app tools plugin as loaded only when plugins and the plugin are on", async () => {
+    const service = (plugins: boolean, config: Record<string, unknown>) =>
+      new CodexHarnessService(
+        {
+          callCodex: vi.fn(async (method: string) =>
+            method === "config/read"
+              ? { config }
+              : { data: [{ enabled: plugins, name: "plugins" }], nextCursor: null }
+          ),
+        } as unknown as AgentManager,
+        store,
+        {} as ThreadManager
+      )
+    const off = { plugins: { "cypheria-app-tools@cypheria-bundled": { enabled: false } } }
+    expect(await service(true, {}).appToolsPluginEnabled()).toBe(true)
+    expect(await service(false, {}).appToolsPluginEnabled()).toBe(false)
+    expect(await service(true, off).appToolsPluginEnabled()).toBe(false)
+    const failing = new CodexHarnessService(
+      {
+        callCodex: vi.fn(async () => {
+          throw new Error("down")
+        }),
+      } as unknown as AgentManager,
+      store,
+      {} as ThreadManager
+    )
+    expect(await failing.appToolsPluginEnabled()).toBe(false)
+  })
+
   it("reads cwd-aware Codex agent settings", async () => {
     const callCodex = vi.fn(async (method: string) => {
       if (method === "config/read")

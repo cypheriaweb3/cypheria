@@ -1,8 +1,6 @@
 import {
   CYPHERIA_WEBSOCKET_PATH,
   createConnectionOfferUrl,
-  GitClientMessageSchema,
-  type GitServerMessage,
   HttpLifecycleRequestSchema,
   HttpRuntimeRequestSchema,
   PersistedServerConfigPatchSchema,
@@ -28,7 +26,6 @@ import {
   resolveWebSocketAllowedOrigins,
 } from "./auth.js"
 import type { CypheriaServerConfig } from "./config.js"
-import { gitToolsCatalog } from "./git/git-tools-catalog.js"
 import type { CypheriaRuntimeMethod } from "./runtime/index.js"
 import type { ClientConnection } from "./session/client-connection.js"
 import type { SessionHost } from "./session/client-session.js"
@@ -38,10 +35,10 @@ import { OWNER_SESSION_ADMISSION } from "./session/connection-registry.js"
 export type HttpAppHost = SessionHost & {
   /** The caller an app tools token speaks for; app tools routes accept no other credential. */
   verifyAppToolToken?(token: string | undefined): AppToolGrant | null
-  listAppTools?(): Promise<AppToolMcpTool[]>
+  listAppTools?(server: string): Promise<AppToolMcpTool[] | undefined>
   callAppTool?(
     grant: AppToolGrant,
-    request: { name: string; arguments?: unknown; codexTurnMetadata?: unknown },
+    request: { server: string; name: string; arguments?: unknown; codexTurnMetadata?: unknown },
     signal?: AbortSignal
   ): Promise<AppToolMcpResult>
   getRelayPairingOffer(): RelayPairingOfferResponse | undefined
@@ -66,6 +63,7 @@ const AppToolCallSchema = z.object({
   arguments: z.unknown().optional(),
   codexTurnMetadata: z.unknown().optional(),
   name: z.string().min(1),
+  server: z.string().min(1),
 })
 
 const APP_TOOLS_PATH = "/api/v1/app-tools/"
@@ -141,7 +139,6 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
   app.get("/api/v1/status", (context) => context.json(host.getStatus()))
   app.get("/api/v1/state", (context) => context.json(host.getState()))
   app.get("/api/v1/diagnostics", (context) => context.json(host.getDiagnostics()))
-  app.get("/api/v1/git/tools", (context) => context.json(gitToolsCatalog()))
   app.get("/api/v1/config", (context) => context.json(host.getConfig()))
   app.post(
     "/api/v1/config/patch",
@@ -153,29 +150,11 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     async (context) => context.json(await host.patchConfig(context.req.valid("json")))
   )
   app.post("/api/v1/config/reload", async (context) => context.json(await host.reloadConfig()))
-  for (const path of ["/api/v1/git/request", `${APP_TOOLS_PATH}git`]) {
-    app.post(
-      path,
-      bodyLimit({ maxSize: config.maxMessageBytes }),
-      zValidator("json", GitClientMessageSchema, (result, context) => {
-        if (!result.success) return context.json(jsonError("Invalid Git request"), 400)
-        return undefined
-      }),
-      async (context) => {
-        if (!host.handleGitMessage) return context.json(jsonError("Git is unavailable"), 503)
-        let response: GitServerMessage | undefined
-        await host.handleGitMessage(context.req.valid("json"), (message) => {
-          response = message
-        })
-        return response
-          ? context.json(response)
-          : context.json(jsonError("Git response is unavailable"), 503)
-      }
-    )
-  }
   app.get(`${APP_TOOLS_PATH}tools`, async (context) => {
     if (!host.listAppTools) return context.json(jsonError("App tools are unavailable"), 503)
-    return context.json({ git: gitToolsCatalog().tools, tools: await host.listAppTools() })
+    const tools = await host.listAppTools(context.req.query("server") ?? "")
+    if (!tools) return context.json(jsonError("Unknown app tools server", "NOT_FOUND"), 404)
+    return context.json({ tools })
   })
   app.post(
     `${APP_TOOLS_PATH}call`,

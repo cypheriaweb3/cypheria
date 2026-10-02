@@ -16,14 +16,17 @@ const setup = () => {
   }))
   const host = {
     callAppTool,
-    listAppTools: async () => [
-      {
-        description: "List threads.",
-        direct: false,
-        inputSchema: { type: "object" },
-        name: "list_threads",
-      },
-    ],
+    listAppTools: async (server: string) =>
+      server !== "cypheria_app_tools"
+        ? undefined
+        : [
+            {
+              description: "List threads.",
+              direct: false,
+              inputSchema: { type: "object" },
+              name: "list_threads",
+            },
+          ],
     verifyAppToolToken: (token: string | undefined) => grants.verify(token),
   } as unknown as HttpAppHost
   const app = createHttpApp({
@@ -46,21 +49,28 @@ describe("app tools routes", () => {
     }
   })
 
-  it("list the app tools with the Git catalog", async () => {
+  it("list the tools of one plugin server", async () => {
     const { app, grants } = setup()
-    const response = await app.request("/api/v1/app-tools/tools", {
-      headers: { authorization: `Bearer ${grants.forCodex()}` },
+    const headers = { authorization: `Bearer ${grants.forCodex()}` }
+    const response = await app.request("/api/v1/app-tools/tools?server=cypheria_app_tools", {
+      headers,
     })
     expect(response.status).toBe(200)
-    const body = (await response.json()) as { git: unknown[]; tools: { name: string }[] }
+    const body = (await response.json()) as { tools: { name: string }[] }
     expect(body.tools.map((tool) => tool.name)).toEqual(["list_threads"])
-    expect(body.git.length).toBeGreaterThan(0)
+    expect((await app.request("/api/v1/app-tools/tools?server=other", { headers })).status).toBe(
+      404
+    )
   })
 
   it("call a tool for the caller the token speaks for", async () => {
     const { app, callAppTool, grants } = setup()
     const response = await app.request("/api/v1/app-tools/call", {
-      body: JSON.stringify({ arguments: { limit: 1 }, name: "list_threads" }),
+      body: JSON.stringify({
+        arguments: { limit: 1 },
+        name: "list_threads",
+        server: "cypheria_app_tools",
+      }),
       headers: {
         authorization: `Bearer ${grants.forThread("thread-1")}`,
         "content-type": "application/json",
@@ -73,7 +83,7 @@ describe("app tools routes", () => {
     })
     expect(callAppTool).toHaveBeenCalledWith(
       { kind: "thread", threadId: "thread-1" },
-      { arguments: { limit: 1 }, name: "list_threads" },
+      { arguments: { limit: 1 }, name: "list_threads", server: "cypheria_app_tools" },
       expect.any(AbortSignal)
     )
   })

@@ -1,0 +1,7 @@
+{
+  "name": "code-review",
+  "version": "0.1.0",
+  "description": "Read GitHub pull request CI checks through the Cypheria Server.",
+  "author": { "name": "Cypheria" },
+  "mcpServers": "./.claude-mcp.json"
+}

@@ -2,28 +2,18 @@
   "mcpServers": {
     "cypheria_app_tools": {
       "command": "node",
-      "args": ["./mcp/server.mjs", "--git"],
+      "args": ["./mcp/server.mjs", "--server", "cypheria_app_tools"],
       "cwd": ".",
-      "env_vars": ["CYPHERIA_SERVER_URL", "CYPHERIA_APP_TOOLS_TOKEN"],
-      "startup_timeout_sec": 10,
-      "tool_timeout_sec": 120
-    },
-    "cypheria_app": {
-      "command": "node",
-      "args": ["./mcp/server.mjs", "--deferred"],
-      "cwd": ".",
-      "default_tools_approval_mode": "approve",
-      "env_vars": ["CYPHERIA_SERVER_URL", "CYPHERIA_APP_TOOLS_TOKEN"],
-      "startup_timeout_sec": 10,
-      "tool_timeout_sec": 3600
-    },
-    "cypheria_app_direct": {
-      "command": "node",
-      "args": ["./mcp/server.mjs", "--direct"],
-      "cwd": ".",
-      "default_tools_approval_mode": "approve",
-      "env_vars": ["CYPHERIA_SERVER_URL", "CYPHERIA_APP_TOOLS_TOKEN"],
       "omit_tools_from": ["deferred"],
+      "default_tools_approval_mode": "approve",
+      "tools": {
+        "automation_update": { "approval_mode": "prompt" },
+        "create_thread": { "approval_mode": "prompt" },
+        "send_message_to_thread": { "approval_mode": "prompt" },
+        "fork_thread": { "approval_mode": "prompt" },
+        "handoff_thread": { "approval_mode": "prompt" }
+      },
+      "env_vars": ["CYPHERIA_SERVER_URL", "CYPHERIA_APP_TOOLS_TOKEN"],
       "startup_timeout_sec": 10,
       "tool_timeout_sec": 3600
     }

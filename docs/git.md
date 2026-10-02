@@ -64,6 +64,6 @@ Managed detached worktrees have a stable UUID, repository identity, an optional 
 
 ## Agent tools and validation status
 
-The public Git and Thread Attachment contracts are independent of an Agent harness. The `cypheria-bundled` marketplace distributes `cypheria-app-tools` to Cypheria's managed Codex and Claude homes, so those two Agents have the complete tool path. Its tools reach the public Git service through the [app tools routes](integrations.md#cypheria-app-tools) and the same Server policies as Desktop. Other Agent adapters (Pi, OpenCode, and ACP) have an implementation point at the same public service boundary and do not need a second Git store or attachment model.
+The public Git and Thread Attachment contracts are independent of an Agent harness. Agents do not receive the Git protocol as tools: they run `git` and `gh` themselves, attach pull requests and manage worktrees through the [Cypheria app tools](integrations.md#cypheria-app-tools), and read pull request checks through the bundled `code-review` plugin. Other Agent adapters (Pi, OpenCode, and ACP) have an implementation point at the same public service boundary and do not need a second Git store or attachment model.
 
 Local protocol, Git, worktree, provider-selection, and UI checks cover the implemented paths. Packaged Electron Connect behavior and live GitHub/GitLab authorization and PR/MR calls in Cypheria's managed Codex home remain the explicit [verification task](todo.md#local-git-and-pull-requests); completion of those checks is required before claiming end-to-end parity.

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import { CODEX_APP_TOOL_NAMES } from "../agent/codex-developer-instructions.js"
-import { AppToolService, type AppToolThread, reorderWithinSlots, toMcpResult } from "./service.js"
+import {
+  type AppToolAgent,
+  AppToolService,
+  type AppToolThread,
+  reorderWithinSlots,
+  toMcpResult,
+} from "./service.js"
 
 const PINNED_ID = "pinned-section-id"
 
@@ -268,17 +274,9 @@ describe("app tool specs", () => {
     expect(JSON.stringify(AppToolService.specs)).not.toMatch(/ChatGPT|hostId/u)
   })
 
-  it("list in MCP form with list_artifacts as the only direct tool", async () => {
+  it("list in MCP form", async () => {
     const tools = await new AppToolService({} as never).mcpTools()
     expect(tools.map((tool) => tool.name)).toEqual([...AppToolService.toolNames])
-    expect(tools.filter((tool) => tool.direct).map((tool) => tool.name)).toEqual(["list_artifacts"])
-  })
-
-  it("defers every tool to tool search except list_artifacts", () => {
-    for (const spec of AppToolService.specs) {
-      const deferred = spec.type === "function" && spec.deferLoading === true
-      expect(deferred).toBe(spec.type === "function" && spec.name !== "list_artifacts")
-    }
   })
 })
 
@@ -345,6 +343,17 @@ describe("AppToolService", () => {
         content: [{ text: "Do it", type: "text" }],
         threadId: "new",
       },
+    ])
+  })
+
+  it("starts a thread of the caller's Agent unless another Agent is named", async () => {
+    const { call, created } = harness([thread("caller", { agentId: "claude" })])
+    const target = { directoryName: "x", type: "projectless" }
+    await call("create_thread", { prompt: "Mine", target })
+    await call("create_thread", { agent: "codex", prompt: "Theirs", target })
+    expect(created.map((input) => (input as { agentId: string }).agentId)).toEqual([
+      "claude",
+      "codex",
     ])
   })
 
@@ -529,44 +538,50 @@ describe("AppToolService", () => {
   })
 })
 
-describe("model guidance", () => {
-  const service = (
-    models: () => Promise<
-      { description: string; model: string; reasoningEfforts: { value: string }[] }[]
-    >
-  ) => new AppToolService({ models } as never)
-  const modelDescription = (specs: readonly unknown[], name: string): string => {
+describe("Agent and model guidance", () => {
+  const service = (agents: () => Promise<AppToolAgent[]>) => new AppToolService({ agents } as never)
+  const property = (specs: readonly unknown[], name: string, field: string) => {
     const spec = specs.find((entry) => (entry as { name: string }).name === name) as {
-      inputSchema: { properties: { model: { description: string } } }
+      inputSchema: { properties: Record<string, { description?: string; enum?: string[] }> }
     }
-    return spec.inputSchema.properties.model.description
+    return spec.inputSchema.properties[field]
   }
+  const agents: AppToolAgent[] = [
+    {
+      id: "codex",
+      models: [
+        { description: " Fast ", id: "gpt-a", reasoningEfforts: ["low", "high"] },
+        { description: null, id: "gpt-b", reasoningEfforts: [] },
+      ],
+      name: "Codex",
+    },
+    { id: "claude", models: [], name: "Claude" },
+  ]
 
-  it("lists the models and their reasoning efforts on create_thread and send_message_to_thread only", async () => {
-    const decorated = await service(async () => [
-      {
-        description: " Fast ",
-        model: "gpt-a",
-        reasoningEfforts: [{ value: "low" }, { value: "high" }],
-      },
-      { description: "", model: "gpt-b", reasoningEfforts: [] },
-    ]).decorateSpecs(AppToolService.specs)
+  it("lists every Agent's models on create_thread and send_message_to_thread only", async () => {
+    const decorated = await service(async () => agents).decorateSpecs(AppToolService.specs)
     for (const name of ["create_thread", "send_message_to_thread"]) {
-      expect(modelDescription(decorated, name)).toMatch(
-        /Models and supported reasoning efforts on the calling host: gpt-a \(Fast; supported reasoning efforts: low, high\), gpt-b \(no reasoning effort overrides\)\.$/u
+      expect(property(decorated, name, "model")?.description).toMatch(
+        /on this host: codex \(Codex\): gpt-a \(Fast; supported reasoning efforts: low, high\), gpt-b \(no reasoning effort overrides\); claude \(Claude\): its default model only\.$/u
       )
     }
     const fork = decorated.find((entry) => (entry as { name: string }).name === "fork_thread")
-    expect(JSON.stringify(fork)).not.toContain("Models and supported")
+    expect(JSON.stringify(fork)).not.toContain("on this host")
   })
 
-  it("leaves the specs unchanged when there are no models", async () => {
+  it("lets create_thread choose any of the Agents", async () => {
+    const decorated = await service(async () => agents).decorateSpecs(AppToolService.specs)
+    expect(property(decorated, "create_thread", "agent")?.enum).toEqual(["codex", "claude"])
+    expect(property(decorated, "send_message_to_thread", "agent")).toBeUndefined()
+  })
+
+  it("leaves the specs unchanged when there are no Agents", async () => {
     expect(await service(async () => []).decorateSpecs(AppToolService.specs)).toBe(
       AppToolService.specs
     )
   })
 
-  it("rejects when the lookup fails, so the registry keeps the plain specs", async () => {
+  it("rejects when the lookup fails, so callers keep the plain specs", async () => {
     await expect(
       service(async () => {
         throw new Error("down")

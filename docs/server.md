@@ -120,9 +120,8 @@ Codex, Pi, and ACP process lifecycle records include Agent ID, process ID, exit 
 | `POST` | `/api/v1/runtime/request` | Validated privileged runtime request |
 | `POST` | `/api/v1/lifecycle/restart` | Supervised worker restart |
 | `POST` | `/api/v1/lifecycle/shutdown` | Full Server shutdown |
-| `GET` | `/api/v1/app-tools/tools` | App and Git tool catalog for the `cypheria-app-tools` plugin |
-| `POST` | `/api/v1/app-tools/call` | Run an app tool for the calling Thread |
-| `POST` | `/api/v1/app-tools/git` | Run a Git operation for the plugin |
+| `GET` | `/api/v1/app-tools/tools?server=` | Tools of one bundled plugin server |
+| `POST` | `/api/v1/app-tools/call` | Run a bundled plugin tool for the calling Thread |
 
 Most product operations use `/api/v1/ws`; REST operations never fall through to the hosted SPA.
 

@@ -8,8 +8,8 @@ import type {
   CodexPermissionDefaultsWrite,
 } from "@cypheria/protocol"
 import type { v2 } from "@cypheria/protocol/codex-types"
-
 import type { AgentManager } from "./agent/agent-manager.js"
+import { BUNDLED_MARKETPLACE_NAME } from "./integration/plugin-utils.js"
 import type { ServerConfigStore } from "./server-config-store.js"
 import type { ThreadManager } from "./thread/thread-manager.js"
 
@@ -233,6 +233,27 @@ export class CodexHarnessService {
         ...(cwd ? { cwd } : {}),
       })
     ).config
+  }
+
+  /**
+   * Whether Codex loads the bundled `cypheria-app-tools` plugin: plugins are on and the plugin is
+   * not turned off. A lookup that fails counts as off, so instructions never promise missing tools.
+   */
+  async appToolsPluginEnabled(cwd?: string): Promise<boolean> {
+    try {
+      const [config, features] = await Promise.all([
+        this.nativeConfig(cwd),
+        this.call<v2.ExperimentalFeatureListResponse>("experimentalFeature/list", { limit: 100 }),
+      ])
+      if (features.data.find((feature) => feature.name === "plugins")?.enabled === false) {
+        return false
+      }
+      const plugins = (config as { plugins?: Record<string, { enabled?: boolean } | undefined> })
+        .plugins
+      return plugins?.[`cypheria-app-tools@${BUNDLED_MARKETPLACE_NAME}`]?.enabled !== false
+    } catch {
+      return false
+    }
   }
 
   async agentSettings(cwd?: string): Promise<CodexAgentSettings> {

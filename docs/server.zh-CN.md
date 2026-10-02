@@ -120,9 +120,8 @@ Codex、Pi 和 ACP 进程生命周期记录包含 Agent ID、进程 ID、退出�
 | `POST` | `/api/v1/runtime/request` | 经校验的特权 runtime 请求 |
 | `POST` | `/api/v1/lifecycle/restart` | 受监管的 worker 重启 |
 | `POST` | `/api/v1/lifecycle/shutdown` | 完整关闭 Server |
-| `GET` | `/api/v1/app-tools/tools` | 供 `cypheria-app-tools` 插件使用的 app 与 Git 工具目录 |
-| `POST` | `/api/v1/app-tools/call` | 为发起调用的 Thread 执行 app tool |
-| `POST` | `/api/v1/app-tools/git` | 为插件执行 Git 操作 |
+| `GET` | `/api/v1/app-tools/tools?server=` | 某个内置插件 server 的工具 |
+| `POST` | `/api/v1/app-tools/call` | 为发起调用的 Thread 执行内置插件工具 |
 
 大多数产品操作使用 `/api/v1/ws`；REST 运维接口不会落入 SPA fallback。
 

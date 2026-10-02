@@ -64,6 +64,6 @@ Review 汇集已暂存、未暂存、未提交、分支、提交及最后一轮�
 
 ## Agent 工具与验证状态
 
-公开 Git 与 Thread Attachment 契约不依赖具体 Agent harness。`cypheria-bundled` marketplace 向 Cypheria 管理的 Codex 和 Claude home 分发 `cypheria-app-tools`，所以这两个 Agent 已具备完整工具链。其工具通过 [app tools 路由](integrations.zh-CN.md#cypheria-app-tools)访问公开 Git 服务，使用与 Desktop 相同的 Server 策略。其他 Agent adapter（Pi、OpenCode 和 ACP）在同一个公开 service 边界拥有实现位置，无需建立第二套 Git 存储或附件模型。
+公开 Git 与 Thread Attachment 契约不依赖具体 Agent harness。Agent 不会以工具形式获得 Git 协议：它们自己运行 `git` 和 `gh`，通过 [Cypheria app tools](integrations.zh-CN.md#cypheria-app-tools) 附加拉取请求、管理 worktree，并通过随附的 `code-review` 插件读取拉取请求的检查。其他 Agent adapter（Pi、OpenCode 和 ACP）在同一个公开 service 边界拥有实现位置，无需建立第二套 Git 存储或附件模型。
 
 本地协议、Git、工作树、后端选择及 UI 检查覆盖了已实现路径。打包 Electron 的 Connect 行为，以及 Cypheria 管理的 Codex home 中 GitHub/GitLab 真实账户授权和 PR/MR 调用，仍属于明确的[验收任务](todo.zh-CN.md#本地-git-与拉取请求)；完成这些检查后才能宣称端到端对齐。
