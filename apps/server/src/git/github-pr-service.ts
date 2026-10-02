@@ -149,7 +149,7 @@ export class GitHubPrService {
     cwd: string,
     options: {
       state?: "open" | "closed" | "merged" | "all"
-      scope?: "all" | "authored" | "reviewing"
+      scope?: "all" | "authored" | "reviewing" | "reviewed"
       repository?: string
       query?: string
       limit?: number
@@ -177,6 +177,7 @@ export class GitHubPrService {
     if (options.state === "merged") args.push("--merged")
     if (options.scope === "authored") args.push("--author", "@me")
     if (options.scope === "reviewing") args.push("--review-requested", "@me")
+    if (options.scope === "reviewed") args.push("--reviewed-by", "@me")
     if (options.query?.trim()) args.push(options.query.trim())
     args.push("--json", "number,title,url,updatedAt,repository,state")
     const raw = JSON.parse(await this.#run(cwd, args)) as unknown

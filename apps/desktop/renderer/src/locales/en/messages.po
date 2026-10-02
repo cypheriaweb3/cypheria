@@ -3148,3 +3148,138 @@ msgstr "Pull request"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.mergeRequestSection"
 msgstr "Merge request"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.needsReview"
+msgstr "Needs my review"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.authored"
+msgstr "Authored"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.reviewed"
+msgstr "Previously reviewed"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.all"
+msgstr "All"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.title"
+msgstr "Pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.subtitleAccount"
+msgstr "Review and track work across GitHub as {0}."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.subtitle"
+msgstr "Review and track work across GitHub."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.checking"
+msgstr "Checking GitHub access"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.setupTitle"
+msgstr "GitHub CLI setup required"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.setupBody"
+msgstr "Install and sign in with the GitHub CLI on the computer that runs the Cypheria Server, then check again."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.checkAgain"
+msgstr "Check again"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.search"
+msgstr "Search pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.repository"
+msgstr "Repository"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.status"
+msgstr "Status"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.open"
+msgstr "Open"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.merged"
+msgstr "Merged"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.closed"
+msgstr "Closed"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.allStates"
+msgstr "All states"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.filter"
+msgstr "Filter"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.noMatches"
+msgstr "No pull requests match this search"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.caughtUp"
+msgstr "You’re all caught up"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.askPrompt"
+msgstr "Review this pull request: {url}"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.ask"
+msgstr "Ask Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.openBrowser"
+msgstr "Open in browser"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.loadMore"
+msgstr "Load more"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "navigation.pullRequests"
+msgstr "Pull requests"

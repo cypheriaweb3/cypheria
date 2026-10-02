@@ -816,15 +816,17 @@ export const GitSyncedBranchUndoRequestSchema = input(
 )
 export const GitHubAvailabilityRequestSchema = input(
   "git.github-availability.request",
-  z.object({ cwd: path }).strict()
+  /** Without `cwd`, only the CLI and its account are checked, for views that span repositories. */
+  z.object({ cwd: path.optional() }).strict()
 )
 export const GitHubPrBoardRequestSchema = input(
   "git.github-pr-board.request",
   z
     .object({
-      cwd: path,
+      /** Directory the GitHub CLI runs in; the Server's home directory when omitted. */
+      cwd: path.optional(),
       state: z.enum(["open", "closed", "merged", "all"]).optional(),
-      scope: z.enum(["all", "authored", "reviewing"]).optional(),
+      scope: z.enum(["all", "authored", "reviewing", "reviewed"]).optional(),
       repository: z.string().max(200).optional(),
       query: z.string().max(200).optional(),
       limit: z.number().int().min(1).max(500).optional(),

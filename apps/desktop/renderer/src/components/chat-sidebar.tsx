@@ -159,6 +159,13 @@ const virtualNavigationItems = [
   },
   {
     developmentOnly: false,
+    href: "/pull-requests",
+    icon: GitPullRequest,
+    id: "pull-requests",
+    label: msg({ id: "navigation.pullRequests", message: "Pull requests" }),
+  },
+  {
+    developmentOnly: false,
     href: "/schedules",
     icon: Workflow,
     id: "schedules",
