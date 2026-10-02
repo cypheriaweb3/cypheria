@@ -175,3 +175,38 @@ export const panelLayoutAtom = (
   panelAtoms.set(threadId, atom)
   return atom
 }
+
+/** A comment on a changed line of a local Review, waiting to be sent to the Thread's Agent. */
+export type ReviewComment = {
+  readonly body: string
+  readonly id: string
+  readonly lineNumber: number
+  readonly path: string
+  readonly side: "additions" | "deletions"
+  /** The Review source the line was read from, such as `unstaged` or `branch`. */
+  readonly source: string
+}
+
+const ReviewCommentSchema = z.object({
+  body: z.string().max(20_000),
+  id: z.string().min(1),
+  lineNumber: z.int().positive(),
+  path: z.string().min(1),
+  side: z.enum(["additions", "deletions"]),
+  source: z.string().min(1),
+})
+const reviewCommentAtoms = new Map<string, ClientStateAtom<ReviewComment[]>>()
+/** Pending Review comments of one Thread, or of one working directory without a Thread. */
+export const reviewCommentsAtom = (scope: string): ClientStateAtom<ReviewComment[]> => {
+  const existing = reviewCommentAtoms.get(scope)
+  if (existing) return existing
+  const created = atomWithValidatedStorage<ReviewComment[]>(
+    `review-comments:${scope}`,
+    [],
+    desktopClientStorage.keyValue,
+    z.array(ReviewCommentSchema).max(500),
+    { getOnInit: true, version: 1 }
+  ) as unknown as ClientStateAtom<ReviewComment[]>
+  reviewCommentAtoms.set(scope, created)
+  return created
+}

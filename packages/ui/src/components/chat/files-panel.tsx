@@ -180,7 +180,7 @@ type ChatFilesPanelProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
 }
 
 /** Bridges Cypheria theme tokens into the tree's shadow root through inherited custom properties. */
-const treeThemeStyle = {
+export const chatTreeThemeStyle = {
   "--trees-accent-override": "var(--primary)",
   "--trees-bg-muted-override": "var(--muted)",
   "--trees-bg-override": "var(--background)",
@@ -816,7 +816,7 @@ function ChatFilesTree({
       className="block min-h-0 flex-1"
       model={model}
       renderContextMenu={renderContextMenu}
-      style={{ ...treeThemeStyle, colorScheme: themeMode }}
+      style={{ ...chatTreeThemeStyle, colorScheme: themeMode }}
     />
   )
 }

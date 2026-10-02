@@ -1464,6 +1464,10 @@ export function ConversationWorkspace({
   const gitCwd =
     snapshot.thread?.roots[0] ?? project?.roots[0] ?? desktopPreferences?.projectlessWorkspaceRoot
 
+  const sendReviewCommentsRef = useRef<(text: string) => void>(() => undefined)
+  sendReviewCommentsRef.current = (text) =>
+    void controller.submit([{ text, type: "text" }], busy ? "queue" : "send")
+  const sendReviewComments = useCallback((text: string) => sendReviewCommentsRef.current(text), [])
   const panelTabs = useMemo<ChatPanelTabDescriptor[]>(() => {
     if (!codex) return []
     const timelineReview = reviewFiles.length ? (
@@ -1582,6 +1586,7 @@ export function ConversationWorkspace({
                 (current) => `${current}${current && !/\s$/u.test(current) ? " " : ""}@${path} `
               )
             }
+            onSendComments={sendReviewComments}
             threadId={snapshot.thread?.id ?? null}
           />
         ) : (
@@ -1688,6 +1693,7 @@ export function ConversationWorkspace({
     i18n,
     plans,
     reviewFiles,
+    sendReviewComments,
     sources,
     subagents,
     terminals,
