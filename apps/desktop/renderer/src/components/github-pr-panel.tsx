@@ -70,6 +70,7 @@ import {
   githubPrFixPrompt,
   githubPrWatchName,
 } from "./github-pr-watch.js"
+import { MentionTextarea } from "./mention-textarea.js"
 import { PullRequestChecks } from "./pull-request-checks.js"
 import { defaultMergeMethod, type MergeBlocker, mergeBlocker } from "./pull-request-merge.js"
 import {
@@ -685,11 +686,12 @@ export function GitHubPrPanel({
       </div>
       {replyThreadId === thread.id ? (
         <div className="space-y-1">
-          <Textarea
+          <MentionTextarea
             aria-label={i18n._(msg({ id: "git.github.replyBody", message: "Review thread reply" }))}
-            onChange={(event) => setReplyBody(event.target.value)}
+            onValueChange={setReplyBody}
             rows={2}
             value={replyBody}
+            {...mentionProps}
           />
           <Button
             disabled={busy || !replyBody.trim()}
@@ -792,6 +794,23 @@ export function GitHubPrPanel({
         threadId,
       })
     })
+  const searchMentions =
+    cliAvailable && selected.data?.headRefOid
+      ? async (query: string) => {
+          const pr = selected.data
+          if (!pr?.headRefOid) return []
+          return (await ensureCypheriaClient()).git.githubPrUserSearch(
+            cwd,
+            pr.number,
+            pr.headRefOid,
+            query,
+            "mentions"
+          )
+        }
+      : undefined
+  const mentionProps = searchMentions
+    ? { searchKey: `${cwd}#${selected.data?.number}`, searchUsers: searchMentions }
+    : {}
   const prSections = useMemo(
     () =>
       chatDiffFileSections(prDiff.data ?? "").filter(
@@ -936,14 +955,15 @@ export function GitHubPrPanel({
           {
             content: (
               <div className="space-y-1 border-y bg-background p-2">
-                <Textarea
+                <MentionTextarea
                   aria-label={i18n._(
                     msg({ id: "git.github.inlineBody", message: "Inline comment" })
                   )}
                   autoFocus
-                  onChange={(event) => setInlineBody(event.target.value)}
+                  onValueChange={setInlineBody}
                   rows={3}
                   value={inlineBody}
+                  {...mentionProps}
                 />
                 <div className="flex gap-1">
                   <Button
@@ -1084,11 +1104,12 @@ export function GitHubPrPanel({
       <div className="space-y-1">
         {editingComment === key ? (
           <div className="space-y-1">
-            <Textarea
+            <MentionTextarea
               aria-label={i18n._(msg({ id: "git.github.editComment", message: "Edit comment" }))}
-              onChange={(event) => setCommentEditBody(event.target.value)}
+              onValueChange={setCommentEditBody}
               rows={3}
               value={commentEditBody}
+              {...mentionProps}
             />
             <div className="flex gap-1">
               <Button
@@ -2457,13 +2478,14 @@ export function GitHubPrPanel({
               ) : null}
               {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
                 <div className="space-y-2 border-t pt-2">
-                  <Textarea
+                  <MentionTextarea
                     aria-label={i18n._(
                       msg({ id: "git.github.commentBody", message: "Pull request comment" })
                     )}
-                    onChange={(event) => setCommentBody(event.target.value)}
+                    onValueChange={setCommentBody}
                     rows={3}
                     value={commentBody}
+                    {...mentionProps}
                   />
                   <Button
                     disabled={busy || !commentBody.trim()}
@@ -2526,16 +2548,17 @@ export function GitHubPrPanel({
                           </label>
                         ))}
                       </RadioGroup>
-                      <Textarea
+                      <MentionTextarea
                         aria-label={i18n._(
                           msg({ id: "git.github.reviewBody", message: "Pull request review" })
                         )}
-                        onChange={(event) => setReviewBody(event.target.value)}
+                        onValueChange={setReviewBody}
                         placeholder={i18n._(
                           msg({ id: "git.github.optionalComment", message: "Optional comment" })
                         )}
                         rows={4}
                         value={reviewBody}
+                        {...mentionProps}
                       />
                       <DialogFooter>
                         <Button
