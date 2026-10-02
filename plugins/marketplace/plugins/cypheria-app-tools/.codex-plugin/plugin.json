@@ -1,7 +1,7 @@
 {
   "name": "cypheria-app-tools",
-  "version": "0.4.0",
-  "description": "Local Git tools backed by the Cypheria Server.",
+  "version": "0.5.0",
+  "description": "Cypheria thread, project, worktree, and Git tools backed by the Cypheria Server.",
   "author": {
     "name": "Cypheria"
   },

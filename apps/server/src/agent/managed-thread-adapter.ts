@@ -724,6 +724,17 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       agentId === "codex" || agentId === "claude" ? "turn-start" : "unsupported"
   }
 
+  /** The harness session this adapter drives, if one is open. */
+  get harnessSessionId(): string | null {
+    return this.#harnessSessionId
+  }
+
+  /** The Thread and working directory app tools act for while a session is live. */
+  appToolContext(): { threadId: string; cwd?: string } | null {
+    if (!this.#ownerThreadId) return null
+    return { threadId: this.#ownerThreadId, ...(this.#cwd ? { cwd: this.#cwd } : {}) }
+  }
+
   async #codexNativeConfig(threadId: string, cwd: string | null): Promise<v2.Config> {
     const response = await this.#request(threadId, {
       ...(cwd ? { cwd } : {}),
@@ -816,6 +827,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   }
 
   async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
+    await this.#manager.prepareAppTools(this.agentId)
     this.#config = input.config
     this.#attach(input.onEvent)
     this.#contextUsage = null
@@ -883,6 +895,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   }
 
   async fork(input: ThreadHarnessForkInput): Promise<ThreadHarnessSession> {
+    await this.#manager.prepareAppTools(this.agentId)
     if (!input.agentSessionId) throw new Error(`${this.agentId} thread is not bound`)
     this.#attach(input.onEvent)
     this.#contextUsage = null
@@ -1143,6 +1156,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   }
 
   async resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
+    await this.#manager.prepareAppTools(this.agentId)
     this.#attach(input.onEvent)
     this.#contextUsage = null
     this.#ownerThreadId = input.threadId
@@ -1591,6 +1605,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       }
     }
     if (this.agentId === "claude") {
+      await this.#manager.prepareAppTools("claude")
       const defaults = await this.#defaultsFor("claude")
       const pluginOptions = await this.#claudePluginOptions()
       const directories = additionalDirectories(input.workspaceRoots, input.cwd)
@@ -1603,6 +1618,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         await this.#request(input.threadId, {
           options: {
             ...pluginOptions,
+            env: this.#manager.appToolsThreadEnvironment(input.threadId),
             ...(directories ? { additionalDirectories: directories } : {}),
             ...(input.cwd ? { cwd: input.cwd } : {}),
             ...(input.agentSessionId ? { resume: input.agentSessionId } : {}),

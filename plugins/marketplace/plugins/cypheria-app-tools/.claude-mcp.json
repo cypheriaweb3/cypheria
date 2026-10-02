@@ -5,7 +5,7 @@
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs"],
       "env": {
         "CYPHERIA_SERVER_URL": "${CYPHERIA_SERVER_URL:-http://127.0.0.1:6768}",
-        "CYPHERIA_SERVER_TOKEN": "${CYPHERIA_SERVER_TOKEN:-}"
+        "CYPHERIA_APP_TOOLS_TOKEN": "${CYPHERIA_APP_TOOLS_TOKEN:-}"
       }
     }
   }

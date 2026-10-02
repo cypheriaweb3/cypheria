@@ -47,6 +47,8 @@ export interface PluginProvider {
   readonly capabilities: PluginCapabilities
   /** False when the user turned plugins off for this Agent; the hub then leaves it out of every operation. */
   readonly enabled: boolean
+  /** Installs or updates the bundled `cypheria-app-tools` plugin, when plugins are on. */
+  ensureBundledPlugin?(): Promise<void>
   addMarketplace(input: {
     refName?: string
     source: string

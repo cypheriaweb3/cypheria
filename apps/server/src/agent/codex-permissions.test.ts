@@ -10,6 +10,12 @@ import type {
 import { codexConfiguredPermissions, codexPermissionWire } from "./codex-permissions.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 
+/** Hooks the adapter calls for the app tools plugin; tests run without the plugin. */
+const appToolHooks = {
+  appToolsThreadEnvironment: () => ({}),
+  prepareAppTools: async () => undefined,
+}
+
 describe("codexPermissionWire", () => {
   it("sends the built-in profile with its approval settings", () => {
     expect(codexPermissionWire("auto")).toEqual({
@@ -122,6 +128,7 @@ const harness = () => {
     codexDynamicTools: { resolveSpecs: async () => [] },
     codexDeveloperInstructions: async () => "<app-context>test</app-context>",
     handleCodex,
+    ...appToolHooks,
   } as unknown as AgentManager
   const only = (type: string) => requests.filter((request) => request.type === type)
   return { adapter: new ManagedThreadAdapter(manager, "codex"), only, requests }

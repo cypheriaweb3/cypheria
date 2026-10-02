@@ -2,7 +2,18 @@ import { randomUUID } from "node:crypto"
 import { createInterface } from "node:readline"
 
 const serverUrl = process.env.CYPHERIA_SERVER_URL || "http://127.0.0.1:6768"
-const token = process.env.CYPHERIA_SERVER_TOKEN
+// The Server hands every Agent process a token bound to what it may act for: one Thread for a
+// Claude session, or the Codex app-server, whose calls name their Thread in the turn metadata.
+const token = process.env.CYPHERIA_APP_TOOLS_TOKEN
+// Codex sets exposure and approval per server, so its manifest runs this server three times:
+// `--git` for the Git tools, `--deferred` for app tools found through tool search, and `--direct`
+// for the app tools the instructions name. Without a flag the server lists every tool.
+const exposure =
+  ["--git", "--direct", "--deferred"].find((flag) => process.argv.includes(flag))?.slice(2) ?? "all"
+const listsGit = exposure === "all" || exposure === "git"
+const APP_TOOL_TIMEOUT_MS = 3_600_000
+const CODEX_TURN_METADATA_KEY = "x-codex-turn-metadata"
+const authorization = token ? { authorization: `Bearer ${token}` } : {}
 const cwd = { type: "string", description: "Absolute path in the local Cypheria Server host" }
 const filePaths = { type: "array", items: { type: "string" }, minItems: 1 }
 const tool = (name, description, properties, required = ["cwd"]) => ({
@@ -82,71 +93,116 @@ const bundledTools = [
 ]
 const typeFromName = (name) => `git.${name.slice(4).replaceAll("_", "-")}.request`
 let catalog = {
-  tools: bundledTools,
-  types: new Map(bundledTools.map((entry) => [entry.name, typeFromName(entry.name)])),
+  appTools: new Set(),
+  tools: listsGit ? bundledTools : [],
+  types: listsGit
+    ? new Map(bundledTools.map((entry) => [entry.name, typeFromName(entry.name)]))
+    : new Map(),
 }
 let catalogCheckedAt = 0
+
+const gitCatalog = (entries) => {
+  const descriptions = new Map(bundledTools.map((entry) => [entry.name, entry.description]))
+  const tools = []
+  const types = new Map()
+  for (const entry of entries) {
+    if (
+      typeof entry.type !== "string" ||
+      !/^git\.[a-z0-9-]+\.request$/u.test(entry.type) ||
+      entry.inputSchema?.type !== "object"
+    )
+      return null
+    const name = `git_${entry.type.slice(4, -8).replaceAll("-", "_")}`
+    if (types.has(name)) return null
+    types.set(name, entry.type)
+    const requirement =
+      entry.type.includes("gitlab-mr-") || entry.type.includes("github-app-")
+        ? " A connected App and local Codex thread are required."
+        : ""
+    tools.push({
+      name,
+      description:
+        descriptions.get(name) || `Call the Cypheria Server ${entry.type} operation.${requirement}`,
+      inputSchema: entry.inputSchema,
+    })
+  }
+  return tools.length ? { tools, types } : null
+}
 
 const refreshCatalog = async () => {
   if (Date.now() - catalogCheckedAt < 30_000) return
   try {
-    const response = await fetch(new URL("/api/v1/git/tools", serverUrl), {
-      headers: token ? { authorization: `Bearer ${token}` } : {},
+    const response = await fetch(new URL("/api/v1/app-tools/tools", serverUrl), {
+      headers: authorization,
       signal: AbortSignal.timeout(5000),
     })
     if (!response.ok) return
     const body = await response.json()
-    if (!Array.isArray(body.tools)) return
-    const descriptions = new Map(bundledTools.map((entry) => [entry.name, entry.description]))
-    const tools = []
-    const types = new Map()
-    for (const entry of body.tools) {
-      if (
-        typeof entry.type !== "string" ||
-        !/^git\.[a-z0-9-]+\.request$/u.test(entry.type) ||
-        entry.inputSchema?.type !== "object"
-      )
-        return
-      const name = `git_${entry.type.slice(4, -8).replaceAll("-", "_")}`
-      if (types.has(name)) return
-      types.set(name, entry.type)
-      const requirement =
-        entry.type.includes("gitlab-mr-") || entry.type.includes("github-app-")
-          ? " A connected App and local Codex thread are required."
-          : ""
-      tools.push({
-        name,
-        description:
-          descriptions.get(name) ||
-          `Call the Cypheria Server ${entry.type} operation.${requirement}`,
-        inputSchema: entry.inputSchema,
-      })
+    if (!Array.isArray(body.tools) || !Array.isArray(body.git)) return
+    const git = gitCatalog(body.git)
+    if (!git) return
+    const appTools = body.tools.filter(
+      (entry) =>
+        typeof entry.name === "string" &&
+        entry.inputSchema?.type === "object" &&
+        (exposure === "all" ||
+          (exposure === "direct" && entry.direct === true) ||
+          (exposure === "deferred" && entry.direct !== true))
+    )
+    catalog = {
+      appTools: new Set(appTools.map((entry) => entry.name)),
+      tools: [
+        ...appTools.map(({ name, description, inputSchema }) => ({
+          name,
+          description,
+          inputSchema,
+        })),
+        ...(listsGit ? git.tools : []),
+      ],
+      types: listsGit ? git.types : new Map(),
     }
-    if (tools.length) {
-      catalog = { tools, types }
-      catalogCheckedAt = Date.now()
-    }
+    catalogCheckedAt = Date.now()
   } catch {
-    // Older or temporarily unavailable Servers keep the bundled core tool list.
+    // An unavailable Server leaves the bundled core Git tools.
   }
 }
 
-const callServer = async (type, args) => {
-  const response = await fetch(new URL("/api/v1/git/request", serverUrl), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ type, requestId: randomUUID(), payload: args }),
-    signal: AbortSignal.timeout(120_000),
-  })
-  const body = await response.json()
+const readJson = async (response) => {
+  const body = await response.json().catch(() => ({}))
   if (!response.ok)
     throw new Error(body.error?.message || `Cypheria Server returned ${response.status}`)
+  return body
+}
+
+const callAppTool = async (name, args, meta, signal) => {
+  const response = await fetch(new URL("/api/v1/app-tools/call", serverUrl), {
+    method: "POST",
+    headers: { "content-type": "application/json", ...authorization },
+    body: JSON.stringify({
+      name,
+      arguments: args,
+      ...(meta?.[CODEX_TURN_METADATA_KEY] === undefined
+        ? {}
+        : { codexTurnMetadata: meta[CODEX_TURN_METADATA_KEY] }),
+    }),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(APP_TOOL_TIMEOUT_MS)]),
+  })
+  return readJson(response)
+}
+
+const callGit = async (type, args, signal) => {
+  const response = await fetch(new URL("/api/v1/app-tools/git", serverUrl), {
+    method: "POST",
+    headers: { "content-type": "application/json", ...authorization },
+    body: JSON.stringify({ type, requestId: randomUUID(), payload: args }),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(120_000)]),
+  })
+  const body = await readJson(response)
   if (!body.payload?.ok) throw new Error(body.payload?.error?.message || "Git operation failed")
   return body.payload.value
 }
+
+const running = new Map()
 
 const reply = (id, result) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id, result })}\n`)
@@ -156,13 +212,17 @@ const fail = (id, code, message) =>
 const handle = async (request) => {
   if (!request || request.jsonrpc !== "2.0" || !request.method) return
   const { id, method, params } = request
+  if (method === "notifications/cancelled") {
+    running.get(params?.requestId)?.abort()
+    return
+  }
   if (id === undefined || id === null) return
   switch (method) {
     case "initialize":
       reply(id, {
         protocolVersion: params?.protocolVersion || "2025-03-26",
         capabilities: { tools: {} },
-        serverInfo: { name: "cypheria-app-tools", version: "0.4.0" },
+        serverInfo: { name: "cypheria-app-tools", version: "0.5.0" },
       })
       return
     case "ping":
@@ -174,19 +234,35 @@ const handle = async (request) => {
       return
     case "tools/call": {
       await refreshCatalog()
-      const type = catalog.types.get(params?.name)
-      if (!type) {
+      const name = params?.name
+      const type = catalog.types.get(name)
+      if (!catalog.appTools.has(name) && !type) {
         fail(id, -32602, "Unknown Cypheria tool")
         return
       }
+      const controller = new AbortController()
+      running.set(id, controller)
       try {
-        const value = await callServer(type, params.arguments || {})
-        reply(id, { content: [{ type: "text", text: JSON.stringify(value) }] })
+        if (catalog.appTools.has(name)) {
+          const result = await callAppTool(
+            name,
+            params.arguments || {},
+            params._meta,
+            controller.signal
+          )
+          reply(id, { content: result.content, isError: result.isError === true })
+        } else {
+          const value = await callGit(type, params.arguments || {}, controller.signal)
+          reply(id, { content: [{ type: "text", text: JSON.stringify(value) }] })
+        }
       } catch (error) {
+        if (controller.signal.aborted) return
         reply(id, {
           content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
           isError: true,
         })
+      } finally {
+        running.delete(id)
       }
       return
     }

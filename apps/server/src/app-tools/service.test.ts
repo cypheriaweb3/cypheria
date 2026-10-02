@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { CODEX_APP_TOOL_NAMES } from "../agent/codex-developer-instructions.js"
-import { AppToolService, type AppToolThread, reorderWithinSlots } from "./service.js"
+import { AppToolService, type AppToolThread, reorderWithinSlots, toMcpResult } from "./service.js"
 
 const PINNED_ID = "pinned-section-id"
 
@@ -268,11 +268,39 @@ describe("app tool specs", () => {
     expect(JSON.stringify(AppToolService.specs)).not.toMatch(/ChatGPT|hostId/u)
   })
 
+  it("list in MCP form with list_artifacts as the only direct tool", async () => {
+    const tools = await new AppToolService({} as never).mcpTools()
+    expect(tools.map((tool) => tool.name)).toEqual([...AppToolService.toolNames])
+    expect(tools.filter((tool) => tool.direct).map((tool) => tool.name)).toEqual(["list_artifacts"])
+  })
+
   it("defers every tool to tool search except list_artifacts", () => {
     for (const spec of AppToolService.specs) {
       const deferred = spec.type === "function" && spec.deferLoading === true
       expect(deferred).toBe(spec.type === "function" && spec.name !== "list_artifacts")
     }
+  })
+})
+
+describe("toMcpResult", () => {
+  it("turns text and data URLs into MCP content and keeps other URLs as text", () => {
+    expect(
+      toMcpResult({
+        contentItems: [
+          { text: "hello", type: "inputText" },
+          { imageUrl: "data:image/png;base64,AAAA", type: "inputImage" },
+          { audioUrl: "https://example.com/a.wav", type: "inputAudio" },
+        ],
+        success: false,
+      })
+    ).toEqual({
+      content: [
+        { text: "hello", type: "text" },
+        { data: "AAAA", mimeType: "image/png", type: "image" },
+        { text: "https://example.com/a.wav", type: "text" },
+      ],
+      isError: true,
+    })
   })
 })
 

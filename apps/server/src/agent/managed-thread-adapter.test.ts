@@ -9,6 +9,12 @@ import type {
 } from "./agent-manager.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 
+/** Hooks the adapter calls for the app tools plugin; tests run without the plugin. */
+const appToolHooks = {
+  appToolsThreadEnvironment: () => ({}),
+  prepareAppTools: async () => undefined,
+}
+
 const input = (agentId: AgentId): ThreadHarnessCreateInput => ({
   agentId,
   config: {
@@ -64,6 +70,7 @@ describe("ManagedThreadAdapter", () => {
           type: "agent.codex.thread.start.response",
         } as unknown as AgentRuntimeServerMessage)
       },
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
     await adapter.create({ ...input("codex"), onEvent: (event) => events.push(event) })
@@ -123,6 +130,7 @@ describe("ManagedThreadAdapter", () => {
     const manager = {
       codexDeveloperInstructions: async () => "Use feature/ for new Git branches.",
       handleCodex,
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
     await adapter.resume({
@@ -188,7 +196,7 @@ describe("ManagedThreadAdapter", () => {
         } as unknown as AgentRuntimeServerMessage)
       }
     )
-    const manager = { handleCodex } as unknown as AgentManager
+    const manager = { ...appToolHooks, handleCodex } as unknown as AgentManager
     const base = {
       ...input("codex"),
       agentSessionId: "codex-source",
@@ -279,6 +287,7 @@ describe("ManagedThreadAdapter", () => {
       disposeSession: vi.fn(),
       handleCodex,
       releaseThreadAdapter: vi.fn(),
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
 
@@ -354,6 +363,7 @@ describe("ManagedThreadAdapter", () => {
       codexDynamicTools: { resolveSpecs: async () => [] },
       codexDeveloperInstructions: async () => "",
       handleCodex,
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
     const created = await adapter.create({
@@ -587,6 +597,7 @@ describe("ManagedThreadAdapter", () => {
           }
         }
       ),
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "gemini")
 
@@ -717,6 +728,7 @@ describe("ManagedThreadAdapter", () => {
           }
         }
       ),
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "gemini")
 
@@ -819,6 +831,7 @@ describe("ManagedThreadAdapter", () => {
     const manager = {
       defaultsFor: () => ({ showThoughts: true }),
       handleAcp,
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "gemini")
     const created = await adapter.create({
@@ -893,6 +906,7 @@ describe("ManagedThreadAdapter", () => {
     const manager = {
       defaultsFor: () => ({ model: "anthropic/claude-test", thinkingLevel: "high" }),
       handlePi,
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "pi")
     await adapter.create(input("pi"))
@@ -967,6 +981,7 @@ describe("ManagedThreadAdapter", () => {
     const manager = {
       defaultsFor: () => ({}),
       handlePi,
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "pi")
     await adapter.create({ ...input("pi"), onEvent: (event) => events.push(event) })
@@ -1062,7 +1077,7 @@ describe("ManagedThreadAdapter", () => {
         } as AgentRuntimeServerMessage)
       }
     )
-    const manager = { handlePi } as unknown as AgentManager
+    const manager = { ...appToolHooks, handlePi } as unknown as AgentManager
     const base = {
       ...input("pi"),
       agentSessionId: "/sessions/pi-source.json",
@@ -1146,6 +1161,7 @@ describe("ManagedThreadAdapter", () => {
         thinkingMode: "enabled",
       }),
       handleClaude,
+      ...appToolHooks,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "claude")
     await adapter.create({ ...input("claude"), onEvent: (event) => events.push(event) })
@@ -1244,7 +1260,7 @@ describe("ManagedThreadAdapter", () => {
         } as AgentRuntimeServerMessage)
       }
     )
-    const manager = { handleClaude } as unknown as AgentManager
+    const manager = { ...appToolHooks, handleClaude } as unknown as AgentManager
     const base = {
       ...input("claude"),
       agentSessionId: "claude-source",
@@ -1340,7 +1356,7 @@ describe("ManagedThreadAdapter", () => {
         })
       }
     )
-    const manager = { handleOpenCode } as unknown as AgentManager
+    const manager = { ...appToolHooks, handleOpenCode } as unknown as AgentManager
     const base = {
       ...input("opencode"),
       agentSessionId: "opencode-source",
@@ -1433,7 +1449,7 @@ describe("ManagedThreadAdapter", () => {
         })
       }
     )
-    const manager = { handleOpenCode } as unknown as AgentManager
+    const manager = { ...appToolHooks, handleOpenCode } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "opencode")
     await adapter.create({
       ...input("opencode"),
@@ -1635,7 +1651,11 @@ describe("ManagedThreadAdapter Codex history", () => {
       }
     )
     const adapter = new ManagedThreadAdapter(
-      { codexDeveloperInstructions: async () => "", handleCodex } as unknown as AgentManager,
+      {
+        ...appToolHooks,
+        codexDeveloperInstructions: async () => "",
+        handleCodex,
+      } as unknown as AgentManager,
       "codex"
     )
     await adapter.resume({ ...input("codex"), agentSessionId: "codex-thread-1" })

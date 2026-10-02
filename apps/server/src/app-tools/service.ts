@@ -1,5 +1,4 @@
 import type { v2 } from "@cypheria/protocol/codex-types"
-import type { CodexDynamicToolCallContext } from "../agent/codex-dynamic-tools.js"
 import type { AutomationTool } from "./automation.js"
 import { AUTOMATION_UPDATE_SPEC } from "./automation.js"
 import { APP_TOOL_SPECS } from "./definitions.js"
@@ -184,6 +183,46 @@ export type AppToolServiceOptions = {
   readonly wait?: (ms: number) => Promise<void>
 }
 
+/** The Thread a call acts for, and the signal that cancels it. */
+export type AppToolCallContext = {
+  readonly cwd?: string
+  readonly threadId?: string
+  readonly signal?: AbortSignal
+}
+
+/** An app tool as the `cypheria-app-tools` MCP server lists it. */
+export type AppToolMcpTool = {
+  readonly name: string
+  readonly description: string
+  readonly inputSchema: unknown
+  /** Whether Codex lists the tool directly instead of through tool search. */
+  readonly direct: boolean
+}
+
+export type AppToolMcpResult = {
+  readonly content: ReadonlyArray<
+    | { readonly type: "text"; readonly text: string }
+    | { readonly type: "image" | "audio"; readonly data: string; readonly mimeType: string }
+  >
+  readonly isError: boolean
+}
+
+/** An app tool result in MCP form. Media arrive as data URLs; any other URL stays text. */
+export const toMcpResult = (result: v2.DynamicToolCallResponse): AppToolMcpResult => ({
+  content: result.contentItems.map((item) => {
+    if (item.type === "inputText") return { text: item.text, type: "text" as const }
+    const [url, type] =
+      item.type === "inputImage"
+        ? [item.imageUrl, "image" as const]
+        : [item.audioUrl, "audio" as const]
+    const match = /^data:([^;,]+);base64,(.*)$/su.exec(url)
+    return match
+      ? { data: match[2] as string, mimeType: match[1] as string, type }
+      : { text: url, type: "text" as const }
+  }),
+  isError: !result.success,
+})
+
 const ok = (value: unknown): v2.DynamicToolCallResponse => ({
   contentItems: [
     { text: typeof value === "string" ? value : JSON.stringify(value), type: "inputText" },
@@ -329,9 +368,26 @@ export class AppToolService {
     })
   }
 
+  /** The tools in MCP form, with the model guidance of {@link decorateSpecs}. */
+  async mcpTools(): Promise<AppToolMcpTool[]> {
+    const specs = await this.decorateSpecs(AppToolService.specs).catch(() => AppToolService.specs)
+    return specs.flatMap((spec) =>
+      spec.type === "function"
+        ? [
+            {
+              description: spec.description,
+              direct: spec.deferLoading !== true,
+              inputSchema: spec.inputSchema,
+              name: spec.name,
+            },
+          ]
+        : []
+    )
+  }
+
   async call(
-    request: v2.DynamicToolCallParams,
-    context: CodexDynamicToolCallContext
+    request: Pick<v2.DynamicToolCallParams, "arguments" | "tool">,
+    context: AppToolCallContext
   ): Promise<v2.DynamicToolCallResponse> {
     const args = record(request.arguments)
     try {
@@ -350,7 +406,7 @@ export class AppToolService {
   async #dispatch(
     tool: string,
     args: Record<string, unknown>,
-    context: CodexDynamicToolCallContext
+    context: AppToolCallContext
   ): Promise<v2.DynamicToolCallResponse> {
     switch (tool) {
       case "list_projects":
@@ -362,7 +418,7 @@ export class AppToolService {
       case "read_thread":
         return ok(await this.#readThread(args))
       case "wait_threads":
-        return ok(await this.#waitThreads(args))
+        return ok(await this.#waitThreads(args, context.signal))
       case "create_thread":
         return ok(await this.#createThread(args, context))
       case "fork_thread":
@@ -472,7 +528,7 @@ export class AppToolService {
     }
   }
 
-  #target(args: Record<string, unknown>, context: CodexDynamicToolCallContext): string {
+  #target(args: Record<string, unknown>, context: AppToolCallContext): string {
     const threadId = text(args, "threadId") ?? context.threadId
     if (!threadId) throw new ToolInputError("threadId is required")
     return threadId
@@ -673,7 +729,7 @@ export class AppToolService {
     return { epoch: value.slice(0, split), seq }
   }
 
-  async #waitThreads(args: Record<string, unknown>): Promise<unknown> {
+  async #waitThreads(args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const targets = Array.isArray(args.targets) ? args.targets.map(record) : []
     if (targets.length < 1 || targets.length > 8) {
       throw new ToolInputError("targets needs 1 to 8 entries")
@@ -683,6 +739,7 @@ export class AppToolService {
       this.#options.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
     const deadline = Date.now() + timeoutMs
     for (;;) {
+      signal?.throwIfAborted()
       const snapshots: {
         afterCursor?: string
         error?: string
@@ -763,7 +820,7 @@ export class AppToolService {
 
   async #createThread(
     args: Record<string, unknown>,
-    context: CodexDynamicToolCallContext
+    context: AppToolCallContext
   ): Promise<unknown> {
     const prompt = text(args, "prompt", true) as string
     const target = record(args.target)
@@ -808,19 +865,13 @@ export class AppToolService {
     }
   }
 
-  async #forkThread(
-    args: Record<string, unknown>,
-    context: CodexDynamicToolCallContext
-  ): Promise<unknown> {
+  async #forkThread(args: Record<string, unknown>, context: AppToolCallContext): Promise<unknown> {
     const threadId = this.#target(args, context)
     const forked = await this.#options.threads.fork({ target: { kind: "thread-head" }, threadId })
     return { sourceThreadId: threadId, threadId: forked.thread.id }
   }
 
-  async #sendMessage(
-    args: Record<string, unknown>,
-    context: CodexDynamicToolCallContext
-  ): Promise<unknown> {
+  async #sendMessage(args: Record<string, unknown>, context: AppToolCallContext): Promise<unknown> {
     const threadId = text(args, "threadId", true) as string
     if (threadId === context.threadId) {
       throw new ToolInputError("A thread cannot send a message to itself.")
@@ -945,7 +996,7 @@ export class AppToolService {
     return { sectionIds: order.map((id) => (id === this.#options.pinnedSectionId ? PINNED : id)) }
   }
 
-  #caller(context: CodexDynamicToolCallContext): string {
+  #caller(context: AppToolCallContext): string {
     if (!context.threadId) throw new ToolInputError("This tool acts on the calling thread.")
     return context.threadId
   }
@@ -957,9 +1008,7 @@ export class AppToolService {
     return text(args, "url", true) as string
   }
 
-  async #callerCwd(
-    context: CodexDynamicToolCallContext
-  ): Promise<{ cwd: string; threadId: string }> {
+  async #callerCwd(context: AppToolCallContext): Promise<{ cwd: string; threadId: string }> {
     const threadId = this.#caller(context)
     const cwd = (await this.#options.threads.get(threadId)).roots[0]
     if (!cwd) throw new ToolInputError("The calling thread has no working directory.")
@@ -968,7 +1017,7 @@ export class AppToolService {
 
   async #createWorktree(
     args: Record<string, unknown>,
-    context: CodexDynamicToolCallContext
+    context: AppToolCallContext
   ): Promise<unknown> {
     if (args.allowAsync !== true) throw new ToolInputError("allowAsync must be true")
     const { cwd, threadId } = await this.#callerCwd(context)
@@ -1018,7 +1067,7 @@ export class AppToolService {
 
   async #attachedWorktree(
     root: string,
-    context: CodexDynamicToolCallContext
+    context: AppToolCallContext
   ): Promise<{ cwd: string; worktree: AppToolWorktree }> {
     const { cwd, threadId } = await this.#callerCwd(context)
     const attached = (await this.#options.attachments.list(threadId)).some(
@@ -1033,7 +1082,7 @@ export class AppToolService {
 
   async #archiveWorktree(
     args: Record<string, unknown>,
-    context: CodexDynamicToolCallContext
+    context: AppToolCallContext
   ): Promise<unknown> {
     const root = text(args, "root", true) as string
     const { cwd, worktree } = await this.#attachedWorktree(root, context)
@@ -1047,7 +1096,7 @@ export class AppToolService {
 
   async #restoreWorktree(
     args: Record<string, unknown>,
-    context: CodexDynamicToolCallContext
+    context: AppToolCallContext
   ): Promise<unknown> {
     const root = text(args, "root", true) as string
     const { cwd, worktree } = await this.#attachedWorktree(root, context)
@@ -1056,7 +1105,7 @@ export class AppToolService {
     return { identityKey: root, workspaceDirectory: restored.path }
   }
 
-  async #listArtifacts(context: CodexDynamicToolCallContext): Promise<unknown> {
+  async #listArtifacts(context: AppToolCallContext): Promise<unknown> {
     const { cwd, threadId } = await this.#callerCwd(context)
     const [attachments, worktrees] = await Promise.all([
       this.#options.attachments.list(threadId),

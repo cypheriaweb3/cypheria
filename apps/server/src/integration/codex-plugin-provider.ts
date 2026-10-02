@@ -295,6 +295,10 @@ export class CodexPluginProvider implements PluginProvider {
     return plugin.remotePluginId
   }
 
+  ensureBundledPlugin(): Promise<void> {
+    return this.#ensureBundledPlugin()
+  }
+
   async #ensureBundledPlugin(): Promise<void> {
     const pending = this.#bundledPluginPromise ?? this.#installBundledPlugin()
     this.#bundledPluginPromise = pending

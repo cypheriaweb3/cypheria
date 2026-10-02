@@ -42,11 +42,24 @@ Plugin view 保留 source type、marketplace identity、install policy、availab
 
 Codex 远程插件的目录 ID 与展示名称不同。Server 在远程详情和安装请求前，从最新的 `plugin/list` 结果解析该 ID，避免用展示名称调用 Codex 安装接口。
 
-为 Codex 或 Claude 启用插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在对应 Agent 管理的 home 中安装 `cypheria-app-tools`。这是一个 MCP 插件，其本地 Git 工具通过经过认证的本地 HTTP 路由调用与 Desktop 相同的 Server Git 服务。它不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
+为 Codex 或 Claude 启用插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在对应 Agent 管理的 home 中安装 `cypheria-app-tools`。这个 MCP 插件提供 Cypheria app tools 和本地 Git 工具，详见 [Cypheria app tools](#cypheria-app-tools)。它不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
 内置 marketplace 是双格式 plugin root：同时包含 Codex 的 marketplace 与 manifest，以及 Claude 的 marketplace 与 manifest；各 Agent 的 MCP 声明放在各自文件中，共用同一份 server 实现。
 Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本地版本，并从随程序分发的 marketplace 更新插件，再返回列表。
 Git 后端与 Agent 工具的关系详见[本地 Git 设计](git.zh-CN.md)。
 其 worktree 工具在 `CYPHERIA_HOME/worktrees` 下创建 detached worktree、列出托管和外部 worktree，并利用保存的提交引用删除或恢复干净的托管 worktree。
+
+### Cypheria app tools
+
+`cypheria-app-tools` 是 Codex 和 Claude 访问 Cypheria 自有工具的唯一路径：包括 [Agent harnesses](agent-harnesses.zh-CN.md#codex) 列出的 Thread、项目、侧边栏、worktree、handoff 和 automation 工具，以及由公开 Git 协议生成的 Git 工具。Codex dynamic tools 只承载浏览器工具。插件本身不执行工具：它通过 Server 的 `/api/v1/app-tools/*` 列出和调用工具，Server 以与客户端相同的代码为发起调用的 Thread 执行。
+
+这些路由只接受 app tools token，不接受 Server 自己的 token；Server 也会从所有 Agent 环境中移除 `CYPHERIA_SERVER_TOKEN`。Server 用仅保存在内存中的 secret 派生 token，并在启动 Agent 进程时连同 `CYPHERIA_SERVER_URL` 一起传入：
+
+- Claude 会话通过 SDK 环境变量获得绑定其 Thread 的 token，Claude manifest 再把它展开到 MCP server 的环境中。Claude 不会告诉 MCP server 是哪个会话在调用，因此 token 就是 Thread 身份。Claude 运行的命令可以读到这个 token，但它只允许该 Thread 的 Agent 本来就能做的事。
+- Codex app-server 用一个进程服务所有 Codex Thread，因此整个进程只获得一个 token。Codex 会在每次 MCP 调用中附带 `x-codex-turn-metadata`，Server 依次用其中的 `thread_id`、子 agent 的 `parent_thread_id`、`session_id` 找到对应的活动 Cypheria Thread。除非用户的 `shell_environment_policy` 排除了该变量，Codex 运行的命令会继承这个环境，因此也能调用 app tools；而 app tools 本来就能按 ID 操作任何 Thread。
+
+Codex 按 server 设置工具的曝露方式和审批，因此 Codex manifest 把同一个 server 运行三次：`cypheria_app_tools` 提供 Git 工具，使用 Codex 的默认审批；`cypheria_app` 提供通过工具搜索发现的 app tools；`cypheria_app_direct` 提供直接列出的 `list_artifacts`。两个 app tools server 都免提示批准调用，每次调用最长一小时。Claude 用一个 server 提供所有工具，遵循 Claude 自己的权限模式。MCP 客户端取消调用时，插件会中止 HTTP 请求，Server 也会停止 `wait_threads` 的等待。
+
+Codex Thread 启动、恢复或 fork 前，以及 Claude turn 开始前，Server 会安装或更新内置插件，每个 Server 进程只做一次。关闭了插件的 Agent 没有 app tools。
 
 ### Claude 插件管理
 

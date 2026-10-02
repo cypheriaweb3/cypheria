@@ -16,6 +16,9 @@ import { type Context, Hono } from "hono"
 import { bodyLimit } from "hono/body-limit"
 import { cors } from "hono/cors"
 import type { Logger } from "pino"
+import { z } from "zod"
+import type { AppToolGrant } from "./app-tools/grants.js"
+import type { AppToolMcpResult, AppToolMcpTool } from "./app-tools/service.js"
 import {
   hasCypheriaProtocol,
   isAuthorized,
@@ -33,6 +36,14 @@ import type { ConnectionRegistry } from "./session/connection-registry.js"
 import { OWNER_SESSION_ADMISSION } from "./session/connection-registry.js"
 
 export type HttpAppHost = SessionHost & {
+  /** The caller an app tools token speaks for; app tools routes accept no other credential. */
+  verifyAppToolToken?(token: string | undefined): AppToolGrant | null
+  listAppTools?(): Promise<AppToolMcpTool[]>
+  callAppTool?(
+    grant: AppToolGrant,
+    request: { name: string; arguments?: unknown; codexTurnMetadata?: unknown },
+    signal?: AbortSignal
+  ): Promise<AppToolMcpResult>
   getRelayPairingOffer(): RelayPairingOfferResponse | undefined
   getState(): ServerOperationalState
   isReady(): boolean
@@ -51,6 +62,14 @@ const jsonError = (message: string, code = "REQUEST_FAILED") => ({
   error: { code, message },
 })
 
+const AppToolCallSchema = z.object({
+  arguments: z.unknown().optional(),
+  codexTurnMetadata: z.unknown().optional(),
+  name: z.string().min(1),
+})
+
+const APP_TOOLS_PATH = "/api/v1/app-tools/"
+
 const binaryFrame = (value: unknown): Uint8Array | undefined => {
   if (value instanceof Uint8Array) return value
   if (value instanceof ArrayBuffer) return new Uint8Array(value)
@@ -63,6 +82,8 @@ const binaryFrame = (value: unknown): Uint8Array | undefined => {
 export function createHttpApp(options: CreateHttpAppOptions): Hono {
   const { config, host, logger, registry } = options
   const app = new Hono()
+  const appToolGrant = (context: Context) =>
+    host.verifyAppToolToken?.(readBearerToken(context.req.header("authorization"))) ?? null
 
   app.onError((error, context) => {
     logger.error({ err: error, path: context.req.path }, "HTTP request failed")
@@ -100,6 +121,15 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     ) {
       return next()
     }
+    if (context.req.path.startsWith(APP_TOOLS_PATH)) {
+      if (!appToolGrant(context)) {
+        return context.json(
+          jsonError("App tools token is required", "AUTHENTICATION_REQUIRED"),
+          401
+        )
+      }
+      return next()
+    }
 
     const token = readBearerToken(context.req.header("authorization"))
     if (!isAuthorized(token, config.authToken)) {
@@ -123,22 +153,45 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     async (context) => context.json(await host.patchConfig(context.req.valid("json")))
   )
   app.post("/api/v1/config/reload", async (context) => context.json(await host.reloadConfig()))
+  for (const path of ["/api/v1/git/request", `${APP_TOOLS_PATH}git`]) {
+    app.post(
+      path,
+      bodyLimit({ maxSize: config.maxMessageBytes }),
+      zValidator("json", GitClientMessageSchema, (result, context) => {
+        if (!result.success) return context.json(jsonError("Invalid Git request"), 400)
+        return undefined
+      }),
+      async (context) => {
+        if (!host.handleGitMessage) return context.json(jsonError("Git is unavailable"), 503)
+        let response: GitServerMessage | undefined
+        await host.handleGitMessage(context.req.valid("json"), (message) => {
+          response = message
+        })
+        return response
+          ? context.json(response)
+          : context.json(jsonError("Git response is unavailable"), 503)
+      }
+    )
+  }
+  app.get(`${APP_TOOLS_PATH}tools`, async (context) => {
+    if (!host.listAppTools) return context.json(jsonError("App tools are unavailable"), 503)
+    return context.json({ git: gitToolsCatalog().tools, tools: await host.listAppTools() })
+  })
   app.post(
-    "/api/v1/git/request",
+    `${APP_TOOLS_PATH}call`,
     bodyLimit({ maxSize: config.maxMessageBytes }),
-    zValidator("json", GitClientMessageSchema, (result, context) => {
-      if (!result.success) return context.json(jsonError("Invalid Git request"), 400)
+    zValidator("json", AppToolCallSchema, (result, context) => {
+      if (!result.success) return context.json(jsonError("Invalid app tool call"), 400)
       return undefined
     }),
     async (context) => {
-      if (!host.handleGitMessage) return context.json(jsonError("Git is unavailable"), 503)
-      let response: GitServerMessage | undefined
-      await host.handleGitMessage(context.req.valid("json"), (message) => {
-        response = message
-      })
-      return response
-        ? context.json(response)
-        : context.json(jsonError("Git response is unavailable"), 503)
+      const grant = appToolGrant(context)
+      if (!grant || !host.callAppTool) {
+        return context.json(jsonError("App tools are unavailable"), 503)
+      }
+      return context.json(
+        await host.callAppTool(grant, context.req.valid("json"), context.req.raw.signal)
+      )
     }
   )
   app.get("/api/v1/relay/pairing-offer", (context) => {

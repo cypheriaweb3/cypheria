@@ -494,6 +494,10 @@ export class ClaudePluginProvider implements PluginProvider {
     await this.#ensureBundled()
   }
 
+  async ensureBundledPlugin(): Promise<void> {
+    if (this.enabled) await this.#ensureBundled()
+  }
+
   #ensureBundled(): Promise<void> {
     this.#bundledReady ??= this.#exclusive(() => this.#installBundled()).catch((error: unknown) => {
       this.#bundledReady = undefined

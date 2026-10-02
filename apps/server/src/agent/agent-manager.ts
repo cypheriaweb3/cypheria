@@ -128,6 +128,13 @@ export type AgentManagerOptions = {
   codexInstructionCapabilities?: () => CodexInstructionCapabilities
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   agentEnvironment?: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
+  /**
+   * Environment of a Claude session for one Thread: what the `cypheria-app-tools` plugin needs to
+   * act for that Thread.
+   */
+  appToolsThreadEnvironment?: (threadId: string) => Record<string, string>
+  /** Installs or updates the bundled `cypheria-app-tools` plugin before an Agent loads plugins. */
+  prepareAppTools?: (agentId: AgentId) => Promise<void>
   networkBootstrap?: boolean
   installer?: Pick<AgentInstaller, "cleanupInterrupted" | "install" | "readCurrent" | "uninstall">
 }
@@ -223,6 +230,8 @@ export class AgentManager {
   readonly #acpRuntimes = new Map<string, Promise<AcpSessionRuntime>>()
   readonly #agentDefaults: (agentId: AgentId) => Record<string, HarnessSettingValue>
   readonly #agentEnvironment: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
+  readonly #appToolsThreadEnvironment: (threadId: string) => Record<string, string>
+  readonly #prepareAppTools: (agentId: AgentId) => Promise<void>
   readonly #agentToolchains = new Map<AgentId, ToolchainManager>()
   readonly #agentHomes: string
   readonly #cypheriaHome: string
@@ -267,6 +276,8 @@ export class AgentManager {
     this.#logger = options.logger
     this.#agentDefaults = options.agentDefaults ?? (() => ({}))
     this.#agentEnvironment = options.agentEnvironment ?? ((_agentId, base) => ({ ...base }))
+    this.#appToolsThreadEnvironment = options.appToolsThreadEnvironment ?? (() => ({}))
+    this.#prepareAppTools = options.prepareAppTools ?? (async () => undefined)
     this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
     this.#claudePluginsEnabled = options.claudePluginsEnabled ?? (() => true)
     this.#managedShellEnvironment = options.managedShellEnvironment ?? (async () => null)
@@ -457,6 +468,47 @@ export class AgentManager {
 
   async validatedDefaultsFor(agentId: AgentId): Promise<Record<string, HarnessSettingValue>> {
     return this.#defaultsResolver?.(agentId) ?? this.defaultsFor(agentId)
+  }
+
+  /**
+   * Makes sure the app tools plugin is current for Codex and Claude. A failure is logged and the
+   * Thread starts without it rather than not at all.
+   */
+  async prepareAppTools(agentId: AgentId): Promise<void> {
+    if (agentId !== "codex" && agentId !== "claude") return
+    await this.#prepareAppTools(agentId).catch((error: unknown) =>
+      this.#logger?.warn({ agentId, err: error }, "Could not prepare the Cypheria app tools plugin")
+    )
+  }
+
+  appToolsThreadEnvironment(threadId: string): Record<string, string> {
+    return this.#appToolsThreadEnvironment(threadId)
+  }
+
+  /** The Thread an app tool call acts for, with its working directory while its session is live. */
+  appToolContextForThread(threadId: string): { threadId: string; cwd?: string } {
+    for (const adapter of this.#threadAdapters.values()) {
+      const context = adapter.appToolContext()
+      if (context?.threadId === threadId) return context
+    }
+    return { threadId }
+  }
+
+  /**
+   * The Thread of a live Codex session. Candidates are tried in order, so a subagent's call can
+   * fall back to its parent Thread.
+   */
+  appToolContextForCodexSession(
+    sessionIds: readonly string[]
+  ): { threadId: string; cwd?: string } | undefined {
+    for (const sessionId of sessionIds) {
+      for (const adapter of this.#threadAdapters.values()) {
+        if (adapter.agentId !== "codex" || adapter.harnessSessionId !== sessionId) continue
+        const context = adapter.appToolContext()
+        if (context) return context
+      }
+    }
+    return undefined
   }
 
   releaseThreadAdapter(agentId: AgentId, threadId: string): void {
