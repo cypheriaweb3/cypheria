@@ -70,7 +70,7 @@ const revision = (value: string): string => {
   if (!/^[a-f0-9]{40,64}$/iu.test(value)) throw new Error("Invalid GitHub revision")
   return value
 }
-const threadQuery = `query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){nodes{id path line isResolved viewerCanResolve viewerCanUnresolve comments(first:100){nodes{id body createdAt author{login}} pageInfo{hasNextPage endCursor}}} pageInfo{hasNextPage endCursor}}}}}`
+const threadQuery = `query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){nodes{id path line diffSide isResolved viewerCanResolve viewerCanUnresolve comments(first:100){nodes{id body createdAt author{login}} pageInfo{hasNextPage endCursor}}} pageInfo{hasNextPage endCursor}}}}}`
 const threadCommentsQuery = `query($threadId:ID!,$cursor:String!){node(id:$threadId){... on PullRequestReviewThread{comments(first:100,after:$cursor){nodes{id body createdAt author{login}} pageInfo{hasNextPage endCursor}}}}}`
 const threadReplyMutation = `mutation($threadId:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$threadId,body:$body}){comment{id}}}`
 const threadResolveMutation = `mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
@@ -908,6 +908,7 @@ export class GitHubPrService {
                     id: z.string(),
                     path: z.string(),
                     line: z.number().int().nullable(),
+                    diffSide: z.enum(["LEFT", "RIGHT"]).nullable().optional(),
                     isResolved: z.boolean(),
                     viewerCanResolve: z.boolean(),
                     viewerCanUnresolve: z.boolean(),
@@ -965,6 +966,7 @@ export class GitHubPrService {
           id: thread.id,
           path: thread.path,
           line: thread.line,
+          side: thread.diffSide ?? null,
           isResolved: thread.isResolved,
           canResolve: thread.viewerCanResolve,
           canUnresolve: thread.viewerCanUnresolve,
@@ -998,6 +1000,7 @@ export class GitHubPrService {
       path?: string
       line?: number
       side?: "LEFT" | "RIGHT"
+      startLine?: number
     }
   ): Promise<void> {
     const pr = await this.#assertCurrentHead(cwd, input.number, input.expectedHead)
@@ -1018,7 +1021,11 @@ export class GitHubPrService {
         input.body.length > 100_000 ||
         !Number.isInteger(input.line) ||
         (input.line ?? 0) < 1 ||
-        !input.side
+        !input.side ||
+        (input.startLine !== undefined &&
+          (!Number.isInteger(input.startLine) ||
+            input.startLine < 1 ||
+            input.startLine >= (input.line ?? 0)))
       )
         throw new Error("Invalid GitHub PR inline comment")
       await this.#withBodyFile(
@@ -1028,6 +1035,9 @@ export class GitHubPrService {
           path,
           line: input.line,
           side: input.side,
+          ...(input.startLine === undefined
+            ? {}
+            : { start_line: input.startLine, start_side: input.side }),
         }),
         async (bodyFile) => {
           await this.#run(cwd, [

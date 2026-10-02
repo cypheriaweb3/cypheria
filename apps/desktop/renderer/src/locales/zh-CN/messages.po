@@ -3066,26 +3066,6 @@ msgstr "{count} 个文件有变更"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.unifiedDiff"
-msgstr "合并视图"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.splitDiff"
-msgstr "并排视图"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.disableWrap"
-msgstr "关闭自动换行"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.enableWrap"
-msgstr "开启自动换行"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.commitSection"
 msgstr "提交"
 
@@ -3308,3 +3288,108 @@ msgstr "打开检查详情"
 #: renderer/src/components/pull-request-checks.tsx
 msgid "git.github.checksIncomplete"
 msgstr "部分检查详情无法加载。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.generateTitleAndBody"
+msgstr "用 Codex 生成"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseFile"
+msgstr "折叠文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandFile"
+msgstr "展开文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.viewed"
+msgstr "已查看"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile"
+msgstr "跳转到文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.placeholder"
+msgstr "跳转到文件…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.empty"
+msgstr "没有匹配的文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.options"
+msgstr "差异选项"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout"
+msgstr "布局"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.auto"
+msgstr "自动"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.split"
+msgstr "并排"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.unified"
+msgstr "统一"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.wordDiffs"
+msgstr "词级差异"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.wrap"
+msgstr "自动换行"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.fullFiles"
+msgstr "加载完整文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandAll"
+msgstr "展开全部差异"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseAll"
+msgstr "折叠全部差异"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.copyGitApply"
+msgstr "复制 git apply 命令"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.fileActions"
+msgstr "文件操作"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.copyPath"
+msgstr "复制路径"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.openInGitHub"
+msgstr "在 GitHub 中打开"

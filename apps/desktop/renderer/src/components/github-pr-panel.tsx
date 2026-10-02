@@ -18,6 +18,7 @@ import {
   ChatDiffViewer,
   ChatReviewFileTree,
   type ChatReviewTreeFile,
+  chatDiffFingerprints,
   parseChatDiffFiles,
 } from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
@@ -30,6 +31,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@cypheria/ui/components/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@cypheria/ui/components/dropdown-menu"
+import { DotsVerticalIcon } from "@cypheria/ui/components/icons"
 import { Input } from "@cypheria/ui/components/input"
 import { NativeSelect, NativeSelectOption } from "@cypheria/ui/components/native-select"
 import { RadioGroup, RadioGroupItem } from "@cypheria/ui/components/radio-group"
@@ -41,7 +49,7 @@ import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useAtomValue } from "jotai"
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 
 import { clientStateStore } from "../client-state.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
@@ -55,6 +63,12 @@ import { useThreadAttachments } from "../thread-attachments.js"
 import { type GitHubPrOperation, githubPrProvider } from "./github-pr-provider.js"
 import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
 import { PullRequestChecks } from "./pull-request-checks.js"
+import {
+  ReviewDiffControls,
+  useDiffViewerLabels,
+  useReviewDiffDisplay,
+  useViewedFiles,
+} from "./review-diff-display.js"
 
 const openExternal = async (url: string): Promise<void> => {
   if (!window.cypheria) throw new Error("The system browser is unavailable")
@@ -132,6 +146,10 @@ export function GitHubPrPanel({
   const [diffFocus, setDiffFocus] = useState<ChatDiffFocus | null>(null)
   const [prFileFilter, setPrFileFilter] = useState("")
   const [prSelectedFile, setPrSelectedFile] = useState<string | null>(null)
+  const [prCollapsedPaths, setPrCollapsedPaths] = useState<ReadonlySet<string>>(new Set())
+  const [prFullFiles, setPrFullFiles] = useState(false)
+  const [diffDisplay] = useReviewDiffDisplay()
+  const diffViewerLabels = useDiffViewerLabels()
   const [focusNotice, setFocusNotice] = useState<string | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [selectedRevision, setSelectedRevision] = useState<string | null>(null)
@@ -688,8 +706,60 @@ export function GitHubPrPanel({
       ) : null}
     </div>
   )
+  const prFingerprints = useMemo(() => chatDiffFingerprints(prDiff.data ?? ""), [prDiff.data])
+  const prViewed = useViewedFiles(`pr:${selected.data?.url ?? cwd}`, prFingerprints)
+  const prShownCollapsed = useMemo(
+    () => new Set([...prCollapsedPaths, ...prViewed.viewedPaths]),
+    [prCollapsedPaths, prViewed.viewedPaths]
+  )
+  const togglePrCollapsed = (path: string) => {
+    if (prViewed.viewedPaths.has(path)) {
+      prViewed.setViewed(path, false)
+      return
+    }
+    setPrCollapsedPaths((current) => {
+      const next = new Set(current)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
+  const loadPrFiles =
+    cliAvailable && revisionSnapshot.data && selected.data?.headRefOid
+      ? async (file: { path: string; prevPath?: string }) => {
+          const pr = selected.data
+          const snapshot = revisionSnapshot.data
+          if (!pr?.headRefOid || !snapshot) throw new Error("A pull request revision is required")
+          const parsed = parseChatDiffFiles(prDiff.data ?? "").find(
+            (entry) => entry.file.name === file.path
+          )?.file
+          const loaded = await (await ensureCypheriaClient()).git.githubPrRevisionFile(
+            cwd,
+            pr.number,
+            pr.headRefOid,
+            snapshot.mergeBaseRevision,
+            snapshot.headRevision,
+            parsed?.type === "new" ? null : (file.prevPath ?? file.path),
+            parsed?.type === "deleted" ? null : file.path
+          )
+          if (loaded.status !== "success") throw new Error("The full file is unavailable")
+          return {
+            newContents: loaded.headContent,
+            oldContents: parsed?.type === "rename-pure" ? null : loaded.baseContent,
+          }
+        }
+      : undefined
+  const githubFileUrl = (path: string): string | null => {
+    const pr = selected.data
+    if (!pr?.headRefOid) return null
+    const match = /^(https:\/\/[^/]+\/[^/]+\/[^/]+)\/pull\/\d+/u.exec(pr.url)
+    return match
+      ? `${match[1]}/blob/${pr.headRefOid}/${path.split("/").map(encodeURIComponent).join("/")}`
+      : null
+  }
   const prDiffFiles: ChatReviewTreeFile[] = parseChatDiffFiles(prDiff.data ?? "").map(
     ({ file }) => ({
+      viewed: prViewed.markedPaths.has(file.name),
       additions: file.hunks.reduce((total, hunk) => total + hunk.additionLines, 0),
       comments: (threads.data?.threads ?? []).filter((thread) => thread.path === file.name).length,
       deletions: file.hunks.reduce((total, hunk) => total + hunk.deletionLines, 0),
@@ -717,6 +787,9 @@ export function GitHubPrPanel({
         action: "inline",
         path: target.path,
         line: target.lineNumber,
+        ...(target.startLineNumber !== undefined && target.startLineNumber < target.lineNumber
+          ? { startLine: target.startLineNumber }
+          : {}),
         side: target.side === "deletions" ? "LEFT" : "RIGHT",
         body: inlineBody,
       })
@@ -743,7 +816,7 @@ export function GitHubPrPanel({
               key: `thread:${thread.id}`,
               lineNumber: thread.line,
               path: thread.path,
-              side: "additions" as const,
+              side: thread.side === "LEFT" ? ("deletions" as const) : ("additions" as const),
             },
           ]
         : []
@@ -1614,7 +1687,7 @@ export function GitHubPrPanel({
                       type="button"
                       variant="ghost"
                     >
-                      <Trans id="git.github.generateDescription">Generate with Codex</Trans>
+                      <Trans id="git.github.generateTitleAndBody">Generate with Codex</Trans>
                     </Button>
                   ) : null}
                   <Button
@@ -1788,14 +1861,44 @@ export function GitHubPrPanel({
             <TabsContent className="space-y-2" value="code">
               {selected.data.headRefOid && (cliAvailable || appAvailability.data?.canDiff) ? (
                 <div className="space-y-2 border-t pt-2">
-                  <Button
-                    onClick={() => setShowDiff((value) => !value)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Trans id="git.github.codeChanges">Code changes</Trans>
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      onClick={() => setShowDiff((value) => !value)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trans id="git.github.codeChanges">Code changes</Trans>
+                    </Button>
+                    {showDiff && prDiffFiles.length > 0 ? (
+                      <span className="ml-auto">
+                        <ReviewDiffControls
+                          files={prDiffFiles.map((file) => file.path)}
+                          onCollapseAll={() =>
+                            setPrCollapsedPaths(new Set(prDiffFiles.map((file) => file.path)))
+                          }
+                          onError={setError}
+                          onExpandAll={() => {
+                            setPrCollapsedPaths(new Set())
+                            for (const path of prViewed.viewedPaths) prViewed.setViewed(path, false)
+                          }}
+                          onJumpToFile={(path) => {
+                            setPrSelectedFile(path)
+                            setDiffFocus({
+                              lineNumber: 0,
+                              nonce: Date.now(),
+                              path,
+                              side: "additions",
+                            })
+                          }}
+                          {...(loadPrFiles
+                            ? { fullFiles: prFullFiles, onFullFilesChange: setPrFullFiles }
+                            : {})}
+                          {...(prDiff.data ? { patch: prDiff.data } : {})}
+                        />
+                      </span>
+                    ) : null}
+                  </div>
                   {showDiff ? (
                     <div className="space-y-2">
                       <div className="flex min-h-0 flex-col rounded border @container">
@@ -1840,6 +1943,69 @@ export function GitHubPrPanel({
                             <ChatDiffViewer
                               annotations={diffAnnotations}
                               className="max-h-[40rem]"
+                              collapsedPaths={prShownCollapsed}
+                              diffStyle={diffDisplay.diffStyle}
+                              expandUnchanged={prFullFiles}
+                              labels={diffViewerLabels}
+                              onToggleCollapsed={togglePrCollapsed}
+                              onToggleViewed={prViewed.setViewed}
+                              renderFileActions={(file) => (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    render={
+                                      <Button
+                                        aria-label={i18n._(
+                                          msg({
+                                            id: "git.diff.fileActions",
+                                            message: "File actions",
+                                          })
+                                        )}
+                                        size="icon-xs"
+                                        type="button"
+                                        variant="ghost"
+                                      />
+                                    }
+                                  >
+                                    <DotsVerticalIcon />
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="min-w-44">
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        void navigator.clipboard
+                                          .writeText(file.path)
+                                          .catch((error: unknown) =>
+                                            setError(
+                                              error instanceof Error ? error.message : String(error)
+                                            )
+                                          )
+                                      }
+                                    >
+                                      <Trans id="git.diff.copyPath">Copy path</Trans>
+                                    </DropdownMenuItem>
+                                    {githubFileUrl(file.path) ? (
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          const url = githubFileUrl(file.path)
+                                          if (url)
+                                            void openExternal(url).catch((cause: unknown) =>
+                                              setError(
+                                                cause instanceof Error
+                                                  ? cause.message
+                                                  : String(cause)
+                                              )
+                                            )
+                                        }}
+                                      >
+                                        <Trans id="git.diff.openInGitHub">Open in GitHub</Trans>
+                                      </DropdownMenuItem>
+                                    ) : null}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                              viewedPaths={prViewed.viewedPaths}
+                              wordDiffs={diffDisplay.wordDiffs}
+                              wrap={diffDisplay.wrap}
+                              {...(loadPrFiles && prFullFiles ? { loadFiles: loadPrFiles } : {})}
                               fallback={
                                 <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
                                   {prDiff.isError

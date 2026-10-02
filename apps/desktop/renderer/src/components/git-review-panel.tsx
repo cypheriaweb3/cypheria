@@ -20,6 +20,7 @@ import {
   ChatReviewPanel,
   ChatReviewToolbar,
   type ChatReviewTreeFile,
+  chatDiffFingerprints,
 } from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
 import {
@@ -36,7 +37,7 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAtom } from "jotai"
-import { type ReactNode, useEffect, useId, useState } from "react"
+import { type ReactNode, useEffect, useId, useMemo, useState } from "react"
 
 import { gitReviewSourceAtom, reviewCommentsAtom } from "../client-state.js"
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
@@ -44,6 +45,12 @@ import { commitChanges, hasCommittableChanges, parseCoAuthors } from "./git-comm
 import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 import { formatReviewComments, hunkAnchor } from "./review-comments.js"
+import {
+  ReviewDiffControls,
+  useDiffViewerLabels,
+  useReviewDiffDisplay,
+  useViewedFiles,
+} from "./review-diff-display.js"
 
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
@@ -117,8 +124,9 @@ export function GitReviewPanel({
   const [reviewBaseSearch, setReviewBaseSearch] = useState("")
   const [reviewBase, setReviewBase] = useState("")
   const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
-  const [diffStyle, setDiffStyle] = useState<"split" | "unified">("unified")
-  const [wrapLines, setWrapLines] = useState(true)
+  const [diffDisplay] = useReviewDiffDisplay()
+  const diffViewerLabels = useDiffViewerLabels()
+  const [collapsedPaths, setCollapsedPaths] = useState<ReadonlySet<string>>(new Set())
   const [commentDraft, setCommentDraft] = useState<ChatDiffTarget | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [reviewComments, setReviewComments] = useAtom(reviewCommentsAtom(threadId ?? `cwd:${cwd}`))
@@ -417,6 +425,27 @@ export function GitReviewPanel({
     refetchInterval: 3_000,
     retry: false,
   })
+  const diffFingerprints = useMemo(
+    () => chatDiffFingerprints(diff.data?.diff ?? ""),
+    [diff.data?.diff]
+  )
+  const viewed = useViewedFiles(`${threadId ?? `cwd:${cwd}`}:${source}`, diffFingerprints)
+  const shownCollapsed = useMemo(
+    () => new Set([...collapsedPaths, ...viewed.viewedPaths]),
+    [collapsedPaths, viewed.viewedPaths]
+  )
+  const toggleCollapsed = (path: string) => {
+    if (viewed.viewedPaths.has(path)) {
+      viewed.setViewed(path, false)
+      return
+    }
+    setCollapsedPaths((current) => {
+      const next = new Set(current)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
   const mutate = async (action: () => Promise<unknown>) => {
     setBusy(true)
     setActionError(null)
@@ -469,6 +498,7 @@ export function GitReviewPanel({
     ...(file.additions !== undefined ? { additions: file.additions } : {}),
     ...(file.deletions !== undefined ? { deletions: file.deletions } : {}),
     comments: sourceComments.filter((comment) => comment.path === file.id).length,
+    viewed: viewed.markedPaths.has(String(file.path)),
   }))
   const hunkActions = (hunk: { header: string; index: number }) => (
     <div className="flex flex-wrap items-center gap-1 border-y bg-muted/40 px-2 py-1">
@@ -575,6 +605,9 @@ export function GitReviewPanel({
                               body: commentBody.trim(),
                               id: crypto.randomUUID(),
                               lineNumber: draft.lineNumber,
+                              ...(draft.startLineNumber === undefined
+                                ? {}
+                                : { startLineNumber: draft.startLineNumber }),
                               path: draft.path,
                               side: draft.side,
                               source,
@@ -768,32 +801,12 @@ export function GitReviewPanel({
           />
           <Trans id="git.review.ignoreWhitespace">Ignore whitespace changes</Trans>
         </label>
-        <Button
-          aria-pressed={diffStyle === "split"}
-          onClick={() => setDiffStyle((value) => (value === "split" ? "unified" : "split"))}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {diffStyle === "split" ? (
-            <Trans id="git.review.unifiedDiff">Unified</Trans>
-          ) : (
-            <Trans id="git.review.splitDiff">Split</Trans>
-          )}
-        </Button>
-        <Button
-          aria-pressed={wrapLines}
-          onClick={() => setWrapLines((value) => !value)}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {wrapLines ? (
-            <Trans id="git.review.disableWrap">Disable word wrap</Trans>
-          ) : (
-            <Trans id="git.review.enableWrap">Enable word wrap</Trans>
-          )}
-        </Button>
+        <ReviewDiffControls
+          files={visibleEntries.map((entry) => entry.path)}
+          onError={setActionError}
+          onJumpToFile={setSelectedPath}
+          {...(diff.data?.diff ? { patch: diff.data.diff } : {})}
+        />
       </div>
       {lineCounts.isError ? (
         <p className="border-b p-2 text-xs text-destructive">{lineCounts.error.message}</p>
@@ -948,7 +961,13 @@ export function GitReviewPanel({
                 <ChatDiffViewer
                   annotations={diffAnnotations}
                   className="max-h-[40rem]"
-                  diffStyle={diffStyle}
+                  collapsedPaths={shownCollapsed}
+                  diffStyle={diffDisplay.diffStyle}
+                  labels={diffViewerLabels}
+                  onToggleCollapsed={toggleCollapsed}
+                  onToggleViewed={viewed.setViewed}
+                  viewedPaths={viewed.viewedPaths}
+                  wordDiffs={diffDisplay.wordDiffs}
                   fallback={
                     <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
                       {diff.isError
@@ -971,7 +990,7 @@ export function GitReviewPanel({
                     setCommentDraft(target)
                   }}
                   patch={diff.data?.diff ?? ""}
-                  wrap={wrapLines}
+                  wrap={diffDisplay.wrap}
                 />
                 {source === "staged" || source === "unstaged" ? (
                   <div className="flex gap-2 border-t p-2">

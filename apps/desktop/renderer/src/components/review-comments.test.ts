@@ -48,4 +48,20 @@ describe("formatReviewComments", () => {
       ].join("\n")
     )
   })
+
+  it("names a commented range by its first and last line", () => {
+    expect(
+      formatReviewComments("/repo", [
+        {
+          body: "Extract this",
+          id: "1",
+          lineNumber: 8,
+          path: "a.ts",
+          side: "additions",
+          source: "branch",
+          startLineNumber: 4,
+        },
+      ])
+    ).toContain("1. /repo/a.ts:4-8\n   Extract this")
+  })
 })

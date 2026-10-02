@@ -14,6 +14,8 @@ export type ChatReviewTreeFile = {
   readonly deletions?: number
   readonly path: string
   readonly status: GitStatusEntry["status"]
+  /** The reader marked this file's current diff as viewed. */
+  readonly viewed?: boolean
 }
 
 export type ChatReviewFileTreeLabels = {
@@ -51,6 +53,9 @@ export const reviewRowDecoration = (file: ChatReviewTreeFile | undefined, summar
       color: MUTED,
       text: `${parts.length ? "\u00a0\u00a0" : ""}💬\u00a0${file.comments}`,
     })
+  }
+  if (file.viewed) {
+    parts.push({ color: MUTED, text: `${parts.length ? "\u00a0\u00a0" : ""}✓` })
   }
   if (parts.length === 0) return null
   return { parts, text: parts.map((part) => part.text).join(""), title: summary }

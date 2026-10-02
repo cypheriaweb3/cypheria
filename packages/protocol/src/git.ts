@@ -299,6 +299,8 @@ export const GitHubPullRequestThreadsSchema = z
           id: z.string(),
           path: z.string(),
           line: z.number().int().nullable(),
+          /** Diff side the thread's line belongs to, when the source reports it. */
+          side: z.enum(["LEFT", "RIGHT"]).nullable().optional(),
           isResolved: z.boolean(),
           canResolve: z.boolean(),
           canUnresolve: z.boolean(),
@@ -1091,6 +1093,8 @@ export const GitHubPrThreadActionRequestSchema = input(
       path: path.optional(),
       line: z.number().int().positive().optional(),
       side: z.enum(["LEFT", "RIGHT"]).optional(),
+      /** First line of a multi-line inline comment that ends at `line`, on the same side. */
+      startLine: z.number().int().positive().optional(),
     })
     .strict()
 )

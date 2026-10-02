@@ -484,6 +484,7 @@ export interface GitActions {
       path?: string
       line?: number
       side?: "LEFT" | "RIGHT"
+      startLine?: number
     },
     options?: RequestOptions
   ): Promise<void>
