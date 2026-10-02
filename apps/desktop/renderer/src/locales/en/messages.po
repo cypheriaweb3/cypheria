@@ -3098,3 +3098,53 @@ msgstr "Branches"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.worktreesSection"
 msgstr "Worktrees"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.allPullRequests"
+msgstr "All pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.tabSummary"
+msgstr "Summary"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.tabCode"
+msgstr "Code"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.tabActivity"
+msgstr "Activity"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.submitReview"
+msgstr "Submit review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewDecision"
+msgstr "Review decision"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewDecisionHint"
+msgstr "Choose a review decision and optionally add a comment. The review applies only if the displayed head commit still matches."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.optionalComment"
+msgstr "Optional comment"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.pullRequestSection"
+msgstr "Pull request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.mergeRequestSection"
+msgstr "Merge request"

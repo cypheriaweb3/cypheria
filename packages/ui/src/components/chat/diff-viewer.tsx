@@ -19,6 +19,7 @@ export type ChatDiffAnnotation = {
 
 export type ChatDiffTarget = { lineNumber: number; path: string; side: ChatDiffSide }
 
+/** A line to scroll to and select; line 0 scrolls to the top of the file instead. */
 export type ChatDiffFocus = ChatDiffTarget & {
   /** A new value scrolls to the line again, even when the target did not change. */
   nonce?: number | string
@@ -134,6 +135,10 @@ export function ChatDiffViewer({
     const id = itemIdFor(files, focus.path)
     if (!id) return
     const frame = requestAnimationFrame(() => {
+      if (focus.lineNumber < 1) {
+        handle.current?.scrollTo({ align: "start", id, type: "item" })
+        return
+      }
       handle.current?.scrollTo({
         align: "center",
         id,
