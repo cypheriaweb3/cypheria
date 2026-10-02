@@ -830,9 +830,6 @@ describe("GitService", () => {
       "Move the owner thread"
     )
     await manager.setOwner(await service.discover(root), worktree.path, null)
-    await writeFile(join(worktree.path, "file.txt"), "dirty\n")
-    await expect(service.deleteWorktree(root, worktree.path)).rejects.toThrow("uncommitted changes")
-    await writeFile(join(worktree.path, "file.txt"), "first\n")
     await expect(service.deleteWorktree(root, root)).rejects.toThrow("managed Cypheria worktree")
     await expect(service.deleteWorktree(worktree.path, worktree.path)).rejects.toThrow(
       "current worktree"
@@ -843,6 +840,57 @@ describe("GitService", () => {
     expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\n")
     await expect(service.restoreWorktree(root, worktree.path)).rejects.toThrow("already exists")
   }, 20_000)
+
+  it("archives a dirty worktree with its changes and restores them", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "first\n")
+    await writeFile(join(root, ".gitignore"), "ignored.txt\n")
+    await service.stage(root, ["file.txt", ".gitignore"])
+    const first = await service.commit(root, "First")
+    const worktree = await service.createWorktree(root)
+    await writeFile(join(worktree.path, "file.txt"), "dirty\n")
+    await writeFile(join(worktree.path, "new.txt"), "untracked\n")
+    await writeFile(join(worktree.path, "ignored.txt"), "ignored\n")
+    await service.deleteWorktree(root, worktree.path)
+    const restored = await service.restoreWorktree(root, worktree.path)
+    expect(restored.head).not.toBe(first)
+    expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("dirty\n")
+    expect(await readFile(join(worktree.path, "new.txt"), "utf8")).toBe("untracked\n")
+    await expect(readFile(join(worktree.path, "ignored.txt"), "utf8")).rejects.toThrow()
+    const parent = (
+      await run("git", ["-C", worktree.path, "rev-parse", `${restored.head}^`])
+    ).stdout.trim()
+    expect(parent).toBe(first)
+  }, 30_000)
+
+  it("refuses to archive a worktree with an embedded repository", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "First")
+    const worktree = await service.createWorktree(root)
+    await mkdir(join(worktree.path, "nested"))
+    await run("git", ["init", "-q", join(worktree.path, "nested")])
+    await writeFile(join(worktree.path, "nested", "a.txt"), "a\n")
+    await run("git", ["-C", join(worktree.path, "nested"), "add", "a.txt"])
+    await run("git", [
+      "-C",
+      join(worktree.path, "nested"),
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "-qm",
+      "a",
+    ])
+    await expect(service.deleteWorktree(root, worktree.path)).rejects.toThrow(
+      "embedded Git repositories"
+    )
+    expect(await service.worktrees(root)).toContainEqual(worktree)
+  }, 30_000)
 
   it("creates a detached worktree from a selected branch without switching the source", async () => {
     const root = await repository()

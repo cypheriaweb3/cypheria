@@ -3,9 +3,8 @@ import type { v2 } from "@cypheria/protocol/codex-types"
 /**
  * Descriptions and schemas of the Cypheria app tools. They are the official Codex desktop's, word
  * for word, except where Cypheria differs: it has no ChatGPT conversations, remote hosts, or Work
- * cloud, and an archived worktree keeps a Git ref to HEAD, so it must be clean. `set_thread_pinned`
- * is absent because Pinned is a Section, so `move_thread_to_sidebar_section` covers it, as in the
- * desktop when custom sections are available. Tools are deferred, so Codex discovers them through
+ * cloud, and no pinned worktrees. Pinning a thread is `move_thread_to_sidebar_section` with
+ * `pinned`, so there is no `set_thread_pinned`. Tools are deferred, so Codex discovers them through
  * tool search, except `list_artifacts`, which the worktree instructions name.
  */
 export const APP_TOOL_SPECS: readonly v2.DynamicToolSpec[] = [
@@ -496,7 +495,7 @@ export const APP_TOOL_SPECS: readonly v2.DynamicToolSpec[] = [
   },
   {
     description:
-      "Archive a managed worktree attached to this chat when it is no longer needed. Use this to clean up worktrees created with create_worktree; identify the attachment with list_artifacts. Keeps a recoverable Git ref to the checkout's HEAD before removing it, so the worktree must have no uncommitted changes: commit or discard them first. The primary worktree and a worktree that a thread works in cannot be archived. Keeps the chat open and does not modify GitHub PRs.",
+      "Archive a managed worktree attached to this chat when it is no longer needed. Use this to clean up worktrees created with create_worktree; identify the attachment with list_artifacts. Saves a recoverable Git snapshot of local changes, unpushed commits, and non-ignored untracked files before removing the checkout. Preserve needed ignored files separately. The primary worktree and a worktree that a thread works in cannot be archived, nor can checkouts with initialized submodules or embedded Git repositories. Keeps the chat open and does not modify GitHub PRs.",
     inputSchema: {
       type: "object",
       properties: {
@@ -514,7 +513,7 @@ export const APP_TOOL_SPECS: readonly v2.DynamicToolSpec[] = [
   },
   {
     description:
-      "Restore an archived worktree from this chat's list_artifacts to recover its saved work. Recreates the checkout at its original path with a detached HEAD, preserving commit history. Use the returned workspace directory for subsequent work.",
+      "Restore an archived worktree from this chat's list_artifacts to recover its saved work. Recreates the checkout at its original path with a detached HEAD, preserving commit history and saved file contents. Previously uncommitted changes are included in the snapshot commit rather than restored as staged or unstaged changes. Use the returned workspace directory for subsequent work.",
     inputSchema: {
       type: "object",
       properties: {

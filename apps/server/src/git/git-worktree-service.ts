@@ -815,7 +815,8 @@ export class GitWorktreeService {
         await this.delete(
           repository,
           entry.path,
-          Boolean(entry.ownerThreadId && protectedOwnerThreadIds)
+          Boolean(entry.ownerThreadId && protectedOwnerThreadIds),
+          true
         )
         removed.push(entry.path)
       } catch {
@@ -854,24 +855,81 @@ export class GitWorktreeService {
     return updated
   }
 
-  async delete(repository: Repository, path: string, allowArchivedOwner = false): Promise<void> {
+  /**
+   * Archives a managed worktree: keeps a commit of its working state under the snapshot ref, then
+   * removes the checkout. Local changes and non-ignored untracked files are part of the commit, so
+   * {@link restore} brings them back. `requireClean` is for automatic cleanup, which never archives
+   * work that has not been committed.
+   */
+  async delete(
+    repository: Repository,
+    path: string,
+    allowArchivedOwner = false,
+    requireClean = false
+  ): Promise<void> {
     const record = await this.#record(repository, path)
     if (record.ownerThreadId && !allowArchivedOwner)
       throw new Error("Move the owner thread before deleting this worktree")
     if (repository.root === record.path) throw new Error("Cannot delete the current worktree")
     const worktree = await realpath(record.path)
     if (worktree !== record.path) throw new Error("Managed worktree path changed")
-    const dirty = (
-      await this.#executor.run(worktree, ["status", "--porcelain=v1", "--untracked-files=all"], {
-        readOnly: true,
-      })
-    ).stdout
-    if (dirty) throw new Error("Worktree has uncommitted changes")
-    const head = (
-      await this.#executor.run(worktree, ["rev-parse", "HEAD"], { readOnly: true })
-    ).stdout.trim()
-    await this.#executor.run(repository.root, ["update-ref", record.snapshotRef, head])
-    await this.#executor.run(repository.root, ["worktree", "remove", "--", worktree])
+    const snapshot = await this.#snapshotCommit(worktree)
+    if (requireClean && snapshot.dirty) throw new Error("Worktree has uncommitted changes")
+    await this.#executor.run(repository.root, ["update-ref", record.snapshotRef, snapshot.commit])
+    await this.#executor.run(repository.root, ["worktree", "remove", "--force", "--", worktree])
+  }
+
+  /**
+   * The commit that captures a worktree: HEAD itself when nothing changed, otherwise a commit on
+   * top of HEAD whose tree holds the working files, tracked changes and untracked files alike.
+   * Submodules and embedded repositories cannot be captured, so they refuse the archive.
+   */
+  async #snapshotCommit(worktree: string): Promise<{ commit: string; dirty: boolean }> {
+    const read = async (args: string[], env?: { [key: string]: string }): Promise<string> =>
+      (await this.#executor.run(worktree, args, { ...(env ? { env } : {}) })).stdout
+    const head = (await read(["rev-parse", "HEAD"])).trim()
+    const submodules = (await read(["submodule", "status"]))
+      .split("\n")
+      .filter((line) => line.trim() && !line.startsWith("-"))
+    if (submodules.length > 0) {
+      throw new Error("A worktree with initialized submodules cannot be archived")
+    }
+    const directory = await mkdtemp(join(tmpdir(), "cypheria-worktree-snapshot-"))
+    try {
+      const env = {
+        GIT_AUTHOR_EMAIL: "cypheria@localhost",
+        GIT_AUTHOR_NAME: "Cypheria",
+        GIT_COMMITTER_EMAIL: "cypheria@localhost",
+        GIT_COMMITTER_NAME: "Cypheria",
+        GIT_INDEX_FILE: join(directory, "index"),
+      }
+      await read(["read-tree", "HEAD"], env)
+      await read(["add", "--all", "--", "."], env)
+      const gitlinks = async (indexed: boolean): Promise<string> =>
+        (
+          await read(
+            indexed ? ["ls-files", "--stage"] : ["ls-tree", "-r", "HEAD"],
+            indexed ? env : undefined
+          )
+        )
+          .split("\n")
+          .filter((line) => line.startsWith("160000"))
+          .map((line) => line.split("\t").at(-1))
+          .sort()
+          .join("\n")
+      if ((await gitlinks(true)) !== (await gitlinks(false))) {
+        throw new Error("A worktree with embedded Git repositories cannot be archived")
+      }
+      const tree = (await read(["write-tree"], env)).trim()
+      const headTree = (await read(["rev-parse", "HEAD^{tree}"])).trim()
+      if (tree === headTree) return { commit: head, dirty: false }
+      const commit = (
+        await read(["commit-tree", tree, "-p", head, "-m", "Cypheria worktree snapshot"], env)
+      ).trim()
+      return { commit, dirty: true }
+    } finally {
+      await rm(directory, { force: true, recursive: true })
+    }
   }
 
   async restore(repository: Repository, path: string): Promise<GitWorktree> {
