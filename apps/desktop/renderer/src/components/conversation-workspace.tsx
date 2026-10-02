@@ -198,7 +198,7 @@ import {
   verifyDraftAttachments,
 } from "../composer-draft-storage.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
-import { reviewPanelRequestAtom } from "../deep-links.js"
+import { nextRequestNonce, reviewFocusAtom, reviewPanelRequestAtom } from "../deep-links.js"
 import { Route } from "../routes/index.js"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 import { desktopClientStorage } from "../storage.js"
@@ -212,6 +212,7 @@ import { ContextUsage } from "./context-usage.js"
 import { GitReviewPanel } from "./git-review-panel.js"
 import { ProjectCreateDialog } from "./project-create-dialog.js"
 import { ThreadFilesPanel } from "./thread-files-panel.js"
+import { ThreadGitActions } from "./thread-git-actions.js"
 import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal.js"
 
 const jsonRecord = (value: unknown): Record<string, unknown> =>
@@ -2103,9 +2104,28 @@ export function ConversationWorkspace({
             ? i18n._(msg({ id: "chat.state.working", message: "Working…" }))
             : activityLabel(i18n)}
       </ChatHeaderStatus>
+      {snapshot.thread?.roots[0] ? (
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <ThreadGitActions
+            cwd={snapshot.thread.roots[0]}
+            onOpenPullRequest={(url) => {
+              clientStateStore.set(reviewFocusAtom, {
+                line: null,
+                nonce: nextRequestNonce(),
+                path: null,
+                pullRequest: url,
+                side: "additions",
+                threadId: snapshot.thread?.id ?? null,
+              })
+              openRightTab("review")
+            }}
+            onOpenReview={() => openRightTab("review")}
+          />
+        </div>
+      ) : null}
       {codex ? (
         <ChatPanelToggle
-          className="ml-auto"
+          className={snapshot.thread?.roots[0] ? undefined : "ml-auto"}
           ref={summaryToggleRef}
           label={i18n._(msg({ id: "chat.summary.toggle", message: "Toggle summary" }))}
           onClick={() => setSummaryCheckpoint((current) => ({ ...current, open: !current.open }))}

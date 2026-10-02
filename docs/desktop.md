@@ -90,6 +90,8 @@ For a conversation with a local working directory, the Codex Review panel reads 
 
 The unstaged Review source also renders text diffs for untracked regular files before they are staged.
 
+A Thread whose working directory is inside a repository shows its branch in the conversation header. The branch button opens a popover to commit (with a typed or generated message and an option to include unstaged changes), commit and push, or push; the header also offers View PR when the branch has a GitHub pull request and Create PR otherwise, both through the Review panel. The popover and the Review panel use the same Server Git API and commit code.
+
 Other applications reach Desktop through the `cypheria://` scheme, which Desktop registers with the operating system. `cypheria://threads/<threadId>` opens a Thread, `?view=review` also opens its Review panel, and `cypheria://review?pr=<url>&path=<file>&line=<n>&side=<left|right>` shows a pull request's diff at a line in the Review panel of the Thread on screen. Desktop accepts only these two forms with an `https` pull request URL and routes them inside the renderer; `cypheria://app/` and `cypheria://media/` stay the renderer's own origins. A link that arrives before the window can receive it waits until the renderer asks.
 
 The Uncommitted source combines index and working tree changes against HEAD, including untracked files. In a repository without a first commit, it combines the staged and unstaged diffs.

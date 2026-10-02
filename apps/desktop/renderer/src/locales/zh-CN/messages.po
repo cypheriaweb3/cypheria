@@ -2973,3 +2973,43 @@ msgstr "此链接未指向 GitHub 拉取请求。"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.focusOtherRepository"
 msgstr "此拉取请求不属于当前工作目录所在的仓库。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitOrPush"
+msgstr "提交或推送"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.detached"
+msgstr "游离 HEAD"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitTo"
+msgstr "提交到"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.messagePlaceholder"
+msgstr "提交信息（留空则自动生成）…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChanges"
+msgstr "没有变更"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openReview"
+msgstr "打开 Review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.viewPr"
+msgstr "查看 PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.createPr"
+msgstr "创建 PR"
