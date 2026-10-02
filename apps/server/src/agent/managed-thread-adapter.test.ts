@@ -51,7 +51,7 @@ describe("ManagedThreadAdapter", () => {
     const events: ThreadHarnessEvent[] = []
     let runtimeContext: AgentMessageContext | undefined
     const manager = {
-      codexDynamicTools: { getSpecs: () => [] },
+      codexDynamicTools: { resolveSpecs: async () => [] },
       codexDeveloperInstructions: async () => "",
       handleCodex: async (message: Record<string, unknown>, context: AgentMessageContext) => {
         if (respondToCodexConfigRead(message, context)) return
@@ -271,7 +271,7 @@ describe("ManagedThreadAdapter", () => {
       }
     )
     const manager = {
-      codexDynamicTools: { getSpecs: () => [] },
+      codexDynamicTools: { resolveSpecs: async () => [] },
       codexDeveloperInstructions: async () => "Use codex/ for new Git branches.",
       codexWorktreeConfig: async () => ({
         shell_environment_policy: { set: { PATH: "/repo/bin" } },
@@ -351,7 +351,7 @@ describe("ManagedThreadAdapter", () => {
       }
     )
     const manager = {
-      codexDynamicTools: { getSpecs: () => [] },
+      codexDynamicTools: { resolveSpecs: async () => [] },
       codexDeveloperInstructions: async () => "",
       handleCodex,
     } as unknown as AgentManager

@@ -68,7 +68,6 @@ describe("buildCodexDeveloperInstructions", () => {
           "wait_threads",
           "send_message_to_thread",
           "handoff_thread",
-          "set_thread_pinned",
           "set_thread_archived",
           "set_thread_title"
         ),
@@ -144,16 +143,6 @@ describe("buildCodexDeveloperInstructions", () => {
     expect(text).not.toContain("wait_threads")
     expect(text).not.toContain("### Automations")
     expect(text).not.toContain("### Worktrees")
-  })
-
-  it("drops the pin tool from the thread list when sidebar tools pin instead", () => {
-    const text = buildCodexDeveloperInstructions({
-      capabilities: withTools("read_thread", "set_thread_pinned", "create_sidebar_section"),
-      git: DEFAULT_GIT_SETTINGS,
-      isGitWorkspace: false,
-    })
-    expect(text).not.toContain("`set_thread_pinned`")
-    expect(text).toContain("### Sidebar Organization")
   })
 
   it("places the projectless section after the app context", () => {

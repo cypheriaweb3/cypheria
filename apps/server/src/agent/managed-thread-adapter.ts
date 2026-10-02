@@ -827,7 +827,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
           config: input.config,
           cwd: input.cwd,
           developerInstructions: await this.#manager.codexDeveloperInstructions(input.cwd),
-          dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
+          dynamicTools: await this.#manager.codexDynamicTools.resolveSpecs(),
           permissions: await this.#codexPermissions(input.config, input, "start"),
           workspaceRoots: input.workspaceRoots,
           worktreeConfig: await this.#manager.codexWorktreeConfig?.(input.cwd),

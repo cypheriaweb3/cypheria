@@ -11,7 +11,13 @@ export type CodexDynamicToolHandler = (
   context: CodexDynamicToolCallContext
 ) => Promise<v2.DynamicToolCallResponse> | v2.DynamicToolCallResponse
 
+/** Rewrites specs when a Thread starts, for example to list the models the Server can offer. */
+export type CodexDynamicToolSpecDecorator = (
+  specs: readonly v2.DynamicToolSpec[]
+) => Promise<readonly v2.DynamicToolSpec[]> | readonly v2.DynamicToolSpec[]
+
 type Registration = {
+  readonly decorate?: CodexDynamicToolSpecDecorator
   readonly handler: CodexDynamicToolHandler
   readonly specs: readonly v2.DynamicToolSpec[]
 }
@@ -36,13 +42,39 @@ export class CodexDynamicToolRegistry {
     return [...this.#registrations.values()].flatMap(({ specs }) => [...specs])
   }
 
-  register(specs: readonly v2.DynamicToolSpec[], handler: CodexDynamicToolHandler): () => void {
+  /**
+   * The specs to send at thread start. A decorator that throws leaves its own specs unchanged, so
+   * a failing lookup never keeps a Thread from starting.
+   */
+  async resolveSpecs(): Promise<v2.DynamicToolSpec[]> {
+    const resolved = await Promise.all(
+      [...this.#registrations.values()].map(async ({ decorate, specs }) => {
+        if (!decorate) return [...specs]
+        try {
+          return [...(await decorate(specs))]
+        } catch {
+          return [...specs]
+        }
+      })
+    )
+    return resolved.flat()
+  }
+
+  register(
+    specs: readonly v2.DynamicToolSpec[],
+    handler: CodexDynamicToolHandler,
+    options: { decorate?: CodexDynamicToolSpecDecorator } = {}
+  ): () => void {
     const owner = Symbol("codex-dynamic-tools")
     const keys = specs.flatMap(keysFor)
     for (const key of keys) {
       if (this.#handlers.has(key)) throw new Error(`Dynamic tool ${key} is already registered.`)
     }
-    this.#registrations.set(owner, { handler, specs: [...specs] })
+    this.#registrations.set(owner, {
+      ...(options.decorate ? { decorate: options.decorate } : {}),
+      handler,
+      specs: [...specs],
+    })
     for (const key of keys) this.#handlers.set(key, { handler, owner })
     return () => {
       this.#registrations.delete(owner)
