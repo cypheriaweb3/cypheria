@@ -103,6 +103,7 @@ import {
   chatComposerDocumentToInput,
   createChatComposerDocument,
   createChatComposerDocumentFromInput,
+  extractChatCodeComments,
   serializeChatComposerDocument,
 } from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
@@ -152,7 +153,7 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { atom, useAtom, useAtomValue } from "jotai"
+import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
 import { MoreHorizontal } from "lucide-react"
 import {
   type ChangeEvent,
@@ -181,6 +182,8 @@ import {
   composerPlainTextModeAtom,
   defaultTerminalLocationAtom,
   followUpQueueModeAtom,
+  gitReviewBaseAtom,
+  gitReviewSourceAtom,
   panelLayoutAtom,
   projectlessWorkspaceRootAtom,
   showBottomPanelControlAtom,
@@ -206,15 +209,23 @@ import {
   type ConversationSubmitMode,
   ThreadConversationController,
 } from "../thread-conversation-controller.js"
+import { codeReviewPrompt } from "./code-review-prompt.js"
 import { CodexSummary } from "./codex-summary.js"
 import { ComposerModelSelector } from "./composer-model-selector.js"
 import { ContextUsage } from "./context-usage.js"
 import { fileTabId, parseFileTabId, withOpenedTab } from "./file-tabs.js"
-import { GitReviewPanel } from "./git-review-panel.js"
+import { type AgentReviewComment, GitReviewPanel } from "./git-review-panel.js"
 import { ProjectCreateDialog } from "./project-create-dialog.js"
 import { type ThreadFileRef, ThreadFilesPanel } from "./thread-files-panel.js"
 import { ThreadGitActions } from "./thread-git-actions.js"
 import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal.js"
+
+const agentDisplayNames: Partial<Record<string, string>> = {
+  claude: "Claude",
+  codex: "Codex",
+  opencode: "OpenCode",
+  pi: "Pi",
+}
 
 const jsonRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -1469,6 +1480,20 @@ export function ConversationWorkspace({
   sendReviewCommentsRef.current = (text) =>
     void controller.submit([{ text, type: "text" }], busy ? "queue" : "send")
   const sendReviewComments = useCallback((text: string) => sendReviewCommentsRef.current(text), [])
+  const agentReviewComments = useMemo<AgentReviewComment[]>(
+    () =>
+      snapshot.items.flatMap((entry) =>
+        entry.item.type === "message" && entry.item.role === "assistant"
+          ? extractChatCodeComments(entry.item.text).map((comment, index) => ({
+              comment,
+              id: `${entry.item.itemId}:${index}`,
+            }))
+          : []
+      ),
+    [snapshot.items]
+  )
+  const setReviewSource = useSetAtom(gitReviewSourceAtom)
+  const setReviewBase = useSetAtom(gitReviewBaseAtom)
   const [fileFocus, setFileFocus] = useState<Record<string, { lineNumber: number; nonce: number }>>(
     {}
   )
@@ -1600,6 +1625,8 @@ export function ConversationWorkspace({
       {
         content: gitCwd ? (
           <GitReviewPanel
+            agentComments={agentReviewComments}
+            agentLabel={agentDisplayNames[agentId] ?? agentId}
             cwd={gitCwd}
             fallback={timelineReview}
             onAddFile={(path) =>
@@ -1757,6 +1784,8 @@ export function ConversationWorkspace({
     openRightTabs,
     fileFocus,
     openFileTabStable,
+    agentId,
+    agentReviewComments,
   ])
 
   const rightTabs = panelTabs.filter((tab) => openRightTabs.includes(tab.id))
@@ -2806,6 +2835,52 @@ export function ConversationWorkspace({
                               setRightTab("goal")
                               setRightVisibility("visible")
                             }
+                            if (id.startsWith("review-") && gitCwd && snapshot.thread) {
+                              const cwd = gitCwd
+                              void (async () => {
+                                const git = (await ensureCypheriaClient()).git
+                                if (id === "review-uncommitted") {
+                                  setReviewSource("uncommitted")
+                                  openRightTab("review")
+                                  await controller.submit(
+                                    [
+                                      {
+                                        text: codeReviewPrompt({ mode: "uncommitted" }),
+                                        type: "text",
+                                      },
+                                    ],
+                                    busy ? "queue" : "send"
+                                  )
+                                  return
+                                }
+                                const baseBranch = id.slice("review-branch:".length)
+                                const [comparison, context] = await Promise.all([
+                                  git.branchComparison(cwd, baseBranch),
+                                  git.branchContext(cwd),
+                                ])
+                                setReviewBase(baseBranch)
+                                setReviewSource("branch")
+                                openRightTab("review")
+                                await controller.submit(
+                                  [
+                                    {
+                                      text: codeReviewPrompt({
+                                        baseBranch,
+                                        mergeBase: comparison.mergeBase,
+                                        mode: "branch",
+                                        sourceBranch: context.current ?? "HEAD",
+                                      }),
+                                      type: "text",
+                                    },
+                                  ],
+                                  busy ? "queue" : "send"
+                                )
+                              })().catch((error: unknown) =>
+                                setTimelineActionError(
+                                  error instanceof Error ? error : new Error(String(error))
+                                )
+                              )
+                            }
                             const codexSessionId = snapshot.thread?.agentSessionId
                             if (id === "compact" && codexSessionId) {
                               void ensureCypheriaClient().then((client) =>
@@ -2862,6 +2937,33 @@ export function ConversationWorkspace({
                                     ]
                                   : []),
                               ]
+                              if (gitCwd && snapshot.thread) {
+                                commands.push({
+                                  id: "review-uncommitted",
+                                  label: i18n._(
+                                    msg({
+                                      id: "chat.prompt.reviewUncommitted",
+                                      message: "Code review: uncommitted changes",
+                                    })
+                                  ),
+                                })
+                                const branches = await ensureCypheriaClient()
+                                  .then((client) => client.git.searchBranches(gitCwd, "", 20))
+                                  .catch(() => [])
+                                for (const branch of branches) {
+                                  if (branch.current || branch.scope !== "local") continue
+                                  commands.push({
+                                    id: `review-branch:${branch.name}`,
+                                    label: i18n._({
+                                      ...msg({
+                                        id: "chat.prompt.reviewBranch",
+                                        message: "Code review against {branch}",
+                                      }),
+                                      values: { branch: branch.name },
+                                    }),
+                                  })
+                                }
+                              }
                               return commands
                                 .filter((item) =>
                                   item.label.toLowerCase().includes(query.toLowerCase())

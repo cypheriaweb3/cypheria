@@ -173,3 +173,66 @@ export function chatLineNumber(value: string | undefined): number | undefined {
   const line = Number(value)
   return Number.isInteger(line) && line > 0 ? line : undefined
 }
+
+/** A `::code-comment{…}` directive's attributes, as an Agent wrote them. */
+export type ChatCodeCommentData = {
+  readonly body: string
+  readonly end?: number
+  readonly file: string
+  readonly priority?: string
+  readonly start?: number
+  readonly title: string
+}
+
+const decodeAttribute = (value: string) =>
+  value
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&")
+
+/** `key="value"`, `key='value'`, or `key=value` pairs of a directive's attribute list. */
+export const parseDirectiveAttributes = (text: string): Record<string, string> => {
+  const attributes: Record<string, string> = {}
+  const pattern = /([A-Za-z_][\w-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`}]+))/gu
+  for (const match of text.matchAll(pattern)) {
+    const key = match[1]
+    if (key) attributes[key] = decodeAttribute(match[2] ?? match[3] ?? match[4] ?? "")
+  }
+  return attributes
+}
+
+/**
+ * The `::code-comment{…}` directives of a reply, in order, skipping fenced code blocks. Each
+ * directive sits on its own line, as the model writes it and as the renderer accepts it.
+ */
+export const extractChatCodeComments = (markdown: string): ChatCodeCommentData[] => {
+  const comments: ChatCodeCommentData[] = []
+  let fence: string | null = null
+  for (const line of markdown.split("\n")) {
+    const trimmed = line.trim()
+    const fenceMatch = /^(`{3,}|~{3,})/u.exec(trimmed)
+    if (fenceMatch?.[1]) {
+      if (fence === null) fence = fenceMatch[1]
+      else if (trimmed.startsWith(fence)) fence = null
+      continue
+    }
+    if (fence !== null) continue
+    const directive = /^::code-comment\{(.*)\}$/u.exec(trimmed)
+    if (!directive) continue
+    const attributes = parseDirectiveAttributes(directive[1] ?? "")
+    if (!attributes.file || !attributes.title) continue
+    const start = chatLineNumber(attributes.start)
+    const end = chatLineNumber(attributes.end)
+    comments.push({
+      body: attributes.body ?? "",
+      file: attributes.file,
+      title: attributes.title,
+      ...(start === undefined ? {} : { start }),
+      ...(end === undefined ? {} : { end }),
+      ...(attributes.priority ? { priority: attributes.priority } : {}),
+    })
+  }
+  return comments
+}

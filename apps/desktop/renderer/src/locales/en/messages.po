@@ -3618,3 +3618,23 @@ msgstr "Squash and merge"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.mergeMethod.merge"
 msgstr "Create merge commit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewUncommitted"
+msgstr "Code review: uncommitted changes"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewBranch"
+msgstr "Code review against {branch}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment"
+msgstr "Dismiss"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment.tooltip"
+msgstr "Hide this comment from the diff; it stays in the conversation"

@@ -6,7 +6,11 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import { userEvent } from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { parseReviewLink } from "./markdown-components.js"
-import { chatMediaKindFor, classifyChatLink } from "./markdown-extensions.js"
+import {
+  chatMediaKindFor,
+  classifyChatLink,
+  extractChatCodeComments,
+} from "./markdown-extensions.js"
 import {
   type ChatMarkdownHost,
   ChatMarkdownHostContext,
@@ -193,5 +197,30 @@ describe("Markdown directives", () => {
     renderWith('- :codex-followup[Add tests]{prompt="x"}', null)
     expect(await screen.findByText("Add tests")).toBeInTheDocument()
     expect(screen.queryByRole("button")).toBeNull()
+  })
+})
+
+describe("extractChatCodeComments", () => {
+  it("reads code comment directives outside code fences", () => {
+    const markdown = [
+      "Findings:",
+      '::code-comment{title="[P1] Null check" body="Returns &quot;x&quot; when empty." file="/repo/a.ts" start=10 end=12 priority=1}',
+      "```md",
+      '::code-comment{title="Example" file="/repo/b.ts"}',
+      "```",
+      "::code-comment{title='Bare' file=/repo/c.ts start=3}",
+      '::code-comment{body="no file or title"}',
+    ].join("\n")
+    expect(extractChatCodeComments(markdown)).toEqual([
+      {
+        body: 'Returns "x" when empty.',
+        end: 12,
+        file: "/repo/a.ts",
+        priority: "1",
+        start: 10,
+        title: "[P1] Null check",
+      },
+      { body: "", file: "/repo/c.ts", start: 3, title: "Bare" },
+    ])
   })
 })

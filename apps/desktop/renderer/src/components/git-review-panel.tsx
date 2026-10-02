@@ -11,6 +11,7 @@ import {
 } from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
 import {
+  type ChatCodeCommentData,
   type ChatDiffAnnotation,
   type ChatDiffTarget,
   ChatDiffViewer,
@@ -41,7 +42,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAtom } from "jotai"
 import { type ReactNode, useEffect, useId, useMemo, useState } from "react"
 
-import { gitReviewSourceAtom, reviewCommentsAtom } from "../client-state.js"
+import {
+  dismissedAgentCommentsAtom,
+  gitReviewBaseAtom,
+  gitReviewSourceAtom,
+  reviewCommentsAtom,
+} from "../client-state.js"
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { commitChanges, hasCommittableChanges, parseCoAuthors } from "./git-commit-actions.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
@@ -53,6 +59,7 @@ import {
   useReviewDiffDisplay,
   useViewedFiles,
 } from "./review-diff-display.js"
+import { relativeHostPath } from "./thread-files-panel.js"
 
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
@@ -89,7 +96,15 @@ function ReviewSection({
   )
 }
 
+/** A code comment an Agent wrote in a reply, keyed by the reply item and its position. */
+export type AgentReviewComment = {
+  readonly id: string
+  readonly comment: ChatCodeCommentData
+}
+
 export function GitReviewPanel({
+  agentComments = [],
+  agentLabel = "Agent",
   cwd,
   fallback,
   onAddFile,
@@ -100,6 +115,10 @@ export function GitReviewPanel({
   cwd: string
   fallback: ReactNode
   onAddFile?: (path: string) => void
+  /** `::code-comment` findings from the Thread's Agent replies, each with a stable id. */
+  agentComments?: readonly AgentReviewComment[]
+  /** Name shown as the author of Agent comments. */
+  agentLabel?: string
   /** Opens a repository file, by absolute Server-host path, in its own workspace file tab. */
   onOpenFile?: (absolutePath: string) => void
   /** Sends Review comments to the Thread's Agent as the next message. */
@@ -127,7 +146,10 @@ export function GitReviewPanel({
   const [worktreeJobId, setWorktreeJobId] = useState<string | null>(null)
   const [branchSearch, setBranchSearch] = useState("")
   const [reviewBaseSearch, setReviewBaseSearch] = useState("")
-  const [reviewBase, setReviewBase] = useState("")
+  const [reviewBase, setReviewBase] = useAtom(gitReviewBaseAtom)
+  const [dismissedAgentComments, setDismissedAgentComments] = useAtom(
+    dismissedAgentCommentsAtom(threadId ?? `cwd:${cwd}`)
+  )
   const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
   const [diffDisplay] = useReviewDiffDisplay()
   const diffViewerLabels = useDiffViewerLabels()
@@ -509,6 +531,14 @@ export function GitReviewPanel({
       })
     })
   }
+  const repositoryRoot = status.data?.repository.root ?? null
+  const agentCommentsByPath = new Map<string, AgentReviewComment[]>()
+  for (const entry of agentComments) {
+    if (dismissedAgentComments.includes(entry.id) || !repositoryRoot) continue
+    const path = relativeHostPath(repositoryRoot, entry.comment.file)
+    if (!path) continue
+    agentCommentsByPath.set(path, [...(agentCommentsByPath.get(path) ?? []), entry])
+  }
   const files: ChatReviewFileDescriptor[] = visibleEntries.map((entry) => ({
     id: entry.path,
     path: entry.path,
@@ -530,7 +560,9 @@ export function GitReviewPanel({
     status: treeStatus(visibleEntries.find((entry) => entry.path === file.id)?.code ?? "M"),
     ...(file.additions !== undefined ? { additions: file.additions } : {}),
     ...(file.deletions !== undefined ? { deletions: file.deletions } : {}),
-    comments: sourceComments.filter((comment) => comment.path === file.id).length,
+    comments:
+      sourceComments.filter((comment) => comment.path === file.id).length +
+      (agentCommentsByPath.get(String(file.path))?.length ?? 0),
     viewed: viewed.markedPaths.has(String(file.path)),
   }))
   const hunkActions = (hunk: { header: string; index: number }) => (
@@ -582,6 +614,50 @@ export function GitReviewPanel({
                 : []
             })
           : []),
+        ...(agentCommentsByPath.get(activePath) ?? []).map(({ comment, id }) => ({
+          content: (
+            <div
+              className="space-y-1 border-y bg-muted/40 p-2 text-xs"
+              data-slot="agent-review-comment"
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="font-medium">{agentLabel}</span>
+                {comment.priority ? (
+                  <span className="rounded border px-1 text-muted-foreground">
+                    {i18n._({
+                      ...msg({ id: "chat.markdown.priority", message: "P{priority}" }),
+                      values: { priority: comment.priority },
+                    })}
+                  </span>
+                ) : null}
+                <strong className="min-w-0 flex-1 font-medium">{comment.title}</strong>
+                <Button
+                  onClick={() =>
+                    setDismissedAgentComments((current) =>
+                      current.includes(id) ? current : [...current, id].slice(-2000)
+                    )
+                  }
+                  size="sm"
+                  title={i18n._(
+                    msg({
+                      id: "git.review.dismissAgentComment.tooltip",
+                      message: "Hide this comment from the diff; it stays in the conversation",
+                    })
+                  )}
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trans id="git.review.dismissAgentComment">Dismiss</Trans>
+                </Button>
+              </div>
+              {comment.body ? <p className="whitespace-pre-wrap">{comment.body}</p> : null}
+            </div>
+          ),
+          key: `agent:${id}`,
+          lineNumber: comment.end ?? comment.start ?? 0,
+          path: activePath,
+          side: "additions" as const,
+        })),
         ...sourceComments
           .filter((comment) => comment.path === activePath)
           .map((comment) => ({

@@ -14,7 +14,7 @@ title: Composer 输入与引用
 
 `@` 搜索工作区文件、现有 Thread、归属于该 Thread 的浏览器标签页，以及（Codex 下）已安装且启用的插件和 MCP 资源。`$` 搜索已启用的 Codex skills 与可访问且已启用的 Apps。候选查询使用 `threads.composer.suggest`；它限定到现有 Thread，或新 Thread 的拟用 Agent 与有序 roots，其中第一项 root 是拟用 cwd。Server 在提交时重新检查所选 ID，包括文件 realpath 是否仍在工作区内、浏览器标签页是否仍属于该 Thread。候选标签只用于显示，不是授权依据。
 
-`/` 是 Desktop 本地命令菜单，不会向 App Server 发送 skill token。目前可执行的动作是附加文件、清空草稿、打开新聊天、查看状态、查看 goal，以及请求 Codex compact。未选择的斜杠文本会原样发送。斜杠项目不能执行任意工具，也不会为未声明能力的 Agent 虚构选择器。
+`/` 是 Desktop 本地命令菜单，不会向 App Server 发送 skill token。目前可执行的动作是附加文件、清空草稿、打开新聊天、查看状态、查看 goal、请求 Codex compact，以及发起代码审查。**代码审查**会向 Agent 发送审查请求，范围是未提交的变更，或当前分支相对所选本地分支（固定到两者的 merge base）的变更；请求要求 Agent 用 `::code-comment` 指令附上发现的问题，并把 Review 面板切换到对应来源。它只是一条普通消息，因此任何 Agent 都可以执行。未选择的斜杠文本会原样发送。斜杠项目不能执行任意工具，也不会为未声明能力的 Agent 虚构选择器。
 
 ## 提交映射
 
