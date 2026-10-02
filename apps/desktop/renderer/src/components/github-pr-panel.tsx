@@ -16,10 +16,24 @@ import {
   type ChatDiffFocus,
   type ChatDiffTarget,
   ChatDiffViewer,
+  ChatReviewFileTree,
+  type ChatReviewTreeFile,
+  parseChatDiffFiles,
 } from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@cypheria/ui/components/dialog"
 import { Input } from "@cypheria/ui/components/input"
 import { NativeSelect, NativeSelectOption } from "@cypheria/ui/components/native-select"
+import { RadioGroup, RadioGroupItem } from "@cypheria/ui/components/radio-group"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import { Textarea } from "@cypheria/ui/components/textarea"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
@@ -27,7 +41,7 @@ import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useAtomValue } from "jotai"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 
 import { clientStateStore } from "../client-state.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
@@ -57,6 +71,9 @@ const githubMediaLinks = (body: string): Array<{ alt: string; url: string }> =>
     )
     .slice(0, 4)
 
+type PrTab = "activity" | "code" | "summary"
+type ReviewDecision = "approve" | "comment" | "request_changes"
+
 export function GitHubPrPanel({
   cwd,
   branch,
@@ -76,6 +93,8 @@ export function GitHubPrPanel({
       (attachment) => attachment.threadId === threadId && attachment.payload.url === url
     )
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null)
+  const [listOpen, setListOpen] = useState(false)
+  const [prTab, setPrTab] = useState<PrTab>("summary")
   const [directPrNumber, setDirectPrNumber] = useState("")
   const [prSearchText, setPrSearchText] = useState("")
   const [prSearchQuery, setPrSearchQuery] = useState("")
@@ -98,6 +117,9 @@ export function GitHubPrPanel({
   const [editingComment, setEditingComment] = useState<string | null>(null)
   const [commentEditBody, setCommentEditBody] = useState("")
   const [reviewBody, setReviewBody] = useState("")
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const reviewDecisionId = useId()
+  const [reviewDecision, setReviewDecision] = useState<ReviewDecision>("comment")
   const [reviewer, setReviewer] = useState("")
   const [reviewerSearchQuery, setReviewerSearchQuery] = useState("")
   const [replyThreadId, setReplyThreadId] = useState<string | null>(null)
@@ -107,6 +129,8 @@ export function GitHubPrPanel({
   const reviewFocus = useAtomValue(reviewFocusAtom)
   const [pendingFocus, setPendingFocus] = useState<ReviewFocusRequest | null>(null)
   const [diffFocus, setDiffFocus] = useState<ChatDiffFocus | null>(null)
+  const [prFileFilter, setPrFileFilter] = useState("")
+  const [prSelectedFile, setPrSelectedFile] = useState<string | null>(null)
   const [focusNotice, setFocusNotice] = useState<string | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [selectedRevision, setSelectedRevision] = useState<string | null>(null)
@@ -144,6 +168,11 @@ export function GitHubPrPanel({
     setAttributesPath("")
     setSelectedAttributesPath(null)
     setSelectedNumber(number)
+    setListOpen(false)
+  }
+  const openPrTab = (tab: PrTab) => {
+    setPrTab(tab)
+    if (tab === "code") setShowDiff(true)
   }
   const availability = useQuery({
     queryKey: ["github-pr", cwd, "availability"],
@@ -658,6 +687,22 @@ export function GitHubPrPanel({
       ) : null}
     </div>
   )
+  const prDiffFiles: ChatReviewTreeFile[] = parseChatDiffFiles(prDiff.data ?? "").map(
+    ({ file }) => ({
+      additions: file.hunks.reduce((total, hunk) => total + hunk.additionLines, 0),
+      comments: (threads.data?.threads ?? []).filter((thread) => thread.path === file.name).length,
+      deletions: file.hunks.reduce((total, hunk) => total + hunk.deletionLines, 0),
+      path: file.name,
+      status:
+        file.type === "new"
+          ? "added"
+          : file.type === "deleted"
+            ? "deleted"
+            : file.type === "rename-pure" || file.type === "rename-changed"
+              ? "renamed"
+              : "modified",
+    })
+  )
   const canCommentInline =
     cliAvailable && selected.data?.state === "OPEN" && Boolean(selected.data.headRefOid)
   const postInlineComment = (target: ChatDiffTarget) =>
@@ -789,6 +834,7 @@ export function GitHubPrPanel({
       return
     }
     if (pendingFocus.path && pendingFocus.line) {
+      setPrTab("code")
       setDiffFocus({
         lineNumber: pendingFocus.line,
         nonce: pendingFocus.nonce,
@@ -926,6 +972,7 @@ export function GitHubPrPanel({
     )
   }
 
+  const showList = !selected.data || listOpen
   return (
     <section
       aria-label={i18n._(msg({ id: "git.github.heading", message: "GitHub pull requests" }))}
@@ -965,769 +1012,276 @@ export function GitHubPrPanel({
           <AlertDescription>{appAvailability.data.error}</AlertDescription>
         </Alert>
       ) : null}
-      {cliAvailable || appAvailability.data?.canList ? (
-        <div className="flex flex-wrap gap-2">
-          <Input
-            aria-label={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}
-            className="min-w-40 flex-1"
-            maxLength={170}
-            onChange={(event) => setPrSearchText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                setPrListLimit(100)
-                setPrSearchQuery(prSearchText.trim())
-              }
-            }}
-            placeholder={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}
-            value={prSearchText}
-          />
-          <NativeSelect
-            aria-label={i18n._(msg({ id: "git.github.listState", message: "Pull request state" }))}
-            onChange={(event) => {
-              setPrListLimit(100)
-              setPrListState(event.target.value as typeof prListState)
-            }}
-            size="sm"
-            value={prListState}
-          >
-            <NativeSelectOption value="open">
-              <Trans id="git.github.stateOpen">Open</Trans>
-            </NativeSelectOption>
-            <NativeSelectOption value="closed">
-              <Trans id="git.github.stateClosed">Closed</Trans>
-            </NativeSelectOption>
-            <NativeSelectOption value="merged">
-              <Trans id="git.github.stateMerged">Merged</Trans>
-            </NativeSelectOption>
-            <NativeSelectOption value="all">
-              <Trans id="git.github.stateAll">All</Trans>
-            </NativeSelectOption>
-          </NativeSelect>
-          <NativeSelect
-            aria-label={i18n._(
-              msg({ id: "git.github.listScope", message: "Pull request involvement" })
-            )}
-            onChange={(event) => {
-              setPrListLimit(100)
-              setPrListScope(event.target.value as typeof prListScope)
-            }}
-            size="sm"
-            value={prListScope}
-          >
-            <NativeSelectOption value="all">
-              <Trans id="git.github.scopeAll">All</Trans>
-            </NativeSelectOption>
-            <NativeSelectOption
-              disabled={
-                !availability.data?.authenticated && !appAvailability.data?.canSearchByAccount
-              }
-              value="authored"
-            >
-              <Trans id="git.github.scopeAuthored">Created by me</Trans>
-            </NativeSelectOption>
-            <NativeSelectOption
-              disabled={
-                !availability.data?.authenticated && !appAvailability.data?.canSearchByAccount
-              }
-              value="reviewing"
-            >
-              <Trans id="git.github.scopeReviewing">Review requested</Trans>
-            </NativeSelectOption>
-          </NativeSelect>
-          <Button
-            onClick={() => {
-              setPrListLimit(100)
-              setPrSearchQuery(prSearchText.trim())
-            }}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <Trans id="git.github.searchAction">Search</Trans>
-          </Button>
-        </div>
-      ) : null}
-      {!cliAvailable && appAvailability.data?.canRead && !appAvailability.data.canList ? (
-        <div className="flex gap-2">
-          <Input
-            aria-label={i18n._(msg({ id: "git.github.prNumber", message: "Pull request number" }))}
-            min={1}
-            onChange={(event) => setDirectPrNumber(event.target.value)}
-            type="number"
-            value={directPrNumber}
-          />
-          <Button
-            disabled={!Number.isSafeInteger(Number(directPrNumber)) || Number(directPrNumber) < 1}
-            onClick={() => selectPullRequest(Number(directPrNumber))}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <Trans id="git.github.openPr">Open PR</Trans>
-          </Button>
-        </div>
-      ) : null}
-      {board.data ? (
-        <div className="space-y-2 rounded-md border p-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium">
-              <Trans id="git.github.board">Pull requests across repositories</Trans>
-            </span>
-            <NativeSelect
-              aria-label={i18n._(
-                msg({ id: "git.github.repositoryFilter", message: "Repository filter" })
-              )}
-              onChange={(event) => setBoardRepository(event.target.value)}
-              size="sm"
-              value={boardRepository}
-            >
-              <NativeSelectOption value="all">
-                <Trans id="git.github.allRepositories">All repositories</Trans>
-              </NativeSelectOption>
-              {boardRepositories.map((repository) => (
-                <NativeSelectOption key={repository} value={repository}>
-                  {repository}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </div>
-          <Input
-            aria-label={i18n._(
-              msg({ id: "git.github.boardRepositorySearch", message: "Repository (owner/name)" })
-            )}
-            onChange={(event) => {
-              setBoardRepositoryQuery(event.target.value)
-              setBoardRepository("all")
-              setBoardLimit(100)
-            }}
-            placeholder={i18n._(
-              msg({ id: "git.github.boardRepositorySearch", message: "Repository (owner/name)" })
-            )}
-            value={boardRepositoryQuery}
-          />
-          <div className="max-h-56 space-y-1 overflow-y-auto">
-            {boardEntries.map((entry) => (
-              <div className="flex items-center gap-1" key={entry.url}>
-                <Button
-                  className="h-auto min-w-0 flex-1 justify-start truncate text-left"
-                  onClick={() => void openExternal(entry.url)}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  {entry.repository} #{entry.number} · {entry.title}
-                </Button>
-                {threadId ? (
-                  <Button
-                    onClick={() =>
-                      void mutate(async () => {
-                        const client = await ensureCypheriaClient()
-                        await client.threads.attachments.addPullRequest(threadId, entry.url)
-                      })
-                    }
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Trans id="git.github.attachThread">Attach to chat</Trans>
-                  </Button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-          {board.data.length === boardLimit && boardLimit < 500 ? (
-            <Button
-              disabled={board.isFetching}
-              onClick={() => setBoardLimit((limit) => Math.min(limit + 100, 500))}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.github.loadMore">Load more pull requests</Trans>
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-      {board.isError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{board.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
-      {list.data?.items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          <Trans id="git.github.noPullRequests">No pull requests found</Trans>
-        </p>
-      ) : null}
-      {list.data?.items.map((pr) => (
-        <Button
-          className="flex h-auto w-full justify-start whitespace-normal text-left"
-          key={pr.number}
-          onClick={() => selectPullRequest(pr.number)}
-          size="sm"
-          type="button"
-          variant={activeNumber === pr.number ? "secondary" : "ghost"}
-        >
-          #{pr.number} {pr.title}
-          {"headRefName" in pr && "baseRefName" in pr
-            ? ` · ${pr.headRefName} → ${pr.baseRefName}`
-            : null}
-        </Button>
-      ))}
-      {list.data?.truncated ? (
-        cliAvailable && prListLimit < 500 ? (
-          <Button
-            disabled={list.isFetching}
-            onClick={() => setPrListLimit((limit) => Math.min(limit + 100, 500))}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <Trans id="git.github.loadMore">Load more pull requests</Trans>
-          </Button>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            <Trans id="git.github.listTruncated">Showing the most recent pull requests</Trans>
-          </p>
-        )
-      ) : null}
-      {list.isError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{list.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
-      {branchPr.isError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{branchPr.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
-      {selected.data ? (
-        <div className="space-y-2 rounded-md border p-2">
-          <p className="text-sm font-medium">
-            #{selected.data.number} {selected.data.title}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
-          </p>
-          {threadId ? (
-            <Button
-              onClick={() =>
-                void mutate(async () => {
-                  if (!selected.data) return
-                  const client = await ensureCypheriaClient()
-                  const attachment = attachmentForThread(selected.data.url)
-                  if (attachment) {
-                    await client.threads.attachments.remove(
-                      threadId,
-                      "pull_request",
-                      attachment.identityKey
-                    )
-                  } else {
-                    await client.threads.attachments.addPullRequest(threadId, selected.data.url)
-                  }
-                })
-              }
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              {attachmentForThread(selected.data.url) ? (
-                <Trans id="git.github.detachThread">Detach from chat</Trans>
-              ) : (
-                <Trans id="git.github.attachThread">Attach to chat</Trans>
-              )}
-            </Button>
-          ) : null}
-          {attachmentsForUrl(selected.data.url).length ? (
-            <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <Trans id="git.github.linkedChats">Linked chats:</Trans>
-              {attachmentsForUrl(selected.data.url).map(({ threadId: linkedThreadId }) => (
-                <Button
-                  key={linkedThreadId}
-                  onClick={() => void navigate({ search: { thread: linkedThreadId }, to: "/" })}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  {linkedThreadId.slice(0, 8)}
-                </Button>
-              ))}
-            </div>
-          ) : null}
-          <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
-          {media.data?.map((item) => (
-            <img
-              alt={item.alt}
-              className="max-h-64 max-w-full rounded border object-contain"
-              key={item.url}
-              loading="lazy"
-              src={`data:${item.mimeType};base64,${item.contentsBase64}`}
-            />
-          ))}
-          {media.isError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{media.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          {metadata.data ? (
-            <p className="text-xs text-muted-foreground">
-              +{metadata.data.additions ?? 0} / -{metadata.data.deletions ?? 0} ·{" "}
-              {metadata.data.changedFiles ?? 0} files ·{" "}
-              {metadata.data.allowedMergeMethods.join(", ")}
-            </p>
-          ) : null}
-          {metadata.isError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{metadata.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          {selected.data.headRefOid && (cliAvailable || appAvailability.data?.canDiff) ? (
-            <div className="space-y-2 border-t pt-2">
-              <Button
-                onClick={() => setShowDiff((value) => !value)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Trans id="git.github.codeChanges">Code changes</Trans>
-              </Button>
-              {showDiff ? (
-                <div className="space-y-2">
-                  <ChatDiffViewer
-                    annotations={diffAnnotations}
-                    className="max-h-[40rem] rounded border"
-                    fallback={
-                      <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
-                        {prDiff.isError
-                          ? prDiff.error.message
-                          : prDiff.data ||
-                            i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" }))}
-                      </pre>
-                    }
-                    focus={diffFocus}
-                    {...(canCommentInline
-                      ? {
-                          onRequestComment: (target: ChatDiffTarget) => {
-                            setInlineBody("")
-                            setDraftComment(target)
-                          },
-                        }
-                      : {})}
-                    patch={prDiff.data ?? ""}
-                  />
-                  {cliAvailable ? (
-                    <div className="flex gap-1">
-                      <Input
-                        aria-label={i18n._(
-                          msg({
-                            id: "git.github.attributesPath",
-                            message: "Changed file path for attributes",
-                          })
-                        )}
-                        onChange={(event) => setAttributesPath(event.target.value)}
-                        placeholder={i18n._(
-                          msg({
-                            id: "git.github.attributesPath",
-                            message: "Changed file path for attributes",
-                          })
-                        )}
-                        value={attributesPath}
-                      />
-                      <Button
-                        disabled={!attributesPath.trim()}
-                        onClick={() => setSelectedAttributesPath(attributesPath.trim())}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        <Trans id="git.github.loadAttributes">Load attributes</Trans>
-                      </Button>
-                    </div>
-                  ) : null}
-                  {cliAvailable
-                    ? attributes.data?.map((file) => (
-                        <pre
-                          className="overflow-auto rounded border p-2 text-xs whitespace-pre-wrap"
-                          key={file.basePath}
-                        >
-                          {file.basePath || "."}/.gitattributes{"\n"}
-                          {file.contents}
-                        </pre>
-                      ))
-                    : null}
-                  {cliAvailable && attributes.isError ? (
-                    <Alert variant="destructive">
-                      <AlertDescription>{attributes.error.message}</AlertDescription>
-                    </Alert>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {cliAvailable && selected.data.headRefOid ? (
-            <div className="space-y-1 border-t pt-2">
-              <Button
-                onClick={() => setShowStack((value) => !value)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Trans id="git.github.stack">Pull request stack</Trans>
-              </Button>
-              {showStack
-                ? stack.data?.map((entry) => (
-                    <p className="text-xs" key={entry.number}>
-                      #{entry.number} {entry.title} · {entry.baseBranch} → {entry.headBranch}
-                      {entry.parentNumber ? ` · #${entry.parentNumber}` : ""}
-                    </p>
-                  ))
-                : null}
-              {showStack && stack.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{stack.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-          ) : null}
-          {cliAvailable && selected.data.headRefOid ? (
-            <div className="space-y-1 border-t pt-2">
-              <p className="text-xs font-medium">
-                <Trans id="git.github.revisions">Revisions</Trans>
-              </p>
-              {revisionSnapshot.data?.commits.map((commit) => (
-                <Button
-                  key={commit.sha}
-                  onClick={() =>
-                    setSelectedRevision(commit.sha === selectedRevision ? null : commit.sha)
-                  }
-                  size="sm"
-                  type="button"
-                  variant={commit.sha === selectedRevision ? "secondary" : "ghost"}
-                >
-                  <span className="font-mono">{commit.sha.slice(0, 7)}</span> {commit.title}
-                </Button>
-              ))}
-              {revision ? (
-                <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
-                  {revisionDiff.isError
-                    ? revisionDiff.error.message
-                    : (revisionDiff.data ??
-                      i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
-                </pre>
-              ) : null}
-              {revisionSnapshot.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{revisionSnapshot.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-          ) : null}
-          {selected.data.state === "OPEN" && (cliAvailable || appAvailability.data?.canChecks) ? (
-            <div className="space-y-1 border-t pt-2">
-              <p className="text-xs font-medium">
-                <Trans id="git.github.checks">Checks</Trans>
-              </p>
-              {checks.data?.checks.length === 0 && checks.data.complete ? (
-                <p className="text-xs text-muted-foreground">
-                  <Trans id="git.github.noChecks">No checks</Trans>
-                </p>
-              ) : null}
-              {checks.data?.checks.map((check) => (
-                <div
-                  className="flex items-center gap-2 text-xs"
-                  key={`${check.name}:${check.link}`}
-                >
-                  <span className="min-w-0 flex-1 truncate">{check.name}</span>
-                  <span className="shrink-0 text-muted-foreground">{check.bucket}</span>
-                  {check.link ? (
-                    <Button
-                      onClick={() => {
-                        const link = check.link
-                        if (link) void mutate(async () => openExternal(link))
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Trans id="git.github.browser">Browser</Trans>
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-              {checks.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{checks.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-          ) : null}
-          {cliAvailable ? (
-            <div className="space-y-2 border-t pt-2">
-              <p className="text-xs font-medium">
-                <Trans id="git.github.activity">Discussion and reviews</Trans>
-              </p>
-              {reviewStatus.data ? (
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <p>
-                    <Trans id="git.github.reviewDecision">Review decision</Trans>:{" "}
-                    {reviewStatus.data.reviewDecision ?? "—"}
-                  </p>
-                  {reviewStatus.data.reviewRequests.map((request) => (
-                    <p key={`${request.type}:${request.login}`}>
-                      {request.type}: {request.login}
-                    </p>
-                  ))}
-                  {reviewStatus.data.truncated ? (
-                    <p>
-                      <Trans id="git.github.reviewsTruncated">
-                        More reviews are available on GitHub.
-                      </Trans>
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {reviewStatus.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{reviewStatus.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-              {activity.data?.comments.map((comment) => (
-                <div className="rounded border p-2 text-xs" key={comment.id}>
-                  <span className="font-medium">{comment.author ?? "GitHub"}</span>
-                  <p className="whitespace-pre-wrap">{comment.body}</p>
-                  {commentActions(comment.id, "comment", comment.body, comment.author)}
-                </div>
-              ))}
-              {activity.data?.reviews.map((review) => (
-                <div className="rounded border p-2 text-xs" key={review.id}>
-                  <span className="font-medium">{review.author ?? "GitHub"}</span> · {review.state}
-                  {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
-                  {commentActions(review.id, "review", review.body, review.author)}
-                </div>
-              ))}
-              {activity.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{activity.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-          ) : null}
-          {!cliAvailable && appAvailability.data?.canActivity && selected.data.headRefOid ? (
-            <div className="space-y-2 border-t pt-2">
-              <p className="text-xs font-medium">
-                <Trans id="git.github.activity">Discussion and reviews</Trans>
-              </p>
-              {activity.data?.comments.map((comment) => (
-                <div className="rounded border p-2 text-xs" key={comment.id}>
-                  <span className="font-medium">{comment.author ?? "GitHub"}</span>
-                  <p className="whitespace-pre-wrap">{comment.body}</p>
-                </div>
-              ))}
-              {activity.data?.reviews.map((review) => (
-                <div className="rounded border p-2 text-xs" key={review.id}>
-                  <span className="font-medium">{review.author ?? "GitHub"}</span> · {review.state}
-                  {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
-                </div>
-              ))}
-              {activity.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{activity.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-          ) : null}
-          {!cliAvailable && appAvailability.data?.canThreads && selected.data.headRefOid ? (
-            <div className="space-y-2 border-t pt-2">
-              <p className="text-xs font-medium">
-                <Trans id="git.github.reviewThreads">Review threads</Trans>
-              </p>
-              {threads.data?.threads.map((thread) => (
-                <div className="space-y-1 rounded border p-2 text-xs" key={thread.id}>
-                  <p className="font-mono text-muted-foreground">
-                    {thread.path}
-                    {thread.line ? `:${thread.line}` : ""} ·{" "}
-                    {thread.isResolved
-                      ? i18n._(msg({ id: "git.github.resolved", message: "Resolved" }))
-                      : i18n._(msg({ id: "git.github.unresolved", message: "Unresolved" }))}
-                  </p>
-                  {thread.comments.map((comment) => (
-                    <div className="border-l pl-2" key={comment.id}>
-                      <span className="font-medium">{comment.author ?? "GitHub"}</span>
-                      <p className="whitespace-pre-wrap">{comment.body}</p>
-                    </div>
-                  ))}
-                </div>
-              ))}
-              {threads.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{threads.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-          ) : null}
-          {cliAvailable && selected.data.headRefOid ? (
-            <div className="space-y-2 border-t pt-2">
-              <p className="text-xs font-medium">
-                <Trans id="git.github.reviewThreads">Review threads</Trans>
-              </p>
-              {threads.data?.threads.map((thread) => renderCliThread(thread, selected.data))}
-              {threads.data?.truncated ? (
-                <p className="text-xs text-muted-foreground">
-                  <Trans id="git.github.threadsTruncated">
-                    More review threads are available on GitHub.
-                  </Trans>
-                </p>
-              ) : null}
-              {threads.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{threads.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-          ) : null}
-          {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
-            <div className="space-y-2 border-t pt-2">
+      {showList ? (
+        <>
+          {cliAvailable || appAvailability.data?.canList ? (
+            <div className="flex flex-wrap gap-2">
               <Input
                 aria-label={i18n._(
-                  msg({ id: "git.github.reviewer", message: "Reviewer login or team" })
+                  msg({ id: "git.github.search", message: "Search pull requests" })
                 )}
-                onChange={(event) => setReviewer(event.target.value)}
+                className="min-w-40 flex-1"
+                maxLength={170}
+                onChange={(event) => setPrSearchText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    setPrListLimit(100)
+                    setPrSearchQuery(prSearchText.trim())
+                  }
+                }}
                 placeholder={i18n._(
-                  msg({ id: "git.github.reviewer", message: "Reviewer login or team" })
+                  msg({ id: "git.github.search", message: "Search pull requests" })
                 )}
-                value={reviewer}
+                value={prSearchText}
               />
-              <Button
-                disabled={!reviewer.trim()}
-                onClick={() => setReviewerSearchQuery(reviewer.trim())}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                <Trans id="git.github.searchReviewers">Search reviewers</Trans>
-              </Button>
-              {reviewerCandidates.data?.map((candidate) => (
-                <Button
-                  key={candidate.login}
-                  onClick={() => setReviewer(candidate.login)}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  {candidate.login}
-                </Button>
-              ))}
-              {reviewerCandidates.isError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{reviewerCandidates.error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-              <div className="flex gap-2">
-                {(["add", "remove"] as const).map((action) => (
-                  <Button
-                    disabled={busy || !reviewer.trim()}
-                    key={action}
-                    onClick={() => {
-                      const head = selected.data.headRefOid
-                      if (!head) return
-                      void mutate(async () => {
-                        await (await ensureCypheriaClient()).git.githubPrReviewer(
-                          cwd,
-                          selected.data.number,
-                          head,
-                          reviewer.trim(),
-                          action
-                        )
-                        setReviewer("")
-                      })
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    {action === "add" ? (
-                      <Trans id="git.github.requestReviewer">Request reviewer</Trans>
-                    ) : (
-                      <Trans id="git.github.removeReviewer">Remove reviewer</Trans>
-                    )}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
-            <div className="space-y-2 border-t pt-2">
-              <Textarea
+              <NativeSelect
                 aria-label={i18n._(
-                  msg({ id: "git.github.commentBody", message: "Pull request comment" })
+                  msg({ id: "git.github.listState", message: "Pull request state" })
                 )}
-                onChange={(event) => setCommentBody(event.target.value)}
-                rows={3}
-                value={commentBody}
-              />
+                onChange={(event) => {
+                  setPrListLimit(100)
+                  setPrListState(event.target.value as typeof prListState)
+                }}
+                size="sm"
+                value={prListState}
+              >
+                <NativeSelectOption value="open">
+                  <Trans id="git.github.stateOpen">Open</Trans>
+                </NativeSelectOption>
+                <NativeSelectOption value="closed">
+                  <Trans id="git.github.stateClosed">Closed</Trans>
+                </NativeSelectOption>
+                <NativeSelectOption value="merged">
+                  <Trans id="git.github.stateMerged">Merged</Trans>
+                </NativeSelectOption>
+                <NativeSelectOption value="all">
+                  <Trans id="git.github.stateAll">All</Trans>
+                </NativeSelectOption>
+              </NativeSelect>
+              <NativeSelect
+                aria-label={i18n._(
+                  msg({ id: "git.github.listScope", message: "Pull request involvement" })
+                )}
+                onChange={(event) => {
+                  setPrListLimit(100)
+                  setPrListScope(event.target.value as typeof prListScope)
+                }}
+                size="sm"
+                value={prListScope}
+              >
+                <NativeSelectOption value="all">
+                  <Trans id="git.github.scopeAll">All</Trans>
+                </NativeSelectOption>
+                <NativeSelectOption
+                  disabled={
+                    !availability.data?.authenticated && !appAvailability.data?.canSearchByAccount
+                  }
+                  value="authored"
+                >
+                  <Trans id="git.github.scopeAuthored">Created by me</Trans>
+                </NativeSelectOption>
+                <NativeSelectOption
+                  disabled={
+                    !availability.data?.authenticated && !appAvailability.data?.canSearchByAccount
+                  }
+                  value="reviewing"
+                >
+                  <Trans id="git.github.scopeReviewing">Review requested</Trans>
+                </NativeSelectOption>
+              </NativeSelect>
               <Button
-                disabled={busy || !commentBody.trim()}
                 onClick={() => {
-                  const head = selected.data.headRefOid
-                  if (!head) return
-                  void mutate(async () => {
-                    await (await ensureCypheriaClient()).git.githubPrComment(
-                      cwd,
-                      selected.data.number,
-                      head,
-                      commentBody
-                    )
-                    setCommentBody("")
-                  })
+                  setPrListLimit(100)
+                  setPrSearchQuery(prSearchText.trim())
                 }}
                 size="sm"
                 type="button"
                 variant="outline"
               >
-                <Trans id="git.github.postComment">Post comment</Trans>
+                <Trans id="git.github.searchAction">Search</Trans>
               </Button>
-              <Textarea
-                aria-label={i18n._(
-                  msg({ id: "git.github.reviewBody", message: "Pull request review" })
-                )}
-                onChange={(event) => setReviewBody(event.target.value)}
-                rows={3}
-                value={reviewBody}
-              />
-              <div className="flex flex-wrap gap-2">
-                {(["approve", "comment", "request_changes"] as const).map((decision) => (
-                  <Button
-                    disabled={busy || (decision !== "approve" && !reviewBody.trim())}
-                    key={decision}
-                    onClick={() => {
-                      const head = selected.data.headRefOid
-                      if (!head) return
-                      void mutate(async () => {
-                        await (await ensureCypheriaClient()).git.githubPrReview(
-                          cwd,
-                          selected.data.number,
-                          head,
-                          decision,
-                          reviewBody
-                        )
-                        setReviewBody("")
-                      })
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    {decision === "approve" ? (
-                      <Trans id="git.github.approve">Approve</Trans>
-                    ) : decision === "comment" ? (
-                      <Trans id="git.github.reviewComment">Review comment</Trans>
-                    ) : (
-                      <Trans id="git.github.requestChanges">Request changes</Trans>
-                    )}
-                  </Button>
-                ))}
-              </div>
             </div>
           ) : null}
+          {!cliAvailable && appAvailability.data?.canRead && !appAvailability.data.canList ? (
+            <div className="flex gap-2">
+              <Input
+                aria-label={i18n._(
+                  msg({ id: "git.github.prNumber", message: "Pull request number" })
+                )}
+                min={1}
+                onChange={(event) => setDirectPrNumber(event.target.value)}
+                type="number"
+                value={directPrNumber}
+              />
+              <Button
+                disabled={
+                  !Number.isSafeInteger(Number(directPrNumber)) || Number(directPrNumber) < 1
+                }
+                onClick={() => selectPullRequest(Number(directPrNumber))}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.github.openPr">Open PR</Trans>
+              </Button>
+            </div>
+          ) : null}
+          {board.data ? (
+            <div className="space-y-2 rounded-md border p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium">
+                  <Trans id="git.github.board">Pull requests across repositories</Trans>
+                </span>
+                <NativeSelect
+                  aria-label={i18n._(
+                    msg({ id: "git.github.repositoryFilter", message: "Repository filter" })
+                  )}
+                  onChange={(event) => setBoardRepository(event.target.value)}
+                  size="sm"
+                  value={boardRepository}
+                >
+                  <NativeSelectOption value="all">
+                    <Trans id="git.github.allRepositories">All repositories</Trans>
+                  </NativeSelectOption>
+                  {boardRepositories.map((repository) => (
+                    <NativeSelectOption key={repository} value={repository}>
+                      {repository}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
+              <Input
+                aria-label={i18n._(
+                  msg({
+                    id: "git.github.boardRepositorySearch",
+                    message: "Repository (owner/name)",
+                  })
+                )}
+                onChange={(event) => {
+                  setBoardRepositoryQuery(event.target.value)
+                  setBoardRepository("all")
+                  setBoardLimit(100)
+                }}
+                placeholder={i18n._(
+                  msg({
+                    id: "git.github.boardRepositorySearch",
+                    message: "Repository (owner/name)",
+                  })
+                )}
+                value={boardRepositoryQuery}
+              />
+              <div className="max-h-56 space-y-1 overflow-y-auto">
+                {boardEntries.map((entry) => (
+                  <div className="flex items-center gap-1" key={entry.url}>
+                    <Button
+                      className="h-auto min-w-0 flex-1 justify-start truncate text-left"
+                      onClick={() => void openExternal(entry.url)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      {entry.repository} #{entry.number} · {entry.title}
+                    </Button>
+                    {threadId ? (
+                      <Button
+                        onClick={() =>
+                          void mutate(async () => {
+                            const client = await ensureCypheriaClient()
+                            await client.threads.attachments.addPullRequest(threadId, entry.url)
+                          })
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Trans id="git.github.attachThread">Attach to chat</Trans>
+                      </Button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              {board.data.length === boardLimit && boardLimit < 500 ? (
+                <Button
+                  disabled={board.isFetching}
+                  onClick={() => setBoardLimit((limit) => Math.min(limit + 100, 500))}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Trans id="git.github.loadMore">Load more pull requests</Trans>
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {board.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{board.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          {list.data?.items.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              <Trans id="git.github.noPullRequests">No pull requests found</Trans>
+            </p>
+          ) : null}
+          {list.data?.items.map((pr) => (
+            <Button
+              className="flex h-auto w-full justify-start whitespace-normal text-left"
+              key={pr.number}
+              onClick={() => selectPullRequest(pr.number)}
+              size="sm"
+              type="button"
+              variant={activeNumber === pr.number ? "secondary" : "ghost"}
+            >
+              #{pr.number} {pr.title}
+              {"headRefName" in pr && "baseRefName" in pr
+                ? ` · ${pr.headRefName} → ${pr.baseRefName}`
+                : null}
+            </Button>
+          ))}
+          {list.data?.truncated ? (
+            cliAvailable && prListLimit < 500 ? (
+              <Button
+                disabled={list.isFetching}
+                onClick={() => setPrListLimit((limit) => Math.min(limit + 100, 500))}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.github.loadMore">Load more pull requests</Trans>
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                <Trans id="git.github.listTruncated">Showing the most recent pull requests</Trans>
+              </p>
+            )
+          ) : null}
+          {list.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{list.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          {branchPr.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{branchPr.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </>
+      ) : null}
+      {selected.data ? (
+        <div className="space-y-2 rounded-md border p-2">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-sm font-medium">
+                #{selected.data.number} {selected.data.title}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
+              </p>
+            </div>
+            <Button onClick={() => setListOpen(true)} size="sm" type="button" variant="ghost">
+              <Trans id="git.github.allPullRequests">All pull requests</Trans>
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => void mutate(async () => openExternal(selected.data.url))}
@@ -1964,52 +1518,697 @@ export function GitHubPrPanel({
               </Button>
             ) : null}
           </div>
-          {cliAvailable && selected.data.state === "OPEN" ? (
-            <div className="space-y-2 border-t pt-2">
-              <Input
-                aria-label={i18n._(
-                  msg({ id: "git.github.editTitle", message: "New pull request title" })
-                )}
-                onChange={(event) => setEditTitle(event.target.value)}
-                placeholder={selected.data.title}
-                value={editTitle}
-              />
-              <Textarea
-                aria-label={i18n._(
-                  msg({ id: "git.github.editBody", message: "New pull request body" })
-                )}
-                onChange={(event) => setEditBody(event.target.value)}
-                placeholder={selected.data.body}
-                rows={3}
-                value={editBody ?? ""}
-              />
-              <Button
-                disabled={busy || (!editTitle.trim() && editBody === null)}
-                onClick={() =>
-                  void mutate(async () => {
-                    const head = selected.data.headRefOid
-                    if (!head) throw new Error("A pull request head is required")
-                    await (await ensureCypheriaClient()).git.githubPrUpdate(
-                      cwd,
-                      selected.data.number,
-                      {
-                        expectedHead: head,
-                        title: editTitle.trim() || undefined,
-                        body: editBody ?? undefined,
+          <Tabs onValueChange={(value) => openPrTab(value as PrTab)} value={prTab}>
+            <TabsList>
+              <TabsTrigger value="summary">
+                <Trans id="git.github.tabSummary">Summary</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="code">
+                <Trans id="git.github.tabCode">Code</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="activity">
+                <Trans id="git.github.tabActivity">Activity</Trans>
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent className="space-y-2" value="summary">
+              {threadId ? (
+                <Button
+                  onClick={() =>
+                    void mutate(async () => {
+                      if (!selected.data) return
+                      const client = await ensureCypheriaClient()
+                      const attachment = attachmentForThread(selected.data.url)
+                      if (attachment) {
+                        await client.threads.attachments.remove(
+                          threadId,
+                          "pull_request",
+                          attachment.identityKey
+                        )
+                      } else {
+                        await client.threads.attachments.addPullRequest(threadId, selected.data.url)
                       }
-                    )
-                    setEditTitle("")
-                    setEditBody(null)
-                  })
-                }
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Trans id="git.github.save">Save changes</Trans>
-              </Button>
-            </div>
-          ) : null}
+                    })
+                  }
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {attachmentForThread(selected.data.url) ? (
+                    <Trans id="git.github.detachThread">Detach from chat</Trans>
+                  ) : (
+                    <Trans id="git.github.attachThread">Attach to chat</Trans>
+                  )}
+                </Button>
+              ) : null}
+              {attachmentsForUrl(selected.data.url).length ? (
+                <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                  <Trans id="git.github.linkedChats">Linked chats:</Trans>
+                  {attachmentsForUrl(selected.data.url).map(({ threadId: linkedThreadId }) => (
+                    <Button
+                      key={linkedThreadId}
+                      onClick={() => void navigate({ search: { thread: linkedThreadId }, to: "/" })}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      {linkedThreadId.slice(0, 8)}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+              {cliAvailable && selected.data.state === "OPEN" ? (
+                <div className="space-y-2 border-t pt-2">
+                  <Input
+                    aria-label={i18n._(
+                      msg({ id: "git.github.editTitle", message: "New pull request title" })
+                    )}
+                    onChange={(event) => setEditTitle(event.target.value)}
+                    placeholder={selected.data.title}
+                    value={editTitle}
+                  />
+                  <Textarea
+                    aria-label={i18n._(
+                      msg({ id: "git.github.editBody", message: "New pull request body" })
+                    )}
+                    onChange={(event) => setEditBody(event.target.value)}
+                    placeholder={selected.data.body}
+                    rows={3}
+                    value={editBody ?? ""}
+                  />
+                  {selected.data.headRefName === branch ? (
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        void mutate(async () => {
+                          const generated = await (await ensureCypheriaClient()).git.generateText(
+                            cwd,
+                            "pull-request",
+                            selected.data.baseRefName
+                          )
+                          setEditTitle(generated.title)
+                          setEditBody(generated.body)
+                        })
+                      }
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trans id="git.github.generateDescription">Generate with Codex</Trans>
+                    </Button>
+                  ) : null}
+                  <Button
+                    disabled={busy || (!editTitle.trim() && editBody === null)}
+                    onClick={() =>
+                      void mutate(async () => {
+                        const head = selected.data.headRefOid
+                        if (!head) throw new Error("A pull request head is required")
+                        await (await ensureCypheriaClient()).git.githubPrUpdate(
+                          cwd,
+                          selected.data.number,
+                          {
+                            expectedHead: head,
+                            title: editTitle.trim() || undefined,
+                            body: editBody ?? undefined,
+                          }
+                        )
+                        setEditTitle("")
+                        setEditBody(null)
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.github.save">Save changes</Trans>
+                  </Button>
+                </div>
+              ) : null}
+              <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
+              {media.data?.map((item) => (
+                <img
+                  alt={item.alt}
+                  className="max-h-64 max-w-full rounded border object-contain"
+                  key={item.url}
+                  loading="lazy"
+                  src={`data:${item.mimeType};base64,${item.contentsBase64}`}
+                />
+              ))}
+              {media.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{media.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+              {metadata.data ? (
+                <p className="text-xs text-muted-foreground">
+                  +{metadata.data.additions ?? 0} / -{metadata.data.deletions ?? 0} ·{" "}
+                  {metadata.data.changedFiles ?? 0} files ·{" "}
+                  {metadata.data.allowedMergeMethods.join(", ")}
+                </p>
+              ) : null}
+              {metadata.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{metadata.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+              {selected.data.state === "OPEN" &&
+              (cliAvailable || appAvailability.data?.canChecks) ? (
+                <div className="space-y-1 border-t pt-2">
+                  <p className="text-xs font-medium">
+                    <Trans id="git.github.checks">Checks</Trans>
+                  </p>
+                  {checks.data?.checks.length === 0 && checks.data.complete ? (
+                    <p className="text-xs text-muted-foreground">
+                      <Trans id="git.github.noChecks">No checks</Trans>
+                    </p>
+                  ) : null}
+                  {checks.data?.checks.map((check) => (
+                    <div
+                      className="flex items-center gap-2 text-xs"
+                      key={`${check.name}:${check.link}`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{check.name}</span>
+                      <span className="shrink-0 text-muted-foreground">{check.bucket}</span>
+                      {check.link ? (
+                        <Button
+                          onClick={() => {
+                            const link = check.link
+                            if (link) void mutate(async () => openExternal(link))
+                          }}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Trans id="git.github.browser">Browser</Trans>
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                  {checks.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{checks.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+              {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
+                <div className="space-y-2 border-t pt-2">
+                  <Input
+                    aria-label={i18n._(
+                      msg({ id: "git.github.reviewer", message: "Reviewer login or team" })
+                    )}
+                    onChange={(event) => setReviewer(event.target.value)}
+                    placeholder={i18n._(
+                      msg({ id: "git.github.reviewer", message: "Reviewer login or team" })
+                    )}
+                    value={reviewer}
+                  />
+                  <Button
+                    disabled={!reviewer.trim()}
+                    onClick={() => setReviewerSearchQuery(reviewer.trim())}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trans id="git.github.searchReviewers">Search reviewers</Trans>
+                  </Button>
+                  {reviewerCandidates.data?.map((candidate) => (
+                    <Button
+                      key={candidate.login}
+                      onClick={() => setReviewer(candidate.login)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      {candidate.login}
+                    </Button>
+                  ))}
+                  {reviewerCandidates.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{reviewerCandidates.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                  <div className="flex gap-2">
+                    {(["add", "remove"] as const).map((action) => (
+                      <Button
+                        disabled={busy || !reviewer.trim()}
+                        key={action}
+                        onClick={() => {
+                          const head = selected.data.headRefOid
+                          if (!head) return
+                          void mutate(async () => {
+                            await (await ensureCypheriaClient()).git.githubPrReviewer(
+                              cwd,
+                              selected.data.number,
+                              head,
+                              reviewer.trim(),
+                              action
+                            )
+                            setReviewer("")
+                          })
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {action === "add" ? (
+                          <Trans id="git.github.requestReviewer">Request reviewer</Trans>
+                        ) : (
+                          <Trans id="git.github.removeReviewer">Remove reviewer</Trans>
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </TabsContent>
+            <TabsContent className="space-y-2" value="code">
+              {selected.data.headRefOid && (cliAvailable || appAvailability.data?.canDiff) ? (
+                <div className="space-y-2 border-t pt-2">
+                  <Button
+                    onClick={() => setShowDiff((value) => !value)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.github.codeChanges">Code changes</Trans>
+                  </Button>
+                  {showDiff ? (
+                    <div className="space-y-2">
+                      <div className="flex min-h-0 flex-col rounded border @container">
+                        <div className="flex min-h-0 flex-col @2xl:flex-row">
+                          {prDiffFiles.length > 1 ? (
+                            <ChatReviewFileTree
+                              className="h-48 shrink-0 border-b @2xl:h-[40rem] @2xl:w-56 @2xl:border-r @2xl:border-b-0"
+                              files={prDiffFiles}
+                              filter={prFileFilter}
+                              labels={{
+                                filter: i18n._(
+                                  msg({
+                                    id: "git.review.searchFiles",
+                                    message: "Search changed files",
+                                  })
+                                ),
+                                noMatches: i18n._(
+                                  msg({
+                                    id: "git.review.noMatchingFiles",
+                                    message: "No files match this search",
+                                  })
+                                ),
+                                rowSummary: (file) => file.path,
+                                tree: i18n._(
+                                  msg({ id: "git.review.changedFiles", message: "Changed files" })
+                                ),
+                              }}
+                              onFilterChange={setPrFileFilter}
+                              onSelectFile={(path) => {
+                                setPrSelectedFile(path)
+                                setDiffFocus({
+                                  lineNumber: 0,
+                                  nonce: Date.now(),
+                                  path,
+                                  side: "additions",
+                                })
+                              }}
+                              selectedPath={prSelectedFile}
+                            />
+                          ) : null}
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <ChatDiffViewer
+                              annotations={diffAnnotations}
+                              className="max-h-[40rem]"
+                              fallback={
+                                <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
+                                  {prDiff.isError
+                                    ? prDiff.error.message
+                                    : prDiff.data ||
+                                      i18n._(
+                                        msg({
+                                          id: "git.github.diffLoading",
+                                          message: "Loading diff…",
+                                        })
+                                      )}
+                                </pre>
+                              }
+                              focus={diffFocus}
+                              {...(canCommentInline
+                                ? {
+                                    onRequestComment: (target: ChatDiffTarget) => {
+                                      setInlineBody("")
+                                      setDraftComment(target)
+                                    },
+                                  }
+                                : {})}
+                              patch={prDiff.data ?? ""}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      {cliAvailable ? (
+                        <div className="flex gap-1">
+                          <Input
+                            aria-label={i18n._(
+                              msg({
+                                id: "git.github.attributesPath",
+                                message: "Changed file path for attributes",
+                              })
+                            )}
+                            onChange={(event) => setAttributesPath(event.target.value)}
+                            placeholder={i18n._(
+                              msg({
+                                id: "git.github.attributesPath",
+                                message: "Changed file path for attributes",
+                              })
+                            )}
+                            value={attributesPath}
+                          />
+                          <Button
+                            disabled={!attributesPath.trim()}
+                            onClick={() => setSelectedAttributesPath(attributesPath.trim())}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <Trans id="git.github.loadAttributes">Load attributes</Trans>
+                          </Button>
+                        </div>
+                      ) : null}
+                      {cliAvailable
+                        ? attributes.data?.map((file) => (
+                            <pre
+                              className="overflow-auto rounded border p-2 text-xs whitespace-pre-wrap"
+                              key={file.basePath}
+                            >
+                              {file.basePath || "."}/.gitattributes{"\n"}
+                              {file.contents}
+                            </pre>
+                          ))
+                        : null}
+                      {cliAvailable && attributes.isError ? (
+                        <Alert variant="destructive">
+                          <AlertDescription>{attributes.error.message}</AlertDescription>
+                        </Alert>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {cliAvailable && selected.data.headRefOid ? (
+                <div className="space-y-1 border-t pt-2">
+                  <Button
+                    onClick={() => setShowStack((value) => !value)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.github.stack">Pull request stack</Trans>
+                  </Button>
+                  {showStack
+                    ? stack.data?.map((entry) => (
+                        <p className="text-xs" key={entry.number}>
+                          #{entry.number} {entry.title} · {entry.baseBranch} → {entry.headBranch}
+                          {entry.parentNumber ? ` · #${entry.parentNumber}` : ""}
+                        </p>
+                      ))
+                    : null}
+                  {showStack && stack.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{stack.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+              {cliAvailable && selected.data.headRefOid ? (
+                <div className="space-y-1 border-t pt-2">
+                  <p className="text-xs font-medium">
+                    <Trans id="git.github.revisions">Revisions</Trans>
+                  </p>
+                  {revisionSnapshot.data?.commits.map((commit) => (
+                    <Button
+                      key={commit.sha}
+                      onClick={() =>
+                        setSelectedRevision(commit.sha === selectedRevision ? null : commit.sha)
+                      }
+                      size="sm"
+                      type="button"
+                      variant={commit.sha === selectedRevision ? "secondary" : "ghost"}
+                    >
+                      <span className="font-mono">{commit.sha.slice(0, 7)}</span> {commit.title}
+                    </Button>
+                  ))}
+                  {revision ? (
+                    <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
+                      {revisionDiff.isError
+                        ? revisionDiff.error.message
+                        : (revisionDiff.data ??
+                          i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
+                    </pre>
+                  ) : null}
+                  {revisionSnapshot.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{revisionSnapshot.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+            </TabsContent>
+            <TabsContent className="space-y-2" value="activity">
+              {cliAvailable ? (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-xs font-medium">
+                    <Trans id="git.github.activity">Discussion and reviews</Trans>
+                  </p>
+                  {reviewStatus.data ? (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>
+                        <Trans id="git.github.reviewDecision">Review decision</Trans>:{" "}
+                        {reviewStatus.data.reviewDecision ?? "—"}
+                      </p>
+                      {reviewStatus.data.reviewRequests.map((request) => (
+                        <p key={`${request.type}:${request.login}`}>
+                          {request.type}: {request.login}
+                        </p>
+                      ))}
+                      {reviewStatus.data.truncated ? (
+                        <p>
+                          <Trans id="git.github.reviewsTruncated">
+                            More reviews are available on GitHub.
+                          </Trans>
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {reviewStatus.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{reviewStatus.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                  {activity.data?.comments.map((comment) => (
+                    <div className="rounded border p-2 text-xs" key={comment.id}>
+                      <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                      <p className="whitespace-pre-wrap">{comment.body}</p>
+                      {commentActions(comment.id, "comment", comment.body, comment.author)}
+                    </div>
+                  ))}
+                  {activity.data?.reviews.map((review) => (
+                    <div className="rounded border p-2 text-xs" key={review.id}>
+                      <span className="font-medium">{review.author ?? "GitHub"}</span> ·{" "}
+                      {review.state}
+                      {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
+                      {commentActions(review.id, "review", review.body, review.author)}
+                    </div>
+                  ))}
+                  {activity.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{activity.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+              {!cliAvailable && appAvailability.data?.canActivity && selected.data.headRefOid ? (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-xs font-medium">
+                    <Trans id="git.github.activity">Discussion and reviews</Trans>
+                  </p>
+                  {activity.data?.comments.map((comment) => (
+                    <div className="rounded border p-2 text-xs" key={comment.id}>
+                      <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                      <p className="whitespace-pre-wrap">{comment.body}</p>
+                    </div>
+                  ))}
+                  {activity.data?.reviews.map((review) => (
+                    <div className="rounded border p-2 text-xs" key={review.id}>
+                      <span className="font-medium">{review.author ?? "GitHub"}</span> ·{" "}
+                      {review.state}
+                      {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
+                    </div>
+                  ))}
+                  {activity.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{activity.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+              {!cliAvailable && appAvailability.data?.canThreads && selected.data.headRefOid ? (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-xs font-medium">
+                    <Trans id="git.github.reviewThreads">Review threads</Trans>
+                  </p>
+                  {threads.data?.threads.map((thread) => (
+                    <div className="space-y-1 rounded border p-2 text-xs" key={thread.id}>
+                      <p className="font-mono text-muted-foreground">
+                        {thread.path}
+                        {thread.line ? `:${thread.line}` : ""} ·{" "}
+                        {thread.isResolved
+                          ? i18n._(msg({ id: "git.github.resolved", message: "Resolved" }))
+                          : i18n._(msg({ id: "git.github.unresolved", message: "Unresolved" }))}
+                      </p>
+                      {thread.comments.map((comment) => (
+                        <div className="border-l pl-2" key={comment.id}>
+                          <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                          <p className="whitespace-pre-wrap">{comment.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {threads.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{threads.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+              {cliAvailable && selected.data.headRefOid ? (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-xs font-medium">
+                    <Trans id="git.github.reviewThreads">Review threads</Trans>
+                  </p>
+                  {threads.data?.threads.map((thread) => renderCliThread(thread, selected.data))}
+                  {threads.data?.truncated ? (
+                    <p className="text-xs text-muted-foreground">
+                      <Trans id="git.github.threadsTruncated">
+                        More review threads are available on GitHub.
+                      </Trans>
+                    </p>
+                  ) : null}
+                  {threads.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{threads.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+              {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
+                <div className="space-y-2 border-t pt-2">
+                  <Textarea
+                    aria-label={i18n._(
+                      msg({ id: "git.github.commentBody", message: "Pull request comment" })
+                    )}
+                    onChange={(event) => setCommentBody(event.target.value)}
+                    rows={3}
+                    value={commentBody}
+                  />
+                  <Button
+                    disabled={busy || !commentBody.trim()}
+                    onClick={() => {
+                      const head = selected.data.headRefOid
+                      if (!head) return
+                      void mutate(async () => {
+                        await (await ensureCypheriaClient()).git.githubPrComment(
+                          cwd,
+                          selected.data.number,
+                          head,
+                          commentBody
+                        )
+                        setCommentBody("")
+                      })
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.github.postComment">Post comment</Trans>
+                  </Button>
+                  <Dialog onOpenChange={setReviewOpen} open={reviewOpen}>
+                    <DialogTrigger render={<Button disabled={busy} size="sm" type="button" />}>
+                      <Trans id="git.github.submitReview">Submit review</Trans>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>
+                          <Trans id="git.github.reviewDecision">Review decision</Trans>
+                        </DialogTitle>
+                        <DialogDescription>
+                          <Trans id="git.github.reviewDecisionHint">
+                            Choose a review decision and optionally add a comment. The review
+                            applies only if the displayed head commit still matches.
+                          </Trans>
+                        </DialogDescription>
+                      </DialogHeader>
+                      <RadioGroup
+                        onValueChange={(value) => setReviewDecision(value as ReviewDecision)}
+                        value={reviewDecision}
+                      >
+                        {(["comment", "approve", "request_changes"] as const).map((decision) => (
+                          <label
+                            className="flex items-center gap-2 text-sm"
+                            htmlFor={`${reviewDecisionId}-${decision}`}
+                            key={decision}
+                          >
+                            <RadioGroupItem
+                              id={`${reviewDecisionId}-${decision}`}
+                              value={decision}
+                            />
+                            {decision === "approve" ? (
+                              <Trans id="git.github.approve">Approve</Trans>
+                            ) : decision === "comment" ? (
+                              <Trans id="git.github.reviewComment">Review comment</Trans>
+                            ) : (
+                              <Trans id="git.github.requestChanges">Request changes</Trans>
+                            )}
+                          </label>
+                        ))}
+                      </RadioGroup>
+                      <Textarea
+                        aria-label={i18n._(
+                          msg({ id: "git.github.reviewBody", message: "Pull request review" })
+                        )}
+                        onChange={(event) => setReviewBody(event.target.value)}
+                        placeholder={i18n._(
+                          msg({ id: "git.github.optionalComment", message: "Optional comment" })
+                        )}
+                        rows={4}
+                        value={reviewBody}
+                      />
+                      <DialogFooter>
+                        <Button
+                          disabled={busy || (reviewDecision !== "approve" && !reviewBody.trim())}
+                          onClick={() => {
+                            const head = selected.data.headRefOid
+                            if (!head) return
+                            void mutate(async () => {
+                              await (await ensureCypheriaClient()).git.githubPrReview(
+                                cwd,
+                                selected.data.number,
+                                head,
+                                reviewDecision,
+                                reviewBody
+                              )
+                              setReviewBody("")
+                              setReviewOpen(false)
+                            })
+                          }}
+                          type="button"
+                        >
+                          <Trans id="git.github.submitReview">Submit review</Trans>
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              ) : null}
+            </TabsContent>
+          </Tabs>
         </div>
       ) : null}
       {selected.isError ? (

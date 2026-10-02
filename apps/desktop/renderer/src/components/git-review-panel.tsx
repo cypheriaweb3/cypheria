@@ -1657,20 +1657,30 @@ export function GitReviewPanel({
         </ReviewSection>
       ) : null}
       {origin.data?.provider === "gitlab" ? (
-        <GitLabMrPanel
-          branch={status.data?.branch ?? null}
-          cwd={cwd}
-          key={cwd}
-          threadId={threadId}
-        />
+        <ReviewSection
+          defaultOpen
+          title={i18n._(msg({ id: "git.review.mergeRequestSection", message: "Merge request" }))}
+        >
+          <GitLabMrPanel
+            branch={status.data?.branch ?? null}
+            cwd={cwd}
+            key={cwd}
+            threadId={threadId}
+          />
+        </ReviewSection>
       ) : null}
       {origin.data?.provider === "github" ? (
-        <GitHubPrPanel
-          branch={status.data?.branch ?? null}
-          cwd={cwd}
-          key={cwd}
-          threadId={threadId}
-        />
+        <ReviewSection
+          defaultOpen
+          title={i18n._(msg({ id: "git.review.pullRequestSection", message: "Pull request" }))}
+        >
+          <GitHubPrPanel
+            branch={status.data?.branch ?? null}
+            cwd={cwd}
+            key={cwd}
+            threadId={threadId}
+          />
+        </ReviewSection>
       ) : null}
       {actionError ? <p className="p-2 text-sm text-destructive">{actionError}</p> : null}
     </ChatReviewPanel>

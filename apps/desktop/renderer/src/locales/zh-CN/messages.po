@@ -3098,3 +3098,53 @@ msgstr "分支"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.worktreesSection"
 msgstr "工作树"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.allPullRequests"
+msgstr "所有拉取请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.tabSummary"
+msgstr "概要"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.tabCode"
+msgstr "代码"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.tabActivity"
+msgstr "动态"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.submitReview"
+msgstr "提交审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewDecision"
+msgstr "审查结论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewDecisionHint"
+msgstr "选择审查结论，并可添加评论。仅当所显示的 head 提交仍然一致时，审查才会生效。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.optionalComment"
+msgstr "可选评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.pullRequestSection"
+msgstr "拉取请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.mergeRequestSection"
+msgstr "合并请求"
