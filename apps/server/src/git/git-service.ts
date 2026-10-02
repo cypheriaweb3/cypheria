@@ -157,6 +157,18 @@ const reviewHunks = (diff: string): Array<{ header: string; patch: string }> => 
     return { header: match[0], patch: prefix + diff.slice(start, end) }
   })
 }
+/** Steps of a Thread handoff, named as in the official desktop. */
+export type GitHandoffStep =
+  | "apply-changes-to-local"
+  | "apply-changes-to-worktree"
+  | "checkout-local-branch"
+  | "checkout-worktree-branch"
+  | "create-new-worktree"
+  | "detach-worktree-branch"
+  | "reuse-existing-worktree"
+  | "stash-source-changes"
+  | "switching-thread"
+
 const validateOperand = (value: string, name: string): string => {
   if (!value || value.startsWith("-") || value.includes("\0") || value.includes("\n")) {
     throw new Error(`Invalid Git ${name}`)
@@ -1402,36 +1414,241 @@ export class GitService {
   }
 
   /**
-   * Moves a Thread and its local changes between its checkout and a new managed worktree: a Thread
-   * in a managed worktree returns to the repository's checkout, any other Thread moves into a
-   * fresh worktree. The Thread must be idle.
+   * Hands a Thread and its local changes over between its checkout and a managed worktree, the way
+   * the official desktop does. A Thread in a managed worktree returns to the repository's checkout;
+   * any other Thread moves into the worktree it owns or a new one. The branch moves with the
+   * Thread: the worktree takes the checkout's branch (a new branch when the checkout is on the
+   * default branch) and the checkout falls back to the default branch. Local changes move too, so
+   * the side the Thread leaves is clean. The Thread must be idle.
    */
   async handoffThread(
     threadId: string,
-    onPhase: (phase: "creating-worktree" | "moving") => void = () => undefined
+    onStep: (step: GitHandoffStep) => void = () => undefined
   ): Promise<{ direction: "to-checkout" | "to-worktree"; path: string }> {
     if (!this.#threads) throw new Error("A local Thread is required")
-    const cwd = (await this.#threads.get(threadId)).roots[0]
+    const thread = await this.#threads.get(threadId)
+    const cwd = thread.roots[0]
     if (!cwd) throw new Error("The thread has no working directory")
+    if (thread.activeTurn || thread.pendingInteractions.length) {
+      throw new Error("Finish the current turn before moving the thread")
+    }
     const repository = await this.discover(cwd)
     const worktrees = await this.#worktrees.list(repository)
-    if (worktrees.some((entry) => entry.managed && entry.path === repository.root)) {
-      const checkout = worktrees.find((entry) => !entry.managed && entry.active)
-      if (!checkout) throw new Error("The thread's original checkout is unavailable")
-      onPhase("moving")
-      await this.moveThreadToWorktree(cwd, checkout.path, threadId, true)
-      return { direction: "to-checkout", path: checkout.path }
+    const here = worktrees.find((entry) => entry.path === repository.root)
+    return here?.managed
+      ? this.#handoffToCheckout(cwd, repository, worktrees, threadId, onStep)
+      : this.#handoffToWorktree(cwd, repository, worktrees, threadId, onStep)
+  }
+
+  async #branchOf(path: string): Promise<string | null> {
+    const { stdout } = await this.#executor.run(path, ["branch", "--show-current"], {
+      readOnly: true,
+    })
+    return stdout.trim() || null
+  }
+
+  async #hasChanges(path: string): Promise<boolean> {
+    const { stdout } = await this.#executor.run(path, ["status", "--porcelain=v1", "-z"], {
+      readOnly: true,
+    })
+    return stdout.length > 0
+  }
+
+  /** The local branch the checkout falls back to, from the repository's default branch. */
+  async #localDefaultBranch(cwd: string): Promise<string | null> {
+    const { defaultBranch } = await this.branchContext(cwd)
+    if (!defaultBranch) return null
+    const { root } = await this.discover(cwd)
+    const exists = (name: string): Promise<boolean> =>
+      this.#executor
+        .run(root, ["show-ref", "--verify", "--quiet", `refs/heads/${name}`], { readOnly: true })
+        .then(
+          () => true,
+          () => false
+        )
+    if (await exists(defaultBranch)) return defaultBranch
+    const withoutRemote = defaultBranch.split("/").slice(1).join("/")
+    return withoutRemote && (await exists(withoutRemote)) ? withoutRemote : null
+  }
+
+  async #handoffToWorktree(
+    cwd: string,
+    repository: GitRepository,
+    worktrees: GitWorktree[],
+    threadId: string,
+    onStep: (step: GitHandoffStep) => void
+  ): Promise<{ direction: "to-worktree"; path: string }> {
+    const branch = await this.#branchOf(repository.root)
+    if (!branch) {
+      throw new Error(
+        "The source checkout is detached. Check out a branch before handing it off to a worktree."
+      )
     }
-    onPhase("creating-worktree")
-    const created = await this.createWorktree(cwd)
-    onPhase("moving")
+    const localDefault = await this.#localDefaultBranch(cwd)
+    const onDefault = branch === localDefault
+    if (!onDefault && !localDefault) {
+      throw new Error("The repository's default branch cannot be determined.")
+    }
+    const owned = worktrees.find(
+      (entry) => entry.managed && entry.active && entry.ownerThreadId === threadId
+    )
+    onStep(owned ? "reuse-existing-worktree" : "create-new-worktree")
+    const target = owned ?? (await this.createWorktree(cwd))
+    if (await this.#hasChanges(target.path)) {
+      if (!owned) await this.deleteWorktree(cwd, target.path).catch(() => undefined)
+      throw new Error("The target worktree has uncommitted changes; commit or discard them first.")
+    }
+    const snapshot = await this.#beginHandoffSnapshot(repository.root, onStep)
+    let worktreeBranch = branch
+    let movedBranch = false
     try {
-      await this.moveThreadToWorktree(cwd, created.path, threadId, true)
+      if (onDefault) {
+        worktreeBranch = `${this.#getSettings().branchPrefix}handoff-${randomUUID().slice(0, 8)}`
+        onStep("checkout-worktree-branch")
+        await this.#executor.run(target.path, ["checkout", "-b", worktreeBranch, branch])
+      } else {
+        onStep("checkout-local-branch")
+        await this.#executor.run(repository.root, ["checkout", localDefault as string])
+        movedBranch = true
+        onStep("checkout-worktree-branch")
+        await this.#executor.run(target.path, ["checkout", branch])
+      }
+      if (snapshot.dirty) {
+        onStep("apply-changes-to-worktree")
+        await this.#worktrees.applySnapshot(target.path, snapshot.commit)
+      }
+      onStep("switching-thread")
+      await this.moveThreadToWorktree(cwd, target.path, threadId, false)
     } catch (error) {
-      await this.deleteWorktree(cwd, created.path).catch(() => undefined)
-      throw error
+      const failures: unknown[] = []
+      const attempt = async (step: () => Promise<unknown>): Promise<void> => {
+        await step().catch((cause) => failures.push(cause))
+      }
+      await attempt(() => this.#worktrees.discardChanges(target.path))
+      await attempt(() => this.#executor.run(target.path, ["checkout", "--detach"]))
+      if (movedBranch) {
+        await attempt(() => this.#executor.run(repository.root, ["checkout", branch]))
+      }
+      if (snapshot.dirty) {
+        await attempt(() => this.#worktrees.applySnapshot(repository.root, snapshot.commit))
+      }
+      if (!owned) await attempt(() => this.deleteWorktree(cwd, target.path))
+      if (failures.length === 0) await this.#endHandoffSnapshot(repository.root, snapshot)
+      throw this.#handoffFailure(error, failures, snapshot)
     }
-    return { direction: "to-worktree", path: created.path }
+    await this.#endHandoffSnapshot(repository.root, snapshot)
+    return { direction: "to-worktree", path: target.path }
+  }
+
+  async #handoffToCheckout(
+    cwd: string,
+    repository: GitRepository,
+    worktrees: GitWorktree[],
+    threadId: string,
+    onStep: (step: GitHandoffStep) => void
+  ): Promise<{ direction: "to-checkout"; path: string }> {
+    const checkout = worktrees.find((entry) => !entry.managed && entry.active)
+    if (!checkout) throw new Error("The thread's original checkout is unavailable")
+    if (await this.#hasChanges(checkout.path)) {
+      throw new Error("The checkout has uncommitted changes; commit or discard them first.")
+    }
+    const branch = await this.#branchOf(repository.root)
+    const checkoutBranch = await this.#branchOf(checkout.path)
+    const head = (
+      await this.#executor.run(repository.root, ["rev-parse", "HEAD"], { readOnly: true })
+    ).stdout.trim()
+    if (!branch) {
+      const checkoutHead = (
+        await this.#executor.run(checkout.path, ["rev-parse", "HEAD"], { readOnly: true })
+      ).stdout.trim()
+      if (checkoutHead !== head) {
+        throw new Error(
+          "The worktree is detached at another commit. Check out a branch before handing it off to the checkout."
+        )
+      }
+    }
+    const snapshot = await this.#beginHandoffSnapshot(repository.root, onStep)
+    let detached = false
+    let switched = false
+    try {
+      if (branch) {
+        onStep("detach-worktree-branch")
+        await this.#executor.run(repository.root, ["checkout", "--detach"])
+        detached = true
+        onStep("checkout-local-branch")
+        await this.#executor.run(checkout.path, ["checkout", branch])
+        switched = true
+      }
+      if (snapshot.dirty) {
+        onStep("apply-changes-to-local")
+        await this.#worktrees.applySnapshot(checkout.path, snapshot.commit)
+      }
+      onStep("switching-thread")
+      await this.moveThreadToWorktree(cwd, checkout.path, threadId, false)
+    } catch (error) {
+      const failures: unknown[] = []
+      const attempt = async (step: () => Promise<unknown>): Promise<void> => {
+        await step().catch((cause) => failures.push(cause))
+      }
+      if (snapshot.dirty) await attempt(() => this.#worktrees.discardChanges(checkout.path))
+      if (switched && checkoutBranch) {
+        await attempt(() => this.#executor.run(checkout.path, ["checkout", checkoutBranch]))
+      } else if (switched) {
+        await attempt(() => this.#executor.run(checkout.path, ["checkout", "--detach", head]))
+      }
+      if (detached && branch) {
+        await attempt(() => this.#executor.run(repository.root, ["checkout", branch]))
+      }
+      if (snapshot.dirty) {
+        await attempt(() => this.#worktrees.applySnapshot(repository.root, snapshot.commit))
+      }
+      if (failures.length === 0) await this.#endHandoffSnapshot(repository.root, snapshot)
+      throw this.#handoffFailure(error, failures, snapshot)
+    }
+    await this.#endHandoffSnapshot(repository.root, snapshot)
+    return { direction: "to-checkout", path: checkout.path }
+  }
+
+  /**
+   * Captures the source's local changes under a backup ref, then clears the source. The ref stays
+   * until the handoff succeeds, so a failed rollback never loses work.
+   */
+  async #beginHandoffSnapshot(
+    source: string,
+    onStep: (step: GitHandoffStep) => void
+  ): Promise<{ commit: string; dirty: boolean; ref: string }> {
+    onStep("stash-source-changes")
+    const snapshot = await this.#worktrees.snapshotWorkingState(source)
+    const ref = `refs/cypheria/handoff/${randomUUID()}`
+    if (snapshot.dirty) {
+      await this.#executor.run(source, ["update-ref", ref, snapshot.commit])
+      await this.#worktrees.discardChanges(source)
+    }
+    return { ...snapshot, ref }
+  }
+
+  async #endHandoffSnapshot(
+    source: string,
+    snapshot: { dirty: boolean; ref: string }
+  ): Promise<void> {
+    if (snapshot.dirty) {
+      await this.#executor.run(source, ["update-ref", "-d", snapshot.ref]).catch(() => undefined)
+    }
+  }
+
+  #handoffFailure(
+    error: unknown,
+    failures: readonly unknown[],
+    snapshot: { dirty: boolean; ref: string }
+  ): Error {
+    const message = error instanceof Error ? error.message : String(error)
+    if (failures.length === 0) return error instanceof Error ? error : new Error(message)
+    return new AggregateError(
+      [error, ...failures],
+      `${message}. Restoring the previous state also failed${
+        snapshot.dirty ? `; the local changes are saved in ${snapshot.ref}` : ""
+      }.`
+    )
   }
 
   async moveThreadToWorktree(

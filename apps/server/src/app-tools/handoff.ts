@@ -4,13 +4,11 @@
  * official desktop's `get_handoff_status`.
  */
 
-export type HandoffStatus =
-  | "queued"
-  | "interrupting"
-  | "creating-worktree"
-  | "moving"
-  | "completed"
-  | "failed"
+/**
+ * `queued`, `interrupting`, then the Git steps of the move in the order they run, then `completed`
+ * or `failed`. The steps are the official desktop's names.
+ */
+export type HandoffStatus = string
 
 export type HandoffOperation = {
   readonly direction?: "to-checkout" | "to-worktree"
@@ -35,7 +33,7 @@ export type HandoffThreads = {
 export type HandoffGit = {
   handoffThread(
     threadId: string,
-    onPhase: (phase: "creating-worktree" | "moving") => void
+    onStep: (step: string) => void
   ): Promise<{ direction: "to-checkout" | "to-worktree"; path: string }>
 }
 
@@ -141,8 +139,8 @@ export class HandoffService {
           await this.#pause(INTERRUPT_POLL_MS)
         }
       }
-      const moved = await this.#git.handoffThread(input.threadId, (phase) =>
-        this.#update(operationId, { status: phase })
+      const moved = await this.#git.handoffThread(input.threadId, (step) =>
+        this.#update(operationId, { status: step })
       )
       if (input.followUpPrompt) {
         await this.#threads.startTurn({
