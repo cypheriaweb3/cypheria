@@ -93,12 +93,15 @@ export function GitReviewPanel({
   cwd,
   fallback,
   onAddFile,
+  onOpenFile,
   onSendComments,
   threadId,
 }: Readonly<{
   cwd: string
   fallback: ReactNode
   onAddFile?: (path: string) => void
+  /** Opens a repository file, by absolute Server-host path, in its own workspace file tab. */
+  onOpenFile?: (absolutePath: string) => void
   /** Sends Review comments to the Thread's Agent as the next message. */
   onSendComments?: (text: string) => void
   threadId: string | null
@@ -1000,6 +1003,24 @@ export function GitReviewPanel({
                       <Trans id="git.review.addToChat">Add to chat</Trans>
                     </Button>
                   ) : null}
+                  {onOpenFile &&
+                  status.data &&
+                  !entries.find((entry) => entry.path === activePath)?.code.includes("D") ? (
+                    <Button
+                      onClick={() => {
+                        const root = status.data?.repository.root
+                        if (root) onOpenFile(`${root.replace(/[\\/]$/u, "")}/${activePath}`)
+                      }}
+                      size="sm"
+                      title={i18n._(
+                        msg({ id: "git.review.openInTab.tooltip", message: "Open file in a tab" })
+                      )}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trans id="git.review.openInTab">Open in tab</Trans>
+                    </Button>
+                  ) : null}
                   {window.cypheria ? (
                     <>
                       <Button
@@ -1014,7 +1035,7 @@ export function GitReviewPanel({
                         type="button"
                         variant="ghost"
                       >
-                        <Trans id="git.review.openFile">Open file</Trans>
+                        <Trans id="git.review.openExternally">Open in default app</Trans>
                       </Button>
                       <Button
                         onClick={() =>

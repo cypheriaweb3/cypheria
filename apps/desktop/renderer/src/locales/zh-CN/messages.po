@@ -737,11 +737,6 @@ msgid "chat.files"
 msgstr "个文件"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.files"
-msgstr "文件"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.followUp"
 msgstr "跟进消息行为"
@@ -3438,3 +3433,113 @@ msgstr "复制清理命令"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.untrackedOmitted.refresh"
 msgstr "刷新"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.openFile"
+msgstr "打开文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.heading"
+msgstr "打开文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.description"
+msgstr "从工作区文件树中选择一个文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine"
+msgstr "跳转到行"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.invalid"
+msgstr "请输入有效的整数行号"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.range"
+msgstr "1–{lineCount}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.show"
+msgstr "显示 git blame"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.hide"
+msgstr "隐藏 git blame"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.tooltip"
+msgstr "在行号栏显示作者、日期和提交信息"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.author"
+msgstr "作者"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.commit"
+msgstr "提交"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.date"
+msgstr "日期"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyMenu"
+msgstr "复制"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyAbsolutePath"
+msgstr "复制绝对路径"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRepoPath"
+msgstr "复制相对于仓库的路径"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRootPath"
+msgstr "复制相对于文件夹的路径"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyContents"
+msgstr "复制文件内容"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyGitHubLink"
+msgstr "复制 GitHub 链接"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.openInGitHub"
+msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab"
+msgstr "在标签页中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab.tooltip"
+msgstr "在标签页中打开文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openExternally"
+msgstr "用默认应用打开"

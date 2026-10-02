@@ -13,6 +13,9 @@ import { ensureCypheriaClient } from "./cypheria-client.js"
 import { nextRequestNonce, reviewFocusAtom } from "./deep-links.js"
 
 type Options = {
+  /** Opens a workspace file in its own tab, scrolled to a line when given. */
+  readonly openFile: (file: { root: string; path: string }, line?: number) => void
+  /** Opens the Open file tab, whose tree shows a directory. */
   readonly openFilesPanel: () => void
   readonly openReviewPanel: () => void
   readonly openThread: (threadId: string) => void
@@ -30,24 +33,19 @@ const blobFor = (result: ThreadFileReadResult): Blob | null => {
   return null
 }
 
-/** Points the Files panel at a path the Agent mentioned. */
-export const showThreadPath = (threadId: string, resolved: ChatResolvedPath): void => {
-  if (resolved.kind !== "file" && resolved.kind !== "directory") return
+/** Points the workspace tree of the Open file tab at a directory the Agent mentioned. */
+export const showThreadDirectory = (
+  threadId: string,
+  resolved: Extract<ChatResolvedPath, { kind: "directory" }>
+): void => {
   const atom = threadFilesAtom(threadId)
   const current = clientStateStore.get(atom)
   const expanded = new Set(current.expandedByRoot[resolved.root] ?? [])
-  if (resolved.kind === "directory" && resolved.path) {
-    expanded.add(`${resolved.path.replace(/\/$/u, "")}/`)
-  }
+  if (resolved.path) expanded.add(`${resolved.path.replace(/\/$/u, "")}/`)
   clientStateStore.set(atom, {
     ...current,
     activeRoot: resolved.root,
     expandedByRoot: { ...current.expandedByRoot, [resolved.root]: [...expanded] },
-    selectedByRoot:
-      resolved.kind === "file"
-        ? { ...current.selectedByRoot, [resolved.root]: resolved.path }
-        : current.selectedByRoot,
-    treeOpen: true,
   })
 }
 
@@ -57,6 +55,7 @@ export const showThreadPath = (threadId: string, resolved: ChatResolvedPath): vo
  * its own file system for them.
  */
 export function useThreadMarkdownHost({
+  openFile,
   openFilesPanel,
   openReviewPanel,
   openThread,
@@ -99,8 +98,12 @@ export function useThreadMarkdownHost({
         return { release: () => URL.revokeObjectURL(url), url }
       },
       openPath: (resolved) => {
-        showThreadPath(threadId, resolved)
-        openFilesPanel()
+        if (resolved.kind === "file") {
+          openFile({ path: resolved.path, root: resolved.root }, resolved.line)
+        } else if (resolved.kind === "directory") {
+          showThreadDirectory(threadId, resolved)
+          openFilesPanel()
+        }
       },
       openReview: (target) => {
         clientStateStore.set(reviewFocusAtom, {
@@ -123,5 +126,5 @@ export function useThreadMarkdownHost({
       },
       sendFollowUp,
     } satisfies ChatMarkdownHost
-  }, [i18n, openFilesPanel, openReviewPanel, openThread, sendFollowUp, threadId])
+  }, [i18n, openFile, openFilesPanel, openReviewPanel, openThread, sendFollowUp, threadId])
 }

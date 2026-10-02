@@ -737,11 +737,6 @@ msgid "chat.files"
 msgstr "files"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.files"
-msgstr "Files"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.followUp"
 msgstr "Follow-up behavior"
@@ -3438,3 +3433,113 @@ msgstr "Copy cleanup command"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.untrackedOmitted.refresh"
 msgstr "Refresh"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.openFile"
+msgstr "Open file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.heading"
+msgstr "Open file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.description"
+msgstr "Select a file from the workspace tree"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine"
+msgstr "Go to line"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.invalid"
+msgstr "Enter a valid whole line number"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.range"
+msgstr "1–{lineCount}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.show"
+msgstr "Show git blame"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.hide"
+msgstr "Hide git blame"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.tooltip"
+msgstr "Show author, date, and commit details in the line gutter"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.author"
+msgstr "Author"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.commit"
+msgstr "Commit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.date"
+msgstr "Date"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyMenu"
+msgstr "Copy"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyAbsolutePath"
+msgstr "Copy absolute path"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRepoPath"
+msgstr "Copy path relative to repository"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRootPath"
+msgstr "Copy path relative to folder"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyContents"
+msgstr "Copy file contents"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyGitHubLink"
+msgstr "Copy GitHub link"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.openInGitHub"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab"
+msgstr "Open in tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab.tooltip"
+msgstr "Open file in a tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openExternally"
+msgstr "Open in default app"
