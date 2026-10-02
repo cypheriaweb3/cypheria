@@ -370,6 +370,19 @@ export const GitHubPrMetadataSchema = z
     isAuthor: z.boolean(),
     isAutoMergeEnabled: z.boolean(),
     allowedMergeMethods: z.array(z.enum(["merge", "squash"])),
+    /** GitHub's merge check: whether the head merges cleanly into the base. */
+    mergeable: z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]),
+    /** GitHub's overall merge state, including branch protection and checks. */
+    mergeStateStatus: z.enum([
+      "BEHIND",
+      "BLOCKED",
+      "CLEAN",
+      "DIRTY",
+      "DRAFT",
+      "HAS_HOOKS",
+      "UNKNOWN",
+      "UNSTABLE",
+    ]),
   })
   .strict()
 export const GitHubPrReviewStatusSchema = z

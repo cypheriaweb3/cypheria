@@ -3543,3 +3543,78 @@ msgstr "Open file in a tab"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.openExternally"
 msgstr "Open in default app"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair"
+msgstr "Repair"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.checks"
+msgstr "Failing checks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.comments"
+msgstr "Comments"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.conflicts"
+msgstr "Merge conflicts"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.everything"
+msgstr "Everything"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.closed"
+msgstr "Reopen this pull request before merging"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.draft"
+msgstr "Mark this pull request ready for review before merging"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.conflicts"
+msgstr "Resolve merge conflicts before merging"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.failingChecks"
+msgstr "Fix failing checks before merging"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.pendingChecks"
+msgstr "Wait for checks to finish before merging"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.blocked"
+msgstr "This pull request can’t be merged yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.unknown"
+msgstr "GitHub is still checking whether this can be merged"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeUnavailable"
+msgstr "Merge unavailable: {reason}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeMethod.squash"
+msgstr "Squash and merge"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeMethod.merge"
+msgstr "Create merge commit"

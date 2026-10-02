@@ -64,8 +64,14 @@ import {
 } from "../deep-links.js"
 import { useThreadAttachments } from "../thread-attachments.js"
 import { type GitHubPrOperation, githubPrProvider } from "./github-pr-provider.js"
-import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
+import {
+  findGithubPrWatch,
+  type GithubPrRepairFocus,
+  githubPrFixPrompt,
+  githubPrWatchName,
+} from "./github-pr-watch.js"
 import { PullRequestChecks } from "./pull-request-checks.js"
+import { defaultMergeMethod, type MergeBlocker, mergeBlocker } from "./pull-request-merge.js"
 import {
   ReviewDiffControls,
   useDiffViewerLabels,
@@ -160,6 +166,8 @@ export function GitHubPrPanel({
   const [attributesPath, setAttributesPath] = useState("")
   const [selectedAttributesPath, setSelectedAttributesPath] = useState<string | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeMethod, setMergeMethod] = useState<"merge" | "squash" | null>(null)
+  const mergeMethodId = useId()
   const [closeOpen, setCloseOpen] = useState(false)
   const [createNeedsReview, setCreateNeedsReview] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -709,6 +717,81 @@ export function GitHubPrPanel({
       ) : null}
     </div>
   )
+  const blocker: MergeBlocker | null = selected.data
+    ? mergeBlocker({
+        checks: checks.data?.checks ?? null,
+        isDraft: selected.data.isDraft,
+        metadata: metadata.data ?? null,
+        state: selected.data.state,
+      })
+    : null
+  const blockerMessage = (reason: MergeBlocker): string =>
+    reason === "closed"
+      ? i18n._(
+          msg({
+            id: "git.github.mergeBlocked.closed",
+            message: "Reopen this pull request before merging",
+          })
+        )
+      : reason === "draft"
+        ? i18n._(
+            msg({
+              id: "git.github.mergeBlocked.draft",
+              message: "Mark this pull request ready for review before merging",
+            })
+          )
+        : reason === "conflicts"
+          ? i18n._(
+              msg({
+                id: "git.github.mergeBlocked.conflicts",
+                message: "Resolve merge conflicts before merging",
+              })
+            )
+          : reason === "failingChecks"
+            ? i18n._(
+                msg({
+                  id: "git.github.mergeBlocked.failingChecks",
+                  message: "Fix failing checks before merging",
+                })
+              )
+            : reason === "pendingChecks"
+              ? i18n._(
+                  msg({
+                    id: "git.github.mergeBlocked.pendingChecks",
+                    message: "Wait for checks to finish before merging",
+                  })
+                )
+              : reason === "blocked"
+                ? i18n._(
+                    msg({
+                      id: "git.github.mergeBlocked.blocked",
+                      message: "This pull request can’t be merged yet",
+                    })
+                  )
+                : i18n._(
+                    msg({
+                      id: "git.github.mergeBlocked.unknown",
+                      message: "GitHub is still checking whether this can be merged",
+                    })
+                  )
+  const allowedMergeMethods = metadata.data?.allowedMergeMethods ?? []
+  const chosenMergeMethod =
+    mergeMethod && allowedMergeMethods.includes(mergeMethod)
+      ? mergeMethod
+      : defaultMergeMethod(
+          gitSettings.data?.config.git.pullRequestMergeMethod ?? "merge",
+          allowedMergeMethods
+        )
+  const startRepair = (focus: GithubPrRepairFocus) =>
+    void mutate(async () => {
+      const settings = gitSettings.data?.config.git
+      if (!selected.data || !threadId || !settings) return
+      await (await ensureCypheriaClient()).threads.startTurn({
+        clientMessageId: crypto.randomUUID(),
+        content: [{ type: "text", text: githubPrFixPrompt(selected.data, settings, false, focus) }],
+        threadId,
+      })
+    })
   const prSections = useMemo(
     () =>
       chatDiffFileSections(prDiff.data ?? "").filter(
@@ -1399,32 +1482,29 @@ export function GitHubPrPanel({
             selected.data.headRefOid &&
             gitSettings.data ? (
               <>
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    void mutate(async () => {
-                      await (await ensureCypheriaClient()).threads.startTurn({
-                        clientMessageId: crypto.randomUUID(),
-                        content: [
-                          {
-                            type: "text",
-                            text: githubPrFixPrompt(
-                              selected.data,
-                              gitSettings.data.config.git,
-                              false
-                            ),
-                          },
-                        ],
-                        threadId,
-                      })
-                    })
-                  }
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Trans id="git.github.fixPr">Fix PR</Trans>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={<Button disabled={busy} size="sm" type="button" variant="outline" />}
+                  >
+                    <Trans id="git.github.repair">Repair</Trans>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-44">
+                    <DropdownMenuItem onClick={() => startRepair("checks")}>
+                      <Trans id="git.github.repair.checks">Failing checks</Trans>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => startRepair("comments")}>
+                      <Trans id="git.github.repair.comments">Comments</Trans>
+                    </DropdownMenuItem>
+                    {blocker === "conflicts" ? (
+                      <DropdownMenuItem onClick={() => startRepair("conflicts")}>
+                        <Trans id="git.github.repair.conflicts">Merge conflicts</Trans>
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem onClick={() => startRepair("everything")}>
+                      <Trans id="git.github.repair.everything">Everything</Trans>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {watch ? (
                   <Button
                     disabled={busy}
@@ -1485,7 +1565,27 @@ export function GitHubPrPanel({
             ) : null}
             {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
               <AlertDialog onOpenChange={setMergeOpen} open={mergeOpen}>
-                <AlertDialogTrigger render={<Button disabled={busy} size="sm" variant="outline" />}>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      aria-label={
+                        blocker
+                          ? i18n._({
+                              ...msg({
+                                id: "git.github.mergeUnavailable",
+                                message: "Merge unavailable: {reason}",
+                              }),
+                              values: { reason: blockerMessage(blocker) },
+                            })
+                          : undefined
+                      }
+                      disabled={busy || blocker !== null || chosenMergeMethod === null}
+                      size="sm"
+                      title={blocker ? blockerMessage(blocker) : undefined}
+                      variant="outline"
+                    />
+                  }
+                >
                   <Trans id="git.github.merge">Merge</Trans>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -1499,6 +1599,27 @@ export function GitHubPrPanel({
                       </Trans>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
+                  {allowedMergeMethods.length > 1 ? (
+                    <RadioGroup
+                      onValueChange={(value) => setMergeMethod(value as "merge" | "squash")}
+                      value={chosenMergeMethod ?? undefined}
+                    >
+                      {allowedMergeMethods.map((method) => (
+                        <label
+                          className="flex items-center gap-2 text-sm"
+                          htmlFor={`${mergeMethodId}-${method}`}
+                          key={method}
+                        >
+                          <RadioGroupItem id={`${mergeMethodId}-${method}`} value={method} />
+                          {method === "squash" ? (
+                            <Trans id="git.github.mergeMethod.squash">Squash and merge</Trans>
+                          ) : (
+                            <Trans id="git.github.mergeMethod.merge">Create merge commit</Trans>
+                          )}
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  ) : null}
                   <AlertDialogFooter>
                     <AlertDialogCancel>
                       <Trans id="git.github.cancel">Cancel</Trans>
@@ -1509,13 +1630,17 @@ export function GitHubPrPanel({
                         const head = selected.data.headRefOid
                         if (!head) return
                         setMergeOpen(false)
+                        const method = chosenMergeMethod
+                        if (!method) return
                         void mutate(async () => {
-                          await (await ensureCypheriaClient()).git.githubPrMerge(
-                            cwd,
-                            selected.data.number,
-                            head,
-                            gitSettings.data?.config.git.pullRequestMergeMethod ?? "merge"
-                          )
+                          const client = await ensureCypheriaClient()
+                          await client.git.githubPrMerge(cwd, selected.data.number, head, method)
+                          if (method !== gitSettings.data?.config.git.pullRequestMergeMethod) {
+                            await client.server.patchConfig({
+                              git: { pullRequestMergeMethod: method },
+                            })
+                            await queryClient.invalidateQueries({ queryKey: ["settings", "git"] })
+                          }
                         })
                       }}
                     >
@@ -1524,6 +1649,11 @@ export function GitHubPrPanel({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            ) : null}
+            {cliAvailable && blocker && blocker !== "closed" ? (
+              <span className="basis-full text-xs text-muted-foreground">
+                {blockerMessage(blocker)}
+              </span>
             ) : null}
             {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
               <Button
