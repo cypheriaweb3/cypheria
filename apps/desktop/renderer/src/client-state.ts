@@ -108,7 +108,6 @@ export type SummaryCheckpoint = {
 export type ThreadFilesCheckpoint = {
   activeRoot: string | null
   expandedByRoot: Record<string, string[]>
-  selectedByRoot: Record<string, string | null>
   treeOpen: boolean
   treeWidth: number
 }
@@ -116,7 +115,6 @@ export type ThreadFilesCheckpoint = {
 const ThreadFilesCheckpointSchema = z.object({
   activeRoot: z.string().nullable(),
   expandedByRoot: z.record(z.string(), z.array(z.string())),
-  selectedByRoot: z.record(z.string(), z.string().nullable()),
   treeOpen: z.boolean(),
   treeWidth: z.number().min(208).max(560),
 })
@@ -129,7 +127,6 @@ export const threadFilesAtom = (threadId: string): ClientStateAtom<ThreadFilesCh
     {
       activeRoot: null,
       expandedByRoot: {},
-      selectedByRoot: {},
       treeOpen: true,
       treeWidth: 352,
     },

@@ -209,9 +209,10 @@ import {
 import { CodexSummary } from "./codex-summary.js"
 import { ComposerModelSelector } from "./composer-model-selector.js"
 import { ContextUsage } from "./context-usage.js"
+import { fileTabId, parseFileTabId, withOpenedTab } from "./file-tabs.js"
 import { GitReviewPanel } from "./git-review-panel.js"
 import { ProjectCreateDialog } from "./project-create-dialog.js"
-import { ThreadFilesPanel } from "./thread-files-panel.js"
+import { type ThreadFileRef, ThreadFilesPanel } from "./thread-files-panel.js"
 import { ThreadGitActions } from "./thread-git-actions.js"
 import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal.js"
 
@@ -1468,6 +1469,26 @@ export function ConversationWorkspace({
   sendReviewCommentsRef.current = (text) =>
     void controller.submit([{ text, type: "text" }], busy ? "queue" : "send")
   const sendReviewComments = useCallback((text: string) => sendReviewCommentsRef.current(text), [])
+  const [fileFocus, setFileFocus] = useState<Record<string, { lineNumber: number; nonce: number }>>(
+    {}
+  )
+  const openFileTab = useCallback(
+    (file: ThreadFileRef, lineNumber?: number) => {
+      const id = fileTabId(file)
+      setOpenRightTabs((current) => withOpenedTab(current, id, rightTab))
+      setRightTab(id)
+      setRightVisibility("visible")
+      if (lineNumber && lineNumber > 0)
+        setFileFocus((current) => ({ ...current, [id]: { lineNumber, nonce: Date.now() } }))
+    },
+    [rightTab, setOpenRightTabs, setRightTab, setRightVisibility]
+  )
+  const openFileTabRef = useRef(openFileTab)
+  openFileTabRef.current = openFileTab
+  const openFileTabStable = useCallback(
+    (file: ThreadFileRef, lineNumber?: number) => openFileTabRef.current(file, lineNumber),
+    []
+  )
   const panelTabs = useMemo<ChatPanelTabDescriptor[]>(() => {
     if (!codex) return []
     const timelineReview = reviewFiles.length ? (
@@ -1586,6 +1607,17 @@ export function ConversationWorkspace({
                 (current) => `${current}${current && !/\s$/u.test(current) ? " " : ""}@${path} `
               )
             }
+            onOpenFile={(absolutePath) => {
+              const threadId = snapshot.thread?.id
+              if (!threadId) return
+              void ensureCypheriaClient()
+                .then((client) => client.threads.paths.resolve({ path: absolutePath, threadId }))
+                .then((resolved) => {
+                  if (resolved.kind === "file")
+                    openFileTabStable({ path: resolved.path, root: resolved.root })
+                })
+                .catch(() => undefined)
+            }}
             onSendComments={sendReviewComments}
             threadId={snapshot.thread?.id ?? null}
           />
@@ -1598,7 +1630,7 @@ export function ConversationWorkspace({
       },
       {
         content: snapshot.thread ? (
-          <ThreadFilesPanel thread={snapshot.thread} />
+          <ThreadFilesPanel file={null} onOpenFile={openFileTabStable} thread={snapshot.thread} />
         ) : (
           <EmptyPanel>
             <Trans id="chat.panel.files.empty">Start the task to browse workspace files</Trans>
@@ -1606,7 +1638,7 @@ export function ConversationWorkspace({
         ),
         icon: <FileIcon />,
         id: "files",
-        title: i18n._(msg({ id: "chat.panel.files", message: "Files" })),
+        title: i18n._(msg({ id: "chat.panel.openFile", message: "Open file" })),
       },
       {
         content: artifacts.some(({ item }) => item.type === "artifact" && item.kind === "image") ? (
@@ -1669,6 +1701,28 @@ export function ConversationWorkspace({
         title: i18n._(msg({ id: "chat.panel.artifacts", message: "Artifacts" })),
       },
     ]
+    for (const id of openRightTabs) {
+      const file = parseFileTabId(id)
+      if (!file) continue
+      tabs.push({
+        content: snapshot.thread ? (
+          <ThreadFilesPanel
+            key={id}
+            file={file}
+            focusLine={fileFocus[id] ?? null}
+            onOpenFile={openFileTabStable}
+            thread={snapshot.thread}
+          />
+        ) : (
+          <EmptyPanel>
+            <Trans id="chat.panel.files.empty">Start the task to browse workspace files</Trans>
+          </EmptyPanel>
+        ),
+        icon: <FileIcon />,
+        id,
+        title: file.path.split("/").at(-1) ?? file.path,
+      })
+    }
     tabs.push({
       content:
         rightVisibility === "visible" && rightTab === "terminal" ? (
@@ -1700,6 +1754,9 @@ export function ConversationWorkspace({
     rightVisibility,
     rightTab,
     setRightVisibility,
+    openRightTabs,
+    fileFocus,
+    openFileTabStable,
   ])
 
   const rightTabs = panelTabs.filter((tab) => openRightTabs.includes(tab.id))
@@ -1711,12 +1768,14 @@ export function ConversationWorkspace({
     })
     setRightTabState((current) => (current && validIds.has(current) ? current : "sources"))
   }, [panelTabs])
-  const launcherItems = panelTabs.map<ChatPanelLauncherItem>((tab) => ({
-    disabled: openRightTabs.includes(tab.id),
-    icon: tab.icon,
-    id: tab.id,
-    label: tab.title,
-  }))
+  const launcherItems = panelTabs
+    .filter((tab) => !parseFileTabId(tab.id))
+    .map<ChatPanelLauncherItem>((tab) => ({
+      disabled: openRightTabs.includes(tab.id),
+      icon: tab.icon,
+      id: tab.id,
+      label: tab.title,
+    }))
   const pending = snapshot.thread?.pendingInteractions[0]
   const busy =
     timelineActionBusy ||
@@ -1987,6 +2046,7 @@ export function ConversationWorkspace({
     clientStateStore.set(reviewPanelRequestAtom, null)
   }, [currentThreadId, openRightTab, reviewPanelRequest])
   const markdownHost = useThreadMarkdownHost({
+    openFile: openFileTabStable,
     openFilesPanel: () => openRightTab("files"),
     openReviewPanel: () => openRightTab("review"),
     openThread: (threadId) => void navigate({ search: { thread: threadId } }),

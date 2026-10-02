@@ -36,11 +36,14 @@ import {
   BreadcrumbSeparator,
 } from "#components/breadcrumb"
 import { Button } from "#components/button"
+import { Input } from "#components/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "#components/input-group"
+import { Popover, PopoverContent, PopoverTrigger } from "#components/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#components/select"
 import { useDocumentThemeMode } from "#hooks/use-document-theme-mode"
 import { cn } from "#lib/utils"
 import {
+  ArrowRightIcon,
   CodeIcon,
   CopyIcon,
   EditIcon,
@@ -100,13 +103,25 @@ export interface ChatFileRoot {
   readonly description?: string
 }
 
+/** Git attribution of one source line, shown in the gutter while blame is on. */
+export interface ChatFileBlameLine {
+  /** Short gutter text, such as the author and date. */
+  readonly label: string
+  /** Full details shown on hover: author, commit, date, and summary. */
+  readonly details: string
+}
+
 export interface ChatFilesPanelLabels extends ChatFilePreviewLabels {
   readonly cancel: string
   readonly copyPath: string
   readonly delete: string
   readonly edit: string
-  readonly empty: string
+  readonly browserDescription: string
+  readonly browserHeading: string
   readonly filter: string
+  readonly goToLine: string
+  readonly goToLineInvalid: string
+  readonly goToLineRange: (lineCount: number) => string
   readonly loading: string
   readonly newFile: string
   readonly newFolder: string
@@ -126,8 +141,12 @@ const defaultLabels: ChatFilesPanelLabels = {
   copyPath: "Copy path",
   delete: "Delete",
   edit: "Edit file",
-  empty: "Select a file to preview it.",
+  browserDescription: "Select a file from the workspace tree",
+  browserHeading: "Open file",
   filter: "Filter files…",
+  goToLine: "Go to line",
+  goToLineInvalid: "Enter a valid whole line number",
+  goToLineRange: (lineCount) => `1–${lineCount}`,
   loading: "Loading file…",
   newFile: "New file",
   newFolder: "New folder",
@@ -152,10 +171,13 @@ type ChatFilesPanelProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   /** Root-relative paths. Directories end with `/`; parents may be implicit. */
   paths: readonly string[]
   gitStatus?: readonly ChatFileGitStatusEntry[]
+  /** Path highlighted in the tree, under `activeRootId`. */
   selectedPath?: string | null
   onSelectedPathChange?: (path: string) => void
-  /** Contents of `selectedPath`, loaded by the application. */
+  /** The file shown beside the tree, loaded by the application; it may be under another root. */
   file?: ChatFileContents | null
+  /** Root of `file` when it differs from `activeRootId`, for the breadcrumb. */
+  fileRootId?: string
   fileLoading?: boolean
   /** Enables create, rename, drag-and-drop move, and delete. Receives the resulting path list. */
   onPathsChange?: (paths: string[], mutations: readonly ChatFileTreeMutation[]) => void
@@ -174,6 +196,10 @@ type ChatFilesPanelProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   onTreeOpenChange?: (open: boolean) => void
   /** Trailing header content, such as an open-in-application menu. */
   headerActions?: ReactNode
+  /** Git blame of the open file by line number; when set, the source gutter shows it. */
+  blame?: ReadonlyMap<number, ChatFileBlameLine> | null
+  /** Scrolls the source view to a line and selects it; a new `nonce` repeats the request. */
+  focusLine?: { readonly lineNumber: number; readonly nonce?: number | string } | null
   labels?: Partial<ChatFilesPanelLabels>
   treeWidth?: number | string
   onTreeWidthChange?: (width: number) => void
@@ -253,7 +279,10 @@ export function ChatFilesPanel({
   defaultTreeOpen = true,
   file,
   fileLoading = false,
+  fileRootId,
   gitStatus,
+  blame,
+  focusLine,
   headerActions,
   labels,
   onActiveRootChange,
@@ -283,7 +312,7 @@ export function ChatFilesPanel({
   const [liveTreeWidth, setLiveTreeWidth] = useState(treeWidth)
   const [editingPath, setEditingPath] = useState<string | null>(null)
   const discardEdit = useRef(false)
-  const openFile = file && file.path === selectedPath ? file : null
+  const openFile = file ?? null
   const editing = openFile !== null && editingPath === openFile.path
   const activeRoot = roots.find((root) => root.id === activeRootId)
   const previewKind = openFile ? chatFilePreviewKind(openFile.path) : null
@@ -299,6 +328,12 @@ export function ChatFilesPanel({
           : "preview"
 
   useEffect(() => setLiveTreeWidth(treeWidth), [treeWidth])
+  const [goTo, setGoTo] = useState<{ lineNumber: number; nonce: number | string } | null>(null)
+  useEffect(() => {
+    if (focusLine)
+      setGoTo({ lineNumber: focusLine.lineNumber, nonce: focusLine.nonce ?? Date.now() })
+  }, [focusLine])
+  const lineCount = openFile?.contents === undefined ? 0 : openFile.contents.split("\n").length
 
   const setTreeOpen = (open: boolean) => {
     if (treeOpenProp === undefined) setUncontrolledTreeOpen(open)
@@ -327,7 +362,10 @@ export function ChatFilesPanel({
         data-slot="chat-files-header"
         className="flex min-h-11 shrink-0 items-center gap-1 border-b pr-2 pl-3"
       >
-        <ChatFilesBreadcrumb path={openFile?.path ?? selectedPath} root={activeRoot?.label} />
+        <ChatFilesBreadcrumb
+          path={openFile?.path ?? null}
+          root={(roots.find((root) => root.id === fileRootId) ?? activeRoot)?.label}
+        />
         {openFile && previewKind && hasSource && !editing && (
           <Button
             aria-label={viewMode === "preview" ? text.showSource : text.showPreview}
@@ -344,6 +382,13 @@ export function ChatFilesPanel({
           >
             {viewMode === "preview" ? <CodeIcon /> : <EyeIcon />}
           </Button>
+        )}
+        {openFile && hasSource && viewMode === "source" && !editing && lineCount > 0 && (
+          <ChatGoToLine
+            labels={text}
+            lineCount={lineCount}
+            onGoTo={(lineNumber) => setGoTo({ lineNumber, nonce: Date.now() })}
+          />
         )}
         {openFile &&
           hasSource &&
@@ -389,7 +434,9 @@ export function ChatFilesPanel({
         <ChatFileViewer
           editing={editing}
           file={openFile}
+          goTo={viewMode === "source" ? goTo : null}
           labels={text}
+          blame={blame ?? null}
           loading={fileLoading}
           onEditComplete={handleEditComplete}
           previewKind={previewKind}
@@ -856,7 +903,9 @@ function ChatFilesMenuItem({ children, destructive, icon, onClick }: ChatFilesMe
 type ChatFileViewerProps = {
   editing: boolean
   file: ChatFileContents | null
+  goTo: { lineNumber: number; nonce: number | string } | null
   labels: ChatFilesPanelLabels
+  blame: ReadonlyMap<number, ChatFileBlameLine> | null
   loading: boolean
   onEditComplete: (event: FileEditCompleteEvent<undefined, undefined>) => "accept" | "reject"
   previewKind: ChatFilePreviewKind | null
@@ -864,9 +913,82 @@ type ChatFileViewerProps = {
   viewMode: ChatFileViewMode
 }
 
+/** The rendered element of a source line, when the virtualized view has drawn it. */
+const sourceLineElement = (root: HTMLElement | null, lineNumber: number) =>
+  root
+    ?.querySelector("diffs-container")
+    ?.shadowRoot?.querySelector<HTMLElement>(`[data-line="${lineNumber}"]`) ?? null
+
+function ChatGoToLine({
+  labels,
+  lineCount,
+  onGoTo,
+}: {
+  labels: ChatFilesPanelLabels
+  lineCount: number
+  onGoTo: (lineNumber: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState("")
+  const [invalid, setInvalid] = useState(false)
+  const submit = () => {
+    const lineNumber = Number(value.trim())
+    if (!Number.isInteger(lineNumber) || lineNumber < 1 || lineNumber > lineCount) {
+      setInvalid(true)
+      return
+    }
+    onGoTo(lineNumber)
+    setOpen(false)
+    setValue("")
+    setInvalid(false)
+  }
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
+        render={
+          <Button
+            aria-label={labels.goToLine}
+            size="icon-sm"
+            title={labels.goToLine}
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <ArrowRightIcon />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-60">
+        <form
+          className="flex flex-col gap-1.5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submit()
+          }}
+        >
+          <Input
+            aria-invalid={invalid || undefined}
+            aria-label={labels.goToLine}
+            autoFocus
+            inputMode="numeric"
+            onChange={(event) => {
+              setValue(event.target.value)
+              setInvalid(false)
+            }}
+            placeholder={labels.goToLineRange(lineCount)}
+            value={value}
+          />
+          {invalid ? <p className="text-xs text-destructive">{labels.goToLineInvalid}</p> : null}
+        </form>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function ChatFileViewer({
+  blame,
   editing,
   file,
+  goTo,
   labels,
   loading,
   onEditComplete,
@@ -874,10 +996,61 @@ function ChatFileViewer({
   themeMode,
   viewMode,
 }: ChatFileViewerProps) {
+  const sourceRef = useRef<HTMLDivElement>(null)
+  const [selectedLine, setSelectedLine] = useState<{ end: number; start: number } | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new file starts without a selection
+  useEffect(() => setSelectedLine(null), [file?.path])
+  const blameRef = useRef(blame)
+  blameRef.current = blame
   const options = useMemo<FileOptions<undefined, undefined>>(
-    () => ({ disableFileHeader: true, overflow: "wrap", themeType: themeMode }),
+    () => ({
+      disableFileHeader: true,
+      enableLineSelection: true,
+      onLineSelected: (range) =>
+        setSelectedLine(
+          range
+            ? { end: Math.max(range.start, range.end), start: Math.min(range.start, range.end) }
+            : null
+        ),
+      onPostRender: (node) => decorateBlameGutter(node, blameRef.current),
+      overflow: "wrap",
+      themeType: themeMode,
+      unsafeCSS: blameGutterCSS,
+    }),
     [themeMode]
   )
+  // A new blame map decorates the rows already on screen; later rows decorate as they render.
+  useEffect(() => {
+    const container = sourceRef.current?.querySelector<HTMLElement>("diffs-container")
+    if (container) decorateBlameGutter(container, blame)
+  }, [blame])
+  const goToKey = goTo ? `${goTo.lineNumber}:${goTo.nonce}` : null
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scrolling is driven by the request key
+  useEffect(() => {
+    if (!goTo) return
+    const lineNumber = goTo.lineNumber
+    setSelectedLine({ end: lineNumber, start: lineNumber })
+    let frame = 0
+    const attempt = (tries: number) => {
+      const root = sourceRef.current
+      const line = sourceLineElement(root, lineNumber)
+      if (line) {
+        line.scrollIntoView({ block: "center" })
+        return
+      }
+      const scroller = root?.firstElementChild
+      const sample = root
+        ?.querySelector("diffs-container")
+        ?.shadowRoot?.querySelector<HTMLElement>("[data-line]")
+      if (scroller instanceof HTMLElement) {
+        const height = sample?.getBoundingClientRect().height || 20
+        scroller.scrollTop = Math.max(0, (lineNumber - 1) * height - scroller.clientHeight / 2)
+      }
+      if (tries < 10) frame = requestAnimationFrame(() => attempt(tries + 1))
+    }
+    frame = requestAnimationFrame(() => attempt(0))
+    return () => cancelAnimationFrame(frame)
+  }, [goToKey])
   const fileContents = useMemo(
     () => (file?.contents === undefined ? null : { contents: file.contents, name: file.path }),
     [file]
@@ -904,25 +1077,83 @@ function ChatFileViewer({
         />
       ) : fileContents ? (
         <EditProvider createEditor={createEditor}>
-          <Virtualizer className="min-h-0 flex-1 overflow-auto bg-background py-1">
-            <File
-              key={fileContents.name}
-              edit={editing}
-              editorOptions={editorOptions}
-              file={fileContents}
-              onEditComplete={onEditComplete}
-              options={options}
-              style={chatCodeThemeStyle}
-            />
-          </Virtualizer>
+          <div className="flex min-h-0 flex-1 flex-col" ref={sourceRef}>
+            <Virtualizer className="min-h-0 flex-1 overflow-auto bg-background py-1">
+              <File
+                key={fileContents.name}
+                edit={editing}
+                editorOptions={editorOptions}
+                file={fileContents}
+                onEditComplete={onEditComplete}
+                options={options}
+                selectedLines={selectedLine}
+                style={chatCodeThemeStyle}
+              />
+            </Virtualizer>
+          </div>
         </EditProvider>
-      ) : (
+      ) : loading ? (
         <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
-          {loading ? labels.loading : file ? labels.previewUnavailable : labels.empty}
+          {labels.loading}
+        </div>
+      ) : file ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+          {labels.previewUnavailable}
+        </div>
+      ) : (
+        <div
+          data-slot="chat-file-browser-empty"
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 p-6 text-center"
+        >
+          <p className="font-medium text-sm">{labels.browserHeading}</p>
+          <p className="text-sm text-muted-foreground">{labels.browserDescription}</p>
         </div>
       )}
     </div>
   )
+}
+
+/** Gutter column that holds each line's blame label while blame is shown. */
+const blameGutterCSS = `
+[data-column-number][data-blame] { display: flex; align-items: baseline; gap: 1ch; }
+[data-column-number][data-blame]::before {
+  content: attr(data-blame);
+  flex: 0 0 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  opacity: 0.7;
+}
+[data-column-number][data-blame-start]::before { opacity: 1; }
+[data-column-number][data-blame=""]::before { content: ""; }
+`
+
+/**
+ * Writes each rendered line's blame into its gutter cell: the label on the first line of a run of
+ * lines from one commit, and the full details as the hover text of every line in the run.
+ */
+export const decorateBlameGutter = (
+  node: HTMLElement,
+  blame: ReadonlyMap<number, ChatFileBlameLine> | null
+): void => {
+  const root = node.shadowRoot ?? node
+  for (const cell of root.querySelectorAll<HTMLElement>("[data-column-number]")) {
+    const lineNumber = Number(cell.dataset.columnNumber)
+    const line = blame?.get(lineNumber)
+    if (!line) {
+      delete cell.dataset.blame
+      delete cell.dataset.blameStart
+      cell.removeAttribute("title")
+      continue
+    }
+    const previous = blame?.get(lineNumber - 1)
+    const start = previous?.details !== line.details
+    cell.dataset.blame = start ? line.label : ""
+    if (start) cell.dataset.blameStart = ""
+    else delete cell.dataset.blameStart
+    cell.title = line.details
+  }
 }
 
 export type { ChatFilesPanelProps }
