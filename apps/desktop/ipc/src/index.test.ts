@@ -20,6 +20,7 @@ describe("desktop IPC contracts", () => {
   it("only exposes Electron-owned routes", () => {
     expect(Object.keys(ipcContracts).sort()).toEqual([
       "appConfigOpen",
+      "appDeepLinkTake",
       "appDirectoryPick",
       "appExternalOpen",
       "appGitFileAction",

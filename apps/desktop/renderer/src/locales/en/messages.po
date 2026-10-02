@@ -2963,3 +2963,13 @@ msgstr "Cannot be shown"
 #: renderer/src/chat-markdown-host.tsx
 msgid "chat.markdown.openFile"
 msgstr "Open in Files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.focusUnsupported"
+msgstr "This link does not point to a GitHub pull request."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.focusOtherRepository"
+msgstr "This pull request belongs to another repository than this working directory."

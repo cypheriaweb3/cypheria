@@ -11,6 +11,12 @@ import {
   AlertDialogTrigger,
 } from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
+import {
+  type ChatDiffAnnotation,
+  type ChatDiffFocus,
+  type ChatDiffTarget,
+  ChatDiffViewer,
+} from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
 import { Input } from "@cypheria/ui/components/input"
 import { NativeSelect, NativeSelectOption } from "@cypheria/ui/components/native-select"
@@ -20,9 +26,17 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { useAtomValue } from "jotai"
 import { useEffect, useState } from "react"
 
+import { clientStateStore } from "../client-state.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import {
+  pullRequestNumber,
+  type ReviewFocusRequest,
+  reviewFocusAtom,
+  samePullRequest,
+} from "../deep-links.js"
 import { useThreadAttachments } from "../thread-attachments.js"
 import { type GitHubPrOperation, githubPrProvider } from "./github-pr-provider.js"
 import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
@@ -88,10 +102,12 @@ export function GitHubPrPanel({
   const [reviewerSearchQuery, setReviewerSearchQuery] = useState("")
   const [replyThreadId, setReplyThreadId] = useState<string | null>(null)
   const [replyBody, setReplyBody] = useState("")
-  const [inlinePath, setInlinePath] = useState("")
-  const [inlineLine, setInlineLine] = useState("")
-  const [inlineSide, setInlineSide] = useState<"LEFT" | "RIGHT">("RIGHT")
+  const [draftComment, setDraftComment] = useState<ChatDiffTarget | null>(null)
   const [inlineBody, setInlineBody] = useState("")
+  const reviewFocus = useAtomValue(reviewFocusAtom)
+  const [pendingFocus, setPendingFocus] = useState<ReviewFocusRequest | null>(null)
+  const [diffFocus, setDiffFocus] = useState<ChatDiffFocus | null>(null)
+  const [focusNotice, setFocusNotice] = useState<string | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [selectedRevision, setSelectedRevision] = useState<string | null>(null)
   const [showStack, setShowStack] = useState(false)
@@ -120,8 +136,7 @@ export function GitHubPrPanel({
     setReviewerSearchQuery("")
     setReplyThreadId(null)
     setReplyBody("")
-    setInlinePath("")
-    setInlineLine("")
+    setDraftComment(null)
     setInlineBody("")
     setShowDiff(false)
     setSelectedRevision(null)
@@ -552,6 +567,237 @@ export function GitHubPrPanel({
     },
     retry: false,
   })
+  type PrThread = NonNullable<typeof threads.data>["threads"][number]
+  const renderCliThread = (thread: PrThread, pr: NonNullable<typeof selected.data>) => (
+    <div className="space-y-2 rounded border p-2 text-xs" key={thread.id}>
+      <p className="font-mono text-muted-foreground">
+        {thread.path}
+        {thread.line ? `:${thread.line}` : ""} ·{" "}
+        {thread.isResolved
+          ? i18n._(msg({ id: "git.github.resolved", message: "Resolved" }))
+          : i18n._(msg({ id: "git.github.unresolved", message: "Unresolved" }))}
+      </p>
+      {thread.comments.map((comment) => (
+        <div className="border-l pl-2" key={comment.id}>
+          <span className="font-medium">{comment.author ?? "GitHub"}</span>
+          <p className="whitespace-pre-wrap">{comment.body}</p>
+          {commentActions(comment.id, "review_comment", comment.body, comment.author)}
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-1">
+        <Button
+          disabled={busy || pr.state !== "OPEN"}
+          onClick={() => {
+            setReplyThreadId(thread.id)
+            setReplyBody("")
+          }}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Trans id="git.github.reply">Reply</Trans>
+        </Button>
+        {(thread.isResolved ? thread.canUnresolve : thread.canResolve) ? (
+          <Button
+            disabled={busy || pr.state !== "OPEN"}
+            onClick={() =>
+              void mutate(async () => {
+                const head = pr.headRefOid
+                if (!head) throw new Error("A pull request head is required")
+                await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
+                  number: pr.number,
+                  expectedHead: head,
+                  action: thread.isResolved ? "unresolve" : "resolve",
+                  threadId: thread.id,
+                })
+              })
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {thread.isResolved ? (
+              <Trans id="git.github.reopenThread">Reopen thread</Trans>
+            ) : (
+              <Trans id="git.github.resolveThread">Resolve thread</Trans>
+            )}
+          </Button>
+        ) : null}
+      </div>
+      {replyThreadId === thread.id ? (
+        <div className="space-y-1">
+          <Textarea
+            aria-label={i18n._(msg({ id: "git.github.replyBody", message: "Review thread reply" }))}
+            onChange={(event) => setReplyBody(event.target.value)}
+            rows={2}
+            value={replyBody}
+          />
+          <Button
+            disabled={busy || !replyBody.trim()}
+            onClick={() =>
+              void mutate(async () => {
+                const head = pr.headRefOid
+                if (!head) throw new Error("A pull request head is required")
+                await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
+                  number: pr.number,
+                  expectedHead: head,
+                  action: "reply",
+                  threadId: thread.id,
+                  body: replyBody,
+                })
+                setReplyThreadId(null)
+                setReplyBody("")
+              })
+            }
+            size="sm"
+            type="button"
+          >
+            <Trans id="git.github.postReply">Post reply</Trans>
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+  const canCommentInline =
+    cliAvailable && selected.data?.state === "OPEN" && Boolean(selected.data.headRefOid)
+  const postInlineComment = (target: ChatDiffTarget) =>
+    void mutate(async () => {
+      const pr = selected.data
+      const head = pr?.headRefOid
+      if (!pr || !head) throw new Error("A pull request head is required")
+      await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
+        number: pr.number,
+        expectedHead: head,
+        action: "inline",
+        path: target.path,
+        line: target.lineNumber,
+        side: target.side === "deletions" ? "LEFT" : "RIGHT",
+        body: inlineBody,
+      })
+      setInlineBody("")
+      setDraftComment(null)
+    })
+  const diffAnnotations: ChatDiffAnnotation[] = [
+    ...(threads.data?.threads ?? []).flatMap((thread) =>
+      thread.line && selected.data
+        ? [
+            {
+              content: canCommentInline ? (
+                renderCliThread(thread, selected.data)
+              ) : (
+                <div className="space-y-1 border-y p-2 text-xs">
+                  {thread.comments.map((comment) => (
+                    <div className="border-l pl-2" key={comment.id}>
+                      <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                      <p className="whitespace-pre-wrap">{comment.body}</p>
+                    </div>
+                  ))}
+                </div>
+              ),
+              key: `thread:${thread.id}`,
+              lineNumber: thread.line,
+              path: thread.path,
+              side: "additions" as const,
+            },
+          ]
+        : []
+    ),
+    ...(draftComment && canCommentInline
+      ? [
+          {
+            content: (
+              <div className="space-y-1 border-y bg-background p-2">
+                <Textarea
+                  aria-label={i18n._(
+                    msg({ id: "git.github.inlineBody", message: "Inline comment" })
+                  )}
+                  autoFocus
+                  onChange={(event) => setInlineBody(event.target.value)}
+                  rows={3}
+                  value={inlineBody}
+                />
+                <div className="flex gap-1">
+                  <Button
+                    disabled={busy || !inlineBody.trim()}
+                    onClick={() => postInlineComment(draftComment)}
+                    size="sm"
+                    type="button"
+                  >
+                    <Trans id="git.github.postInline">Post inline comment</Trans>
+                  </Button>
+                  <Button
+                    onClick={() => setDraftComment(null)}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trans id="git.github.cancelCommentEdit">Cancel</Trans>
+                  </Button>
+                </div>
+              </div>
+            ),
+            key: "draft",
+            lineNumber: draftComment.lineNumber,
+            path: draftComment.path,
+            side: draftComment.side,
+          },
+        ]
+      : []),
+  ]
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectPullRequest only sets state; the effect runs once per request
+  useEffect(() => {
+    if (!reviewFocus || (reviewFocus.threadId && reviewFocus.threadId !== threadId)) return
+    clientStateStore.set(reviewFocusAtom, null)
+    const number = (() => {
+      try {
+        return pullRequestNumber(reviewFocus.pullRequest)
+      } catch {
+        return null
+      }
+    })()
+    if (number === null) {
+      setFocusNotice(
+        i18n._(
+          msg({
+            id: "git.github.focusUnsupported",
+            message: "This link does not point to a GitHub pull request.",
+          })
+        )
+      )
+      return
+    }
+    setFocusNotice(null)
+    selectPullRequest(number)
+    setShowDiff(true)
+    setPendingFocus(reviewFocus)
+  }, [reviewFocus, threadId, i18n])
+  useEffect(() => {
+    if (!pendingFocus || !selected.data) return
+    if (!samePullRequest(selected.data.url, pendingFocus.pullRequest)) {
+      if (selected.data.number === pullRequestNumber(pendingFocus.pullRequest)) {
+        setFocusNotice(
+          i18n._(
+            msg({
+              id: "git.github.focusOtherRepository",
+              message:
+                "This pull request belongs to another repository than this working directory.",
+            })
+          )
+        )
+        setPendingFocus(null)
+      }
+      return
+    }
+    if (pendingFocus.path && pendingFocus.line) {
+      setDiffFocus({
+        lineNumber: pendingFocus.line,
+        nonce: pendingFocus.nonce,
+        path: pendingFocus.path,
+        side: pendingFocus.side,
+      })
+    }
+    setPendingFocus(null)
+  }, [pendingFocus, selected.data, i18n])
   const watch =
     selected.data && threadId && schedules.data
       ? findGithubPrWatch(schedules.data, threadId, selected.data)
@@ -1046,12 +1292,28 @@ export function GitHubPrPanel({
               </Button>
               {showDiff ? (
                 <div className="space-y-2">
-                  <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
-                    {prDiff.isError
-                      ? prDiff.error.message
-                      : (prDiff.data ??
-                        i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
-                  </pre>
+                  <ChatDiffViewer
+                    annotations={diffAnnotations}
+                    className="max-h-[40rem] rounded border"
+                    fallback={
+                      <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
+                        {prDiff.isError
+                          ? prDiff.error.message
+                          : prDiff.data ||
+                            i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" }))}
+                      </pre>
+                    }
+                    focus={diffFocus}
+                    {...(canCommentInline
+                      ? {
+                          onRequestComment: (target: ChatDiffTarget) => {
+                            setInlineBody("")
+                            setDraftComment(target)
+                          },
+                        }
+                      : {})}
+                    patch={prDiff.data ?? ""}
+                  />
                   {cliAvailable ? (
                     <div className="flex gap-1">
                       <Input
@@ -1307,98 +1569,7 @@ export function GitHubPrPanel({
               <p className="text-xs font-medium">
                 <Trans id="git.github.reviewThreads">Review threads</Trans>
               </p>
-              {threads.data?.threads.map((thread) => (
-                <div className="space-y-2 rounded border p-2 text-xs" key={thread.id}>
-                  <p className="font-mono text-muted-foreground">
-                    {thread.path}
-                    {thread.line ? `:${thread.line}` : ""} ·{" "}
-                    {thread.isResolved
-                      ? i18n._(msg({ id: "git.github.resolved", message: "Resolved" }))
-                      : i18n._(msg({ id: "git.github.unresolved", message: "Unresolved" }))}
-                  </p>
-                  {thread.comments.map((comment) => (
-                    <div className="border-l pl-2" key={comment.id}>
-                      <span className="font-medium">{comment.author ?? "GitHub"}</span>
-                      <p className="whitespace-pre-wrap">{comment.body}</p>
-                      {commentActions(comment.id, "review_comment", comment.body, comment.author)}
-                    </div>
-                  ))}
-                  <div className="flex flex-wrap gap-1">
-                    <Button
-                      disabled={busy || selected.data.state !== "OPEN"}
-                      onClick={() => {
-                        setReplyThreadId(thread.id)
-                        setReplyBody("")
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <Trans id="git.github.reply">Reply</Trans>
-                    </Button>
-                    {(thread.isResolved ? thread.canUnresolve : thread.canResolve) ? (
-                      <Button
-                        disabled={busy || selected.data.state !== "OPEN"}
-                        onClick={() =>
-                          void mutate(async () => {
-                            const head = selected.data.headRefOid
-                            if (!head) throw new Error("A pull request head is required")
-                            await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
-                              number: selected.data.number,
-                              expectedHead: head,
-                              action: thread.isResolved ? "unresolve" : "resolve",
-                              threadId: thread.id,
-                            })
-                          })
-                        }
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        {thread.isResolved ? (
-                          <Trans id="git.github.reopenThread">Reopen thread</Trans>
-                        ) : (
-                          <Trans id="git.github.resolveThread">Resolve thread</Trans>
-                        )}
-                      </Button>
-                    ) : null}
-                  </div>
-                  {replyThreadId === thread.id ? (
-                    <div className="space-y-1">
-                      <Textarea
-                        aria-label={i18n._(
-                          msg({ id: "git.github.replyBody", message: "Review thread reply" })
-                        )}
-                        onChange={(event) => setReplyBody(event.target.value)}
-                        rows={2}
-                        value={replyBody}
-                      />
-                      <Button
-                        disabled={busy || !replyBody.trim()}
-                        onClick={() =>
-                          void mutate(async () => {
-                            const head = selected.data.headRefOid
-                            if (!head) throw new Error("A pull request head is required")
-                            await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
-                              number: selected.data.number,
-                              expectedHead: head,
-                              action: "reply",
-                              threadId: thread.id,
-                              body: replyBody,
-                            })
-                            setReplyThreadId(null)
-                            setReplyBody("")
-                          })
-                        }
-                        size="sm"
-                        type="button"
-                      >
-                        <Trans id="git.github.postReply">Post reply</Trans>
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
+              {threads.data?.threads.map((thread) => renderCliThread(thread, selected.data))}
               {threads.data?.truncated ? (
                 <p className="text-xs text-muted-foreground">
                   <Trans id="git.github.threadsTruncated">
@@ -1410,89 +1581,6 @@ export function GitHubPrPanel({
                 <Alert variant="destructive">
                   <AlertDescription>{threads.error.message}</AlertDescription>
                 </Alert>
-              ) : null}
-              {selected.data.state === "OPEN" ? (
-                <div className="space-y-2 rounded border p-2">
-                  <p className="text-xs font-medium">
-                    <Trans id="git.github.inlineComment">Comment on a changed line</Trans>
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      aria-label={i18n._(
-                        msg({ id: "git.github.inlinePath", message: "Changed file path" })
-                      )}
-                      onChange={(event) => setInlinePath(event.target.value)}
-                      placeholder={i18n._(
-                        msg({ id: "git.github.inlinePath", message: "Changed file path" })
-                      )}
-                      value={inlinePath}
-                    />
-                    <Input
-                      aria-label={i18n._(
-                        msg({ id: "git.github.inlineLine", message: "Diff line number" })
-                      )}
-                      min={1}
-                      onChange={(event) => setInlineLine(event.target.value)}
-                      placeholder={i18n._(
-                        msg({ id: "git.github.inlineLine", message: "Diff line number" })
-                      )}
-                      type="number"
-                      value={inlineLine}
-                    />
-                    <NativeSelect
-                      aria-label={i18n._(
-                        msg({ id: "git.github.inlineSide", message: "Diff side" })
-                      )}
-                      onChange={(event) => setInlineSide(event.target.value as "LEFT" | "RIGHT")}
-                      size="sm"
-                      value={inlineSide}
-                    >
-                      <NativeSelectOption value="RIGHT">
-                        <Trans id="git.github.newSide">New</Trans>
-                      </NativeSelectOption>
-                      <NativeSelectOption value="LEFT">
-                        <Trans id="git.github.oldSide">Old</Trans>
-                      </NativeSelectOption>
-                    </NativeSelect>
-                  </div>
-                  <Textarea
-                    aria-label={i18n._(
-                      msg({ id: "git.github.inlineBody", message: "Inline comment" })
-                    )}
-                    onChange={(event) => setInlineBody(event.target.value)}
-                    rows={2}
-                    value={inlineBody}
-                  />
-                  <Button
-                    disabled={
-                      busy ||
-                      !inlinePath.trim() ||
-                      !Number.isInteger(Number(inlineLine)) ||
-                      Number(inlineLine) < 1 ||
-                      !inlineBody.trim()
-                    }
-                    onClick={() =>
-                      void mutate(async () => {
-                        const head = selected.data.headRefOid
-                        if (!head) throw new Error("A pull request head is required")
-                        await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
-                          number: selected.data.number,
-                          expectedHead: head,
-                          action: "inline",
-                          path: inlinePath.trim(),
-                          line: Number(inlineLine),
-                          side: inlineSide,
-                          body: inlineBody,
-                        })
-                        setInlineBody("")
-                      })
-                    }
-                    size="sm"
-                    type="button"
-                  >
-                    <Trans id="git.github.postInline">Post inline comment</Trans>
-                  </Button>
-                </div>
               ) : null}
             </div>
           ) : null}
@@ -2181,6 +2269,11 @@ export function GitHubPrPanel({
             </Button>
           </div>
         </div>
+      ) : null}
+      {focusNotice ? (
+        <Alert>
+          <AlertDescription>{focusNotice}</AlertDescription>
+        </Alert>
       ) : null}
       {error ? (
         <Alert variant="destructive">

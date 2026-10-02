@@ -112,7 +112,7 @@ describe("buildCodexDeveloperInstructions", () => {
     expect(text).toContain("always use full absolute file paths")
     expect(text).toContain("### Inline Code Comments")
     expect(text).toContain("### Inline Artifact Follow-Ups")
-    expect(text).not.toContain("### Pull request diff links")
+    expect(text).toContain("### Pull request diff links")
     expect(text).not.toContain("### Thread Coordination")
     expect(text).not.toContain("::created-thread")
   })

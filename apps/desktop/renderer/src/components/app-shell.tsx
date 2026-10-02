@@ -96,6 +96,13 @@ import {
   garbageCollectComposerDrafts,
 } from "../composer-draft-storage.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import {
+  nextRequestNonce,
+  type ReviewFocusRequest,
+  reviewFocusAtom,
+  reviewPanelRequestAtom,
+  useDeepLinkListener,
+} from "../deep-links.js"
 import { activateLanguage, i18n, resolveRendererLocale } from "../i18n.js"
 import { desktopClientStorage } from "../storage.js"
 import { web3Api } from "../web3-api.js"
@@ -307,11 +314,31 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }, [])
   const { i18n: activeI18n } = useLingui()
   const location = useLocation()
+  const appNavigate = useNavigate()
   const { pathname } = location
   const activeThreadId =
     pathname === "/" && typeof location.search.thread === "string"
       ? location.search.thread
       : undefined
+  const deepLinkThreadRef = useRef(activeThreadId)
+  deepLinkThreadRef.current = activeThreadId
+  const deepLinkActions = useMemo(
+    () => ({
+      openReview: (request: ReviewFocusRequest) => {
+        const threadId = request.threadId ?? deepLinkThreadRef.current ?? null
+        clientStateStore.set(reviewFocusAtom, { ...request, threadId })
+        clientStateStore.set(reviewPanelRequestAtom, { nonce: request.nonce, threadId })
+      },
+      openThread: (threadId: string, view: "review" | null) => {
+        void appNavigate({ search: { thread: threadId }, to: "/" })
+        if (view === "review") {
+          clientStateStore.set(reviewPanelRequestAtom, { nonce: nextRequestNonce(), threadId })
+        }
+      },
+    }),
+    [appNavigate]
+  )
+  useDeepLinkListener(deepLinkActions)
   const isSettings = pathname.startsWith("/settings")
   const approvalsQuery = useQuery({
     queryFn: () => web3Api.approval.list("pending") ?? [],

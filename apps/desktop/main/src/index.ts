@@ -29,6 +29,7 @@ import {
   type AppHealthStatus,
   type AppMetadata,
   appConfigOpenContract,
+  appDeepLinkTakeContract,
   appDirectoryPickContract,
   appExternalOpenContract,
   appGitFileActionContract,
@@ -55,6 +56,7 @@ import {
   CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
+  parseCypheriaDeepLink,
   settingsAppearanceFontsListContract,
   settingsNotificationSoundPreviewContract,
   settingsNotificationSoundsListContract,
@@ -588,6 +590,10 @@ const registerIpcHandlers = (
     }
   })
   registerIpcRoute(appMetadataReadContract, () => appMetadata)
+  registerIpcRoute(appDeepLinkTakeContract, () => {
+    rendererReceivesDeepLinks = true
+    return { links: pendingDeepLinks.splice(0) }
+  })
   registerIpcRoute(appExternalOpenContract, async ({ url }) => {
     await shell.openExternal(url)
     return { opened: true }
@@ -963,6 +969,10 @@ const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> 
     window.hide()
   })
 
+  window.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
+    if (isMainFrame) rendererReceivesDeepLinks = false
+  })
+
   const hostWebContentsId = window.webContents.id
   window.on("closed", () => {
     unregisterBrowserHost(hostWebContentsId)
@@ -988,10 +998,45 @@ const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> 
   return window
 }
 
+/** Deep links wait here until the renderer has asked for them and can receive more. */
+const pendingDeepLinks: string[] = []
+let rendererReceivesDeepLinks = false
+
+const receiveDeepLink = (raw: string): void => {
+  if (!parseCypheriaDeepLink(raw)) return
+  const window = mainWindow
+  if (window && !window.isDestroyed()) {
+    if (window.isMinimized()) window.restore()
+    if (!window.isVisible()) window.show()
+    window.focus()
+    if (rendererReceivesDeepLinks && !window.webContents.isLoading()) {
+      window.webContents.send(CYPHERIA_IPC_CHANNELS.appDeepLink, raw)
+      return
+    }
+  }
+  pendingDeepLinks.push(raw)
+}
+
+const deepLinkArguments = (argv: readonly string[]): string[] =>
+  argv.filter((argument) => argument.startsWith("cypheria://"))
+
 const registerLifecycleHandlers = (): void => {
   nativeTheme.on("updated", refreshNativeWindowChrome)
 
-  app.on("second-instance", () => {
+  // Outside a packaged app the protocol client must name the script Electron runs.
+  if (process.defaultApp && process.argv[1]) {
+    app.setAsDefaultProtocolClient("cypheria", process.execPath, [resolve(process.argv[1])])
+  } else {
+    app.setAsDefaultProtocolClient("cypheria")
+  }
+  app.on("open-url", (event, url) => {
+    event.preventDefault()
+    receiveDeepLink(url)
+  })
+  for (const link of deepLinkArguments(process.argv)) receiveDeepLink(link)
+
+  app.on("second-instance", (_event, argv) => {
+    for (const link of deepLinkArguments(argv)) receiveDeepLink(link)
     if (!mainWindow) {
       return
     }

@@ -11,6 +11,7 @@ import {
 } from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
 import {
+  ChatDiffViewer,
   ChatReviewDiffHost,
   type ChatReviewFileDescriptor,
   ChatReviewFileList,
@@ -819,16 +820,22 @@ export function GitReviewPanel({
               </>
             ) : null}
           </div>
-          <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
-            {diff.isError
-              ? diff.error.message
-              : diff.data?.diff ||
-                (diff.isPending
-                  ? i18n._(msg({ id: "git.review.diffLoading", message: "Loading diff…" }))
-                  : i18n._(
-                      msg({ id: "git.review.noTextDiff", message: "No text diff available" })
-                    ))}
-          </pre>
+          <ChatDiffViewer
+            className="max-h-[36rem]"
+            fallback={
+              <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
+                {diff.isError
+                  ? diff.error.message
+                  : diff.data?.diff ||
+                    (diff.isPending
+                      ? i18n._(msg({ id: "git.review.diffLoading", message: "Loading diff…" }))
+                      : i18n._(
+                          msg({ id: "git.review.noTextDiff", message: "No text diff available" })
+                        ))}
+              </pre>
+            }
+            patch={diff.data?.diff ?? ""}
+          />
         </ChatReviewDiffHost>
       ) : null}
       {activePath && (source === "staged" || source === "unstaged") && diff.data?.hunks.length ? (
