@@ -90,6 +90,8 @@ Agent 的回复可以包含由 Desktop 转为交互的引用。Agent 写出的�
 
 Review 的未暂存来源也会在文件暂存前展示未跟踪普通文件的文本差异。
 
+工作目录位于仓库内的 Thread 会在会话标题栏显示其分支。分支按钮打开一个弹层，可提交（使用手写或自动生成的提交信息，并可选择包含未暂存变更）、提交并推送，或仅推送；当分支有 GitHub 拉取请求时，标题栏还提供“查看 PR”，否则提供“创建 PR”，两者都通过 Review 面板完成。弹层与 Review 面板使用同一套 Server Git API 和提交代码。
+
 其他应用通过 `cypheria://` scheme 访问 Desktop，Desktop 会向操作系统注册该 scheme。`cypheria://threads/<threadId>` 打开一个 Thread，加 `?view=review` 还会打开其 Review 面板；`cypheria://review?pr=<url>&path=<file>&line=<n>&side=<left|right>` 在当前显示的 Thread 的 Review 面板中，把拉取请求的 diff 定位到某一行。Desktop 只接受这两种形式（拉取请求 URL 必须是 `https`），并在 renderer 内部路由；`cypheria://app/` 和 `cypheria://media/` 仍是 renderer 自身的来源。窗口尚无法接收时到达的链接会等到 renderer 来取。
 
 “未提交”来源相对 HEAD 合并展示 index 与工作目录的更改，包括未跟踪文件。仓库尚无第一次提交时，则组合已暂存与未暂存差异。

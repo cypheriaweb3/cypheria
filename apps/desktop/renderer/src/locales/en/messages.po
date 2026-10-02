@@ -2973,3 +2973,43 @@ msgstr "This link does not point to a GitHub pull request."
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.focusOtherRepository"
 msgstr "This pull request belongs to another repository than this working directory."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitOrPush"
+msgstr "Commit or push"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.detached"
+msgstr "Detached HEAD"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitTo"
+msgstr "Commit to"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.messagePlaceholder"
+msgstr "Commit message (leave blank to generate)…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChanges"
+msgstr "No changes"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openReview"
+msgstr "Open Review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.viewPr"
+msgstr "View PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.createPr"
+msgstr "Create PR"

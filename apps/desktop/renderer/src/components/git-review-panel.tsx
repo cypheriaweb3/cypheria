@@ -30,6 +30,7 @@ import { type ReactNode, useEffect, useId, useState } from "react"
 
 import { gitReviewSourceAtom } from "../client-state.js"
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
+import { commitChanges, hasCommittableChanges, parseCoAuthors } from "./git-commit-actions.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
@@ -417,19 +418,7 @@ export function GitReviewPanel({
       ? { deletions: countsByPath.get(entry.path)?.deletions ?? 0 }
       : {}),
   }))
-  const canCommit = Boolean(
-    status.data?.entries.some(({ code }) =>
-      commitIncludeUnstaged ? code !== "  " : code[0] !== " " && code[0] !== "?"
-    )
-  )
-  const commitInput = (commitMessage: string) => ({
-    message: commitMessage,
-    includeUnstaged: commitIncludeUnstaged,
-    coAuthors: coAuthors
-      .split(";")
-      .map((value) => value.trim())
-      .filter(Boolean),
-  })
+  const canCommit = hasCommittableChanges(status.data?.entries ?? [], commitIncludeUnstaged)
 
   if (status.isError) {
     const canInit = /not a git repository/iu.test(status.error.message)
@@ -1077,10 +1066,12 @@ export function GitReviewPanel({
               disabled={busy || !canCommit}
               onClick={() =>
                 void mutate(async () => {
-                  const git = (await ensureCypheriaClient()).git
-                  const commitMessage =
-                    message.trim() || (await git.generateText(cwd, "commit")).title
-                  await git.commit(cwd, commitInput(commitMessage))
+                  await commitChanges((await ensureCypheriaClient()).git, cwd, {
+                    coAuthors: parseCoAuthors(coAuthors),
+                    includeUnstaged: commitIncludeUnstaged,
+                    message,
+                    push: false,
+                  })
                   setMessage("")
                 })
               }
@@ -1093,18 +1084,13 @@ export function GitReviewPanel({
               disabled={busy || !canCommit}
               onClick={() =>
                 void mutate(async () => {
-                  const git = (await ensureCypheriaClient()).git
-                  const commitMessage =
-                    message.trim() || (await git.generateText(cwd, "commit")).title
-                  await git.commit(cwd, commitInput(commitMessage))
+                  await commitChanges((await ensureCypheriaClient()).git, cwd, {
+                    coAuthors: parseCoAuthors(coAuthors),
+                    includeUnstaged: commitIncludeUnstaged,
+                    message,
+                    push: true,
+                  })
                   setMessage("")
-                  try {
-                    await git.push(cwd)
-                  } catch (error) {
-                    throw new Error(
-                      `Commit succeeded; push failed. You can retry Push: ${error instanceof Error ? error.message : String(error)}`
-                    )
-                  }
                 })
               }
               size="sm"
