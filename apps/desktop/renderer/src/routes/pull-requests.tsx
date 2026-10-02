@@ -17,7 +17,7 @@ import { ensureCypheriaClient } from "../cypheria-client.js"
 
 export const Route = createFileRoute("/pull-requests")({ component: PullRequestsRoute })
 
-type Scope = "all" | "authored" | "reviewing" | "reviewed"
+type Scope = "all" | "authored" | "reviewing" | "team-reviewing" | "reviewed"
 type State = "open" | "closed" | "merged" | "all"
 
 const PAGE = 50
@@ -61,6 +61,10 @@ function PullRequestsRoute() {
   })
   const scopes: Array<[Scope, string]> = [
     ["reviewing", i18n._(msg({ id: "pullRequests.needsReview", message: "Needs my review" }))],
+    [
+      "team-reviewing",
+      i18n._(msg({ id: "pullRequests.needsTeamReview", message: "Needs my team’s review" })),
+    ],
     ["authored", i18n._(msg({ id: "pullRequests.authored", message: "Authored" }))],
     ["reviewed", i18n._(msg({ id: "pullRequests.reviewed", message: "Previously reviewed" }))],
     ["all", i18n._(msg({ id: "pullRequests.all", message: "All" }))],

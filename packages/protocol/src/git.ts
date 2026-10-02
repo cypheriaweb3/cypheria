@@ -826,7 +826,7 @@ export const GitHubPrBoardRequestSchema = input(
       /** Directory the GitHub CLI runs in; the Server's home directory when omitted. */
       cwd: path.optional(),
       state: z.enum(["open", "closed", "merged", "all"]).optional(),
-      scope: z.enum(["all", "authored", "reviewing", "reviewed"]).optional(),
+      scope: z.enum(["all", "authored", "reviewing", "team-reviewing", "reviewed"]).optional(),
       repository: z.string().max(200).optional(),
       query: z.string().max(200).optional(),
       limit: z.number().int().min(1).max(500).optional(),

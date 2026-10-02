@@ -54,6 +54,7 @@ import {
 import { useThreadAttachments } from "../thread-attachments.js"
 import { type GitHubPrOperation, githubPrProvider } from "./github-pr-provider.js"
 import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
+import { PullRequestChecks } from "./pull-request-checks.js"
 
 const openExternal = async (url: string): Promise<void> => {
   if (!window.cypheria) throw new Error("The system browser is unavailable")
@@ -1676,33 +1677,36 @@ export function GitHubPrPanel({
                   <p className="text-xs font-medium">
                     <Trans id="git.github.checks">Checks</Trans>
                   </p>
-                  {checks.data?.checks.length === 0 && checks.data.complete ? (
-                    <p className="text-xs text-muted-foreground">
-                      <Trans id="git.github.noChecks">No checks</Trans>
-                    </p>
+                  {checks.data ? (
+                    <PullRequestChecks
+                      checks={checks.data.checks}
+                      complete={checks.data.complete}
+                      onOpen={(url) => void mutate(async () => openExternal(url))}
+                      {...(cliAvailable &&
+                      localCodexThread &&
+                      threadId &&
+                      gitSettings.data &&
+                      selected.data.headRefOid
+                        ? {
+                            onFixFailing: () =>
+                              void mutate(async () => {
+                                const settings = gitSettings.data?.config.git
+                                if (!settings) return
+                                await (await ensureCypheriaClient()).threads.startTurn({
+                                  clientMessageId: crypto.randomUUID(),
+                                  content: [
+                                    {
+                                      text: githubPrFixPrompt(selected.data, settings, false),
+                                      type: "text",
+                                    },
+                                  ],
+                                  threadId,
+                                })
+                              }),
+                          }
+                        : {})}
+                    />
                   ) : null}
-                  {checks.data?.checks.map((check) => (
-                    <div
-                      className="flex items-center gap-2 text-xs"
-                      key={`${check.name}:${check.link}`}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{check.name}</span>
-                      <span className="shrink-0 text-muted-foreground">{check.bucket}</span>
-                      {check.link ? (
-                        <Button
-                          onClick={() => {
-                            const link = check.link
-                            if (link) void mutate(async () => openExternal(link))
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trans id="git.github.browser">Browser</Trans>
-                        </Button>
-                      ) : null}
-                    </div>
-                  ))}
                   {checks.isError ? (
                     <Alert variant="destructive">
                       <AlertDescription>{checks.error.message}</AlertDescription>

@@ -86,6 +86,14 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
         repository: "org/repo",
       },
     ])
+    await service.board(cwd, { scope: "team-reviewing", query: "fix" })
+    const logged = (await readFile(log, "utf8")).split("\n")
+    expect(logged.some((line) => line.includes('"--","user-review-requested:@me"'))).toBe(true)
+    expect(
+      logged.some((line) =>
+        line.includes('"--","review-requested:@me","-user-review-requested:@me","fix"')
+      )
+    ).toBe(true)
     await service.board(cwd, { scope: "reviewed" })
     expect(
       (await readFile(log, "utf8"))

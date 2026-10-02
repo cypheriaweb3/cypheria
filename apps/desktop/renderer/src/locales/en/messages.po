@@ -3283,3 +3283,28 @@ msgstr "Load more"
 #: renderer/src/routes/pull-requests.tsx
 msgid "navigation.pullRequests"
 msgstr "Pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/pull-requests.tsx
+msgid "pullRequests.needsTeamReview"
+msgstr "Needs my team’s review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.checksSummary"
+msgstr "{failing, plural, =0 {} other {# failing · }}{pending, plural, =0 {} other {# pending · }}{passed} passed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.fixFailingChecks"
+msgstr "Fix failing checks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.openCheck"
+msgstr "Open check details"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/pull-request-checks.tsx
+msgid "git.github.checksIncomplete"
+msgstr "Some check details couldn’t be loaded."
