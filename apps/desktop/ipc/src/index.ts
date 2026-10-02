@@ -426,6 +426,11 @@ export type ClientSettingDefinitions = Readonly<{
   gitReviewSource: ClientSettingDefinition<
     "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
   >
+  gitReviewDiffDisplay: ClientSettingDefinition<{
+    diffStyle: "auto" | "split" | "unified"
+    wordDiffs: boolean
+    wrap: boolean
+  }>
   unreadThreadIds: ClientSettingDefinition<string[]>
 }>
 
@@ -582,6 +587,19 @@ export const clientSettingDefinitions: ClientSettingDefinitions = {
     defaultValue: "unstaged" as const,
     key: "gitReviewSource",
     schema: z.enum(["unstaged", "staged", "uncommitted", "branch", "commit", "last-turn"]),
+    version: 1,
+  }),
+  gitReviewDiffDisplay: defineClientSetting({
+    category: "git-ui",
+    defaultValue: { diffStyle: "auto" as const, wordDiffs: true, wrap: true },
+    key: "gitReviewDiffDisplay",
+    schema: z
+      .object({
+        diffStyle: z.enum(["auto", "split", "unified"]),
+        wordDiffs: z.boolean(),
+        wrap: z.boolean(),
+      })
+      .strict(),
     version: 1,
   }),
   unreadThreadIds: defineClientSetting({

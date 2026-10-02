@@ -78,6 +78,7 @@ export const sidebarOrganizationAtom = atomFor(clientSettingDefinitions.sidebarO
 export const pinnedSidebarSortAtom = atomFor(clientSettingDefinitions.pinnedSidebarSort)
 export const chatSidebarSortAtom = atomFor(clientSettingDefinitions.chatSidebarSort)
 export const gitReviewSourceAtom = atomFor(clientSettingDefinitions.gitReviewSource)
+export const gitReviewDiffDisplayAtom = atomFor(clientSettingDefinitions.gitReviewDiffDisplay)
 export const unreadThreadIdsAtom = atomFor(clientSettingDefinitions.unreadThreadIds)
 
 const draftAtoms = new Map<string, ClientStateAtom<ComposerDraft | null>>()
@@ -181,6 +182,8 @@ export type ReviewComment = {
   readonly body: string
   readonly id: string
   readonly lineNumber: number
+  /** First line of a commented range that ends at `lineNumber`. */
+  readonly startLineNumber?: number
   readonly path: string
   readonly side: "additions" | "deletions"
   /** The Review source the line was read from, such as `unstaged` or `branch`. */
@@ -191,6 +194,7 @@ const ReviewCommentSchema = z.object({
   body: z.string().max(20_000),
   id: z.string().min(1),
   lineNumber: z.int().positive(),
+  startLineNumber: z.int().positive().optional(),
   path: z.string().min(1),
   side: z.enum(["additions", "deletions"]),
   source: z.string().min(1),
@@ -208,5 +212,26 @@ export const reviewCommentsAtom = (scope: string): ClientStateAtom<ReviewComment
     { getOnInit: true, version: 1 }
   ) as unknown as ClientStateAtom<ReviewComment[]>
   reviewCommentAtoms.set(scope, created)
+  return created
+}
+
+const reviewViewedAtoms = new Map<string, ClientStateAtom<Record<string, string>>>()
+/**
+ * Files marked as viewed in one Review scope, each with the fingerprint of the diff that was
+ * viewed; a file whose diff changed since then reads as unviewed again.
+ */
+export const reviewViewedAtom = (scope: string): ClientStateAtom<Record<string, string>> => {
+  const existing = reviewViewedAtoms.get(scope)
+  if (existing) return existing
+  const created = atomWithValidatedStorage<Record<string, string>>(
+    `review-viewed:${scope}`,
+    {},
+    desktopClientStorage.keyValue,
+    z
+      .record(z.string().min(1).max(4096), z.string().max(64))
+      .refine((value) => Object.keys(value).length <= 5000),
+    { getOnInit: true, version: 1 }
+  ) as unknown as ClientStateAtom<Record<string, string>>
+  reviewViewedAtoms.set(scope, created)
   return created
 }

@@ -3066,26 +3066,6 @@ msgstr "{count, plural, one {# file changed} other {# files changed}}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.unifiedDiff"
-msgstr "Unified"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.splitDiff"
-msgstr "Split"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.disableWrap"
-msgstr "Disable word wrap"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.enableWrap"
-msgstr "Enable word wrap"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.commitSection"
 msgstr "Commit"
 
@@ -3308,3 +3288,108 @@ msgstr "Open check details"
 #: renderer/src/components/pull-request-checks.tsx
 msgid "git.github.checksIncomplete"
 msgstr "Some check details couldn’t be loaded."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.generateTitleAndBody"
+msgstr "Generate with Codex"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseFile"
+msgstr "Collapse file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandFile"
+msgstr "Expand file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.viewed"
+msgstr "Viewed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile"
+msgstr "Jump to file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.placeholder"
+msgstr "Jump to file…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.empty"
+msgstr "No matching files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.options"
+msgstr "Diff options"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout"
+msgstr "Layout"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.auto"
+msgstr "Auto"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.split"
+msgstr "Split"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.unified"
+msgstr "Unified"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.wordDiffs"
+msgstr "Word diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.wrap"
+msgstr "Word wrap"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.fullFiles"
+msgstr "Load full files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandAll"
+msgstr "Expand all diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseAll"
+msgstr "Collapse all diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.copyGitApply"
+msgstr "Copy git apply command"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.fileActions"
+msgstr "File actions"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.copyPath"
+msgstr "Copy path"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.diff.openInGitHub"
+msgstr "Open in GitHub"

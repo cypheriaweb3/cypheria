@@ -2055,6 +2055,7 @@ export class GitService {
       path?: string
       line?: number
       side?: "LEFT" | "RIGHT"
+      startLine?: number
     }
   ): Promise<void> {
     await this.#github.threadAction((await this.discover(cwd)).root, input)

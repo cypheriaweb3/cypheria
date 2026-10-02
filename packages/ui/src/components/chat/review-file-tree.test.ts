@@ -18,6 +18,15 @@ describe("reviewRowDecoration", () => {
     expect(decoration?.parts.map((part) => part.text)).toEqual(["+3", " -1", "  💬 2"])
   })
 
+  it("marks a viewed file", () => {
+    expect(
+      reviewRowDecoration(
+        { additions: 1, path: "a.ts", status: "modified", viewed: true },
+        ""
+      )?.parts.map((part) => part.text)
+    ).toEqual(["+1", "\u00a0\u00a0✓"])
+  })
+
   it("draws nothing for a file without counts", () => {
     expect(reviewRowDecoration({ path: "a.ts", status: "modified" }, "")).toBeNull()
     expect(reviewRowDecoration(undefined, "")).toBeNull()

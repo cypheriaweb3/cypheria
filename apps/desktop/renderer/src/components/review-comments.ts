@@ -19,7 +19,11 @@ export const formatReviewComments = (root: string, comments: readonly ReviewComm
   const base = root.replace(/\/+$/u, "")
   const lines = comments.map((comment, index) => {
     const side = comment.side === "deletions" ? " (removed line)" : ""
-    return `${index + 1}. ${base}/${comment.path}:${comment.lineNumber}${side}\n   ${comment.body.trim().replace(/\n/gu, "\n   ")}`
+    const lines =
+      comment.startLineNumber !== undefined && comment.startLineNumber < comment.lineNumber
+        ? `${comment.startLineNumber}-${comment.lineNumber}`
+        : `${comment.lineNumber}`
+    return `${index + 1}. ${base}/${comment.path}:${lines}${side}\n   ${comment.body.trim().replace(/\n/gu, "\n   ")}`
   })
   return [`Please address these review comments on the changes in ${base}:`, "", ...lines].join(
     "\n"
