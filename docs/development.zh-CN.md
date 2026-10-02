@@ -39,6 +39,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `packages/web3` | 纯 Web3 领域模块 |
 | `packages/relay` | 配对、E2EE 和 relay 传输工具 |
 | `packages/ui` | 共享 UI 与会话展示原语 |
+| `packages/code-review-app` | 代码审查 MCP App，构建为单个 HTML 文件，由 Server 随 `code-review` 插件打包 |
 
 未来 Marketplace 路由属于 `apps/website`；当前应用没有 Marketplace 路由、账户系统、API、schema 或 Cloudflare 存储 binding。
 

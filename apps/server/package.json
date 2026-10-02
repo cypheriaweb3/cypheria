@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@cypheria/client": "workspace:*",
+    "@cypheria/code-review-app": "workspace:*",
     "@cypheria/expo": "workspace:*",
     "@types/unbzip2-stream": "1.4.3",
     "@types/ws": "^8.18.1",

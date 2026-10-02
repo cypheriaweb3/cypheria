@@ -39,6 +39,7 @@ Implemented packages:
 | `packages/web3` | Pure Web3 domain modules |
 | `packages/relay` | Pairing, E2EE, and relay transport helpers |
 | `packages/ui` | Shared UI and conversation presentation primitives |
+| `packages/code-review-app` | The Code Review MCP App, built into one HTML file that the Server bundles with the `code-review` plugin |
 
 Future Marketplace routes belong to `apps/website`; the current application has no Marketplace route, account system, API, schema, or Cloudflare storage binding.
 

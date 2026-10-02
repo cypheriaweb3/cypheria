@@ -43,10 +43,7 @@ title: 当前路线图
 
 ## 本地 Git 与拉取请求
 
-- [ ] 在 Server 中完成 ChatGPT Desktop 的本地 Git 操作清单，包括仓库查询、受保护的 Review 修改、轮次差异、工作树归属与迁移、缓存失效以及持久化 Git 设置。
-- [ ] 按操作、仓库访问和实际工具 scope，在 `gh` CLI 与已连接 GitHub App 工具之间完成 GitHub PR 路由；补齐 Desktop PR 流程及失败恢复状态。
-- [ ] 通过已连接 GitLab App 工具完成 GitLab MR 操作，并校验 connector、账户 link、工具 scope、项目和 URL；按需保留浏览器表单创建路径。
-- [ ] 在打包 Electron 中验证 Connect 行为，并在 Cypheria 管理的 Codex home 中验证 GitHub/GitLab 授权和实际 PR/MR 调用。
+- [ ] 使用真实 ChatGPT 账户对照 OpenAI 后端验证代码审查：GitHub 和 GitLab 连接（包括多个账户）、收件箱分区、详情读取、写入、检查和私密审查，并确认 GitLab 的响应结构。
 
 ## 内置浏览器
 

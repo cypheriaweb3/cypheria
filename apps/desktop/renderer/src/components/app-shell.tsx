@@ -67,7 +67,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FolderTree,
   GitBranch,
+  GitPullRequest,
   LoaderCircle,
   MoreHorizontal,
   Network,
@@ -109,6 +111,7 @@ import { web3Api } from "../web3-api.js"
 import { NewChatLink } from "./chat-navigation"
 import { ChatSearch } from "./chat-search"
 import { ChatSidebar } from "./chat-sidebar"
+import { CodeReviewSidebar } from "./code-review/sidebar"
 import {
   DESKTOP_SIDEBAR_DEFAULT_WIDTH,
   DesktopCollapsedToolbar,
@@ -153,6 +156,18 @@ const settingsItems = [
     href: "/settings/git",
     icon: <GitBranch className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.git", message: "Git" }),
+  },
+  {
+    group: "personal",
+    href: "/settings/worktrees",
+    icon: <FolderTree className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.worktrees", message: "Worktrees" }),
+  },
+  {
+    group: "integrations",
+    href: "/settings/code-review",
+    icon: <GitPullRequest className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.codeReview", message: "Code Review" }),
   },
   {
     group: "integrations",
@@ -340,6 +355,9 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   )
   useDeepLinkListener(deepLinkActions)
   const isSettings = pathname.startsWith("/settings")
+  const isCodeReview = pathname === "/code-review"
+  const codeReviewSelection =
+    isCodeReview && typeof location.search.pr === "string" ? location.search.pr : null
   const approvalsQuery = useQuery({
     queryFn: () => web3Api.approval.list("pending") ?? [],
     queryKey: ["approval", "pending"],
@@ -368,7 +386,19 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         }
         suppressHydrationWarning
       >
-        {isSettings ? (
+        {isCodeReview ? (
+          <CodeReviewSidebar
+            header={
+              <DesktopSidebarHeader
+                className={windowControlRowClassName}
+                isWindows={isWindows}
+                triggerClassName={chromeIconButtonClassName}
+              />
+            }
+            selectedUrl={codeReviewSelection}
+            onSelect={(url) => void appNavigate({ search: { pr: url }, to: "/code-review" })}
+          />
+        ) : isSettings ? (
           <SettingsNavigation
             headerClassName={windowControlRowClassName}
             isWindows={isWindows}

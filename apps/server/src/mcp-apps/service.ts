@@ -47,12 +47,17 @@ const toTool = (tool: AppToolMcpTool): McpAppTool => ({
   ...(tool._meta ? { _meta: tool._meta } : {}),
 })
 
+/** Characters of resource text per message; four bytes each stays within the default message cap. */
+const RESOURCE_PIECE = 200_000
+
 /**
  * The client side of MCP Apps: a client reads an App's `ui://` resource and calls its server's tools
  * through these requests. Bundled Cypheria servers are answered in this process.
  */
 export class McpAppService {
   readonly #providers: ReadonlyMap<string, McpAppProvider>
+  /** Resources being read in pieces, so later pieces come from the same text. */
+  readonly #pieces = new Map<string, McpAppResourceContent[]>()
   readonly #codex: McpAppCodexBridge | undefined
 
   constructor(providers: Record<string, McpAppProvider>, codex?: McpAppCodexBridge) {
@@ -95,11 +100,29 @@ export class McpAppService {
       case "mcpApp.tools.list.request":
         if (provider) return { tools: provider.listTools().map(toTool) }
         return { tools: await this.#bridge().listTools(server, threadId) }
-      case "mcpApp.resource.read.request":
-        if (provider) return { contents: await provider.readResource(request.payload.uri) }
-        return {
-          contents: await this.#bridge().readResource(server, request.payload.uri, threadId),
+      case "mcpApp.resource.read.request": {
+        const { offset = 0, uri } = request.payload
+        const key = JSON.stringify([server, uri, threadId])
+        let contents = offset > 0 ? this.#pieces.get(key) : undefined
+        if (!contents) {
+          contents = provider
+            ? await provider.readResource(uri)
+            : await this.#bridge().readResource(server, uri, threadId)
         }
+        const [first, ...rest] = contents
+        const text = first?.text
+        if (!first || text === undefined || text.length <= RESOURCE_PIECE) {
+          this.#pieces.delete(key)
+          return { contents, nextOffset: null }
+        }
+        const end = Math.min(text.length, offset + RESOURCE_PIECE)
+        if (end < text.length) this.#pieces.set(key, contents)
+        else this.#pieces.delete(key)
+        return {
+          contents: [{ ...first, text: text.slice(offset, end) }, ...(offset === 0 ? rest : [])],
+          nextOffset: end < text.length ? end : null,
+        }
+      }
       case "mcpApp.tool.call.request":
         if (provider) {
           return toResult(

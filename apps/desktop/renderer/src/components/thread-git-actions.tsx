@@ -18,6 +18,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useId, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import { useThreadPullRequest } from "./code-review/thread-pull-request.js"
 import { commitChanges, hasCommittableChanges } from "./git-commit-actions.js"
 
 /**
@@ -27,11 +28,13 @@ import { commitChanges, hasCommittableChanges } from "./git-commit-actions.js"
  */
 export function ThreadGitActions({
   cwd,
+  threadId,
   onAddToChat,
   onOpenPullRequest,
   onOpenReview,
 }: Readonly<{
   cwd: string
+  threadId: string | null
   /** Adds text, such as a pull request link, to the chat composer. */
   onAddToChat?: (text: string) => void
   onOpenPullRequest: (url: string) => void
@@ -51,35 +54,8 @@ export function ThreadGitActions({
     refetchInterval: 3_000,
     retry: false,
   })
-  const availability = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).git.githubAvailability(cwd),
-    queryKey: ["github-pr", cwd, "availability"],
-    retry: false,
-    staleTime: 30_000,
-  })
-  const cliAvailable = Boolean(availability.data?.authenticated && availability.data.repository)
   const branch = status.data?.branch ?? null
-  const pullRequest = useQuery({
-    enabled: cliAvailable && Boolean(branch),
-    queryFn: async () => {
-      if (!branch) throw new Error("A local Git branch is required")
-      return (await ensureCypheriaClient()).git.githubPrForBranch(cwd, branch)
-    },
-    queryKey: ["github-pr", cwd, "for-branch", branch],
-    refetchInterval: 30_000,
-    retry: false,
-  })
-  const prNumber = pullRequest.data?.number
-  const checks = useQuery({
-    enabled: cliAvailable && prNumber !== undefined && pullRequest.data?.state === "OPEN",
-    queryFn: async () => {
-      if (prNumber === undefined) throw new Error("A pull request is required")
-      return (await ensureCypheriaClient()).git.githubPrChecks(cwd, prNumber)
-    },
-    queryKey: ["github-pr", cwd, "header-checks", prNumber, pullRequest.data?.headRefOid],
-    refetchInterval: 60_000,
-    retry: false,
-  })
+  const pullRequest = useThreadPullRequest({ branch, cwd, threadId })
   if (!status.data) return null
 
   const entries = status.data.entries
@@ -224,21 +200,21 @@ export function ThreadGitActions({
             <span className="text-muted-foreground text-xs">
               {pr.isDraft
                 ? i18n._(msg({ id: "thread.git.prDraft", message: "Draft" }))
-                : pr.state === "MERGED"
+                : pr.state === "merged"
                   ? i18n._(msg({ id: "thread.git.prMerged", message: "Merged" }))
-                  : pr.state === "CLOSED"
+                  : pr.state === "closed"
                     ? i18n._(msg({ id: "thread.git.prClosed", message: "Closed" }))
                     : i18n._(msg({ id: "thread.git.prOpen", message: "Open" }))}
             </span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-52">
-            {checks.data ? (
+            {pr.ciStatus ? (
               <DropdownMenuLabel className="text-muted-foreground text-xs">
-                {checks.data.length === 0
+                {pr.ciStatus === "none"
                   ? i18n._(msg({ id: "thread.git.noChecks", message: "No CI checks" }))
-                  : checks.data.some((check) => check.bucket === "fail")
+                  : pr.ciStatus === "failing"
                     ? i18n._(msg({ id: "thread.git.checksFailing", message: "Checks failing" }))
-                    : checks.data.some((check) => check.bucket === "pending")
+                    : pr.ciStatus === "pending"
                       ? i18n._(msg({ id: "thread.git.checksPending", message: "Checks pending" }))
                       : i18n._(
                           msg({ id: "thread.git.checksSuccessful", message: "Checks successful" })
@@ -251,7 +227,11 @@ export function ThreadGitActions({
             <DropdownMenuItem
               onClick={() => void window.cypheria?.app.openExternal(pr.url).catch(() => undefined)}
             >
-              <Trans id="thread.git.openPrInGitHub">Open in GitHub</Trans>
+              {pr.provider === "gitlab" ? (
+                <Trans id="thread.git.openPrInGitLab">Open in GitLab</Trans>
+              ) : (
+                <Trans id="thread.git.openPrInGitHub">Open in GitHub</Trans>
+              )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -266,8 +246,22 @@ export function ThreadGitActions({
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : cliAvailable && branch && pullRequest.isSuccess ? (
-        <Button onClick={onOpenReview} size="sm" type="button" variant="outline">
+      ) : branch && pullRequest.isSuccess && onAddToChat ? (
+        <Button
+          onClick={() =>
+            onAddToChat(
+              i18n._(
+                msg({
+                  id: "thread.git.createPrPrompt",
+                  message: "Open a pull request for the current branch.",
+                })
+              )
+            )
+          }
+          size="sm"
+          type="button"
+          variant="outline"
+        >
           <Trans id="thread.git.createPr">Create PR</Trans>
         </Button>
       ) : null}

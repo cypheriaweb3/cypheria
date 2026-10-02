@@ -71,7 +71,15 @@ export const McpAppToolsListRequestSchema = request(
 )
 export const McpAppResourceReadRequestSchema = request(
   "mcpApp.resource.read.request",
-  z.object({ server, uri: z.string().min(1).max(2048), threadId }).strict()
+  z
+    .object({
+      server,
+      uri: z.string().min(1).max(2048),
+      threadId,
+      /** Where to continue a resource whose text arrives in pieces. */
+      offset: z.int().nonnegative().optional(),
+    })
+    .strict()
 )
 export const McpAppToolCallRequestSchema = request(
   "mcpApp.tool.call.request",
@@ -90,9 +98,18 @@ export const McpAppToolsListResponseSchema = response(
   "mcpApp.tools.list.response",
   z.object({ tools: z.array(McpAppToolSchema) }).strict()
 )
+/**
+ * A resource whose text exceeds one message arrives in pieces: the first content's `text` holds the
+ * characters from `offset`, and `nextOffset` names where the next request continues.
+ */
 export const McpAppResourceReadResponseSchema = response(
   "mcpApp.resource.read.response",
-  z.object({ contents: z.array(McpAppResourceContentSchema) }).strict()
+  z
+    .object({
+      contents: z.array(McpAppResourceContentSchema),
+      nextOffset: z.int().nonnegative().nullable().optional(),
+    })
+    .strict()
 )
 export const McpAppToolCallResponseSchema = response(
   "mcpApp.tool.call.response",

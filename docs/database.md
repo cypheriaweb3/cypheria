@@ -22,6 +22,7 @@ Every connection enables foreign keys. Server services define transaction bounda
 | Agents | `agent_registry` | User-selected Agent membership, creation time, installation, enablement, versions, and state; native harnesses are seeded |
 | Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments` | Durable organization, ordering, membership, archive, harness linkage, and cross-client Git attachments |
 | Thread execution | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | Lifecycle recovery, message idempotency receipts, and append-only Canonical Timeline |
+| Code Review | `code_reviews` | Private review runs per account and pull request: status, lease, findings, and linked chat; see [Code Review](code-review.md#private-reviews) |
 | Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | Public wallet metadata and active selection |

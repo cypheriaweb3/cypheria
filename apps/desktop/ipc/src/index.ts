@@ -312,6 +312,19 @@ export const LanguageBootstrapSchema = z
 export type LanguageBootstrap = z.infer<typeof LanguageBootstrapSchema>
 export const CYPHERIA_LANGUAGE_ARGUMENT_PREFIX = "--cypheria-language="
 
+/** A pull request pinned to the Code Review sidebar, for one account. */
+export const CodeReviewPinSchema = z
+  .object({
+    accountKey: z.string().min(1).max(1024),
+    url: z.string().url().max(4096),
+    title: z.string().max(1024),
+    authorLogin: z.string().max(256).nullish(),
+    authorAvatarUrl: z.string().max(4096).nullish(),
+    updatedAt: z.string().nullish(),
+  })
+  .strict()
+export type CodeReviewPin = z.infer<typeof CodeReviewPinSchema>
+
 export type ClientSettingCategory =
   | "activity"
   | "appearance"
@@ -434,6 +447,7 @@ export type ClientSettingDefinitions = Readonly<{
     wrap: boolean
   }>
   unreadThreadIds: ClientSettingDefinition<string[]>
+  codeReviewPins: ClientSettingDefinition<CodeReviewPin[]>
 }>
 
 export const clientSettingDefinitions: ClientSettingDefinitions = {
@@ -617,6 +631,13 @@ export const clientSettingDefinitions: ClientSettingDefinitions = {
     defaultValue: [] as string[],
     key: "unreadThreadIds",
     schema: z.array(z.string().min(1)).max(1_000),
+    version: 1,
+  }),
+  codeReviewPins: defineClientSetting({
+    category: "git-ui",
+    defaultValue: [] as CodeReviewPin[],
+    key: "codeReviewPins",
+    schema: z.array(CodeReviewPinSchema).max(1_200),
     version: 1,
   }),
 }

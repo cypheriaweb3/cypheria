@@ -114,6 +114,52 @@ export const CodeReviewSetupSchema = z
   .strict()
 export type CodeReviewSetup = z.infer<typeof CodeReviewSetupSchema>
 
+/** The GitHub account linked in ChatGPT that Code Review uses on one host. */
+export const CodeReviewConnectionSchema = z
+  .object({
+    hostname: z.string().min(1),
+    connectorId: z.string().min(1),
+    accountLinkId: z.string().min(1),
+  })
+  .strict()
+export type CodeReviewConnection = z.infer<typeof CodeReviewConnectionSchema>
+
+export const CodeReviewSidebarSectionSchema = z.enum([
+  "waiting_for_review",
+  "needs_my_review",
+  "needs_my_teams_review",
+  "merged",
+  "recents",
+])
+export type CodeReviewSidebarSection = z.infer<typeof CodeReviewSidebarSectionSchema>
+
+/** Code Review preferences, shared by every client of this Server. */
+export const CodeReviewSettingsSchema = z
+  .object({
+    gitHostingProvider: z.enum(["github", "gitlab"]),
+    /** GitHub account Code Review uses; null uses the github.com account ChatGPT links. */
+    githubConnection: CodeReviewConnectionSchema.nullable(),
+    /** GitLab connector Code Review uses; null uses gitlab.com. */
+    gitlabConnectorId: z.string().trim().min(1).nullable(),
+    githubLinkTarget: z.enum(["code-review-tab", "in-app-browser", "external-browser"]),
+    localReviewInstructions: z.string().max(100_000),
+    sidebarSections: z.array(CodeReviewSidebarSectionSchema).max(5),
+    sidebarLayout: z.enum(["compact", "detailed"]),
+    activityNotifications: z.boolean(),
+  })
+  .strict()
+export type CodeReviewSettings = z.infer<typeof CodeReviewSettingsSchema>
+export const DEFAULT_CODE_REVIEW_SETTINGS: CodeReviewSettings = {
+  gitHostingProvider: "github",
+  githubConnection: null,
+  gitlabConnectorId: null,
+  githubLinkTarget: "code-review-tab",
+  localReviewInstructions: "",
+  sidebarSections: ["waiting_for_review", "needs_my_review", "needs_my_teams_review"],
+  sidebarLayout: "detailed",
+  activityNotifications: false,
+}
+
 const request = <T extends string, S extends z.ZodType>(type: T, payload: S) =>
   z.object({ type: z.literal(type), requestId: RequestIdSchema, payload }).strict()
 const response = <T extends string, S extends z.ZodType>(type: T, value: S) =>

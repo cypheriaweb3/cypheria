@@ -22,6 +22,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | Agents | `agent_registry` | 用户选择的 Agent 成员关系、创建时间、安装、启用、版本和状态；原生 harness 会预置 |
 | Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments` | 持久组织、排序、membership、archive、harness linkage 与跨客户端 Git 附件 |
 | Thread 执行 | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | 生命周期恢复、消息幂等 receipt 和只追加 Canonical Timeline |
+| 代码审查 | `code_reviews` | 按账户和拉取请求保存的私密审查运行：状态、租约、发现项和关联聊天；见[代码审查](code-review.zh-CN.md#私密审查) |
 | Schedules | `schedules`, `schedule_runs` | Definitions、next occurrence、leases 和 run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions、有序 endpoints、health 和 origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | 公开 wallet metadata 和 active selection |

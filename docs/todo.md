@@ -43,7 +43,7 @@ The detailed future service boundary and threat model are in [Marketplace](marke
 
 ## Local Git and pull requests
 
-- [ ] Verify packaged Electron Connect behavior and GitHub/GitLab authorization and PR/MR calls in Cypheria's managed Codex home.
+- [ ] Verify Code Review against OpenAI's backend with a real ChatGPT account: GitHub and GitLab connections (including several accounts), inbox sections, detail reads, writes, checks, and private reviews, and confirm the GitLab response shapes.
 
 ## Built-in browser
 

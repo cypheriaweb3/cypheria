@@ -51,7 +51,7 @@ When an installed bundled plugin is discovered after a Cypheria update, Server c
 The bundled plugins are how Codex and Claude reach Cypheria's own tools. Each declares one MCP server, and both run the same relay, which runs no tool itself: it lists and calls the tools of its server through `/api/v1/app-tools/*`, and Server executes each call for the calling Thread with the same code the clients use. Codex dynamic tools carry only the browser tools.
 
 - `cypheria-app-tools`, server `cypheria_app_tools`: the Thread, project, sidebar, worktree, handoff, and automation tools listed in [Agent harnesses](agent-harnesses.md#codex).
-- `code-review`, server `code-review`: `pull_requests.checks`, the one tool the official `code-review` plugin shows the model. Cypheria reads a GitHub pull request's checks, named by host, owner, repository, and number, through the Server's GitHub CLI, without job logs. The official plugin's other tools serve its embedded pull request app, which Desktop replaces with its own pull request panel.
+- `code-review`, server `code-review`: the official plugin's 31 `pull_requests.*` tools and its MCP App `ui://pull-requests/app`. Only `pull_requests.checks` is visible to the model; it reads a GitHub pull request's checks or a GitLab merge request's pipelines through OpenAI's backend, without job logs. The other tools serve the App, which Desktop hosts as the Code Review page and the Thread pull request panel. Server serves the App resource and the tool list itself; see [Code Review](code-review.md).
 
 Agents do local Git work with `git` and `gh` in their own commands; the Server Git protocol stays a client contract and is not offered to the model, as in the official desktop.
 
@@ -119,6 +119,8 @@ A plugin is installed once and then enabled or disabled per Agent.
 ## Codex Apps
 
 Apps follow the OpenAI App Server/connector model and belong exclusively to the Codex harness extension. They are exposed through `client.harnesses.codex.apps`, including list, enablement, connect, callable/accessibility state, install URL, and plugin association.
+
+Code Review uses the GitHub and GitLab connections the user makes here, read through OpenAI's backend with the ChatGPT sign-in; see [Code Review](code-review.md#prerequisites).
 
 Desktop opens an App's install URL in the system browser. When focus returns, it refreshes App and MCP availability; the external page does not send a trusted local completion callback.
 

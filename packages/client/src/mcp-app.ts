@@ -77,14 +77,31 @@ export const createMcpAppActions = (client: ServerClient): McpAppActions => {
           options
         )
       ).tools,
-    readResource: async (server, uri, threadId, options) =>
-      (
-        await request<{ contents: McpAppResourceContent[] }>(
+    readResource: async (server, uri, threadId, options) => {
+      let offset: number | undefined
+      let contents: McpAppResourceContent[] = []
+      let text = ""
+      do {
+        const page = await request<{
+          contents: McpAppResourceContent[]
+          nextOffset?: number | null
+        }>(
           "mcpApp.resource.read.request",
-          { server, uri, ...(threadId ? { threadId } : {}) },
+          {
+            server,
+            uri,
+            ...(threadId ? { threadId } : {}),
+            ...(offset === undefined ? {} : { offset }),
+          },
           options
         )
-      ).contents,
+        if (offset === undefined) contents = page.contents
+        text += page.contents[0]?.text ?? ""
+        offset = page.nextOffset ?? undefined
+      } while (offset !== undefined)
+      const [first, ...rest] = contents
+      return first?.text === undefined ? contents : [{ ...first, text }, ...rest]
+    },
   }
 }
 

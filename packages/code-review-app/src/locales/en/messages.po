@@ -1,0 +1,1226 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Language: en\n"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: failing.length
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.failingCount"
+msgstr "{0} failing"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: passing.length
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.successfulCount"
+msgstr "{0} successful"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: reaction.content
+#. placeholder {1}: reaction.count
+#: src/detail/summary-tab.tsx
+msgid "codeReview.reactions.count"
+msgstr "{0}, {1} reactions"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.pendingComments.short"
+msgstr "{pendingCount} pending comments. Only visible to you until you submit."
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.approved"
+msgstr "{who} approved these changes"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineMerged"
+msgstr "{who} merged this merge request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.merged"
+msgstr "{who} merged this pull request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineOpened"
+msgstr "{who} opened this merge request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.opened"
+msgstr "{who} opened this pull request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.changesRequested"
+msgstr "{who} requested changes"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.title"
+msgstr "Activity"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.requiredComment"
+msgstr "Add a comment…"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.reactions.add"
+msgstr "Add reaction"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.addToReview"
+msgstr "Add to review"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.localInstructions.description"
+msgstr "Added to reviews you start in Code Review, across all repositories"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.all"
+msgstr "All activity"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.comments"
+msgstr "All comments"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.appPreferences.title"
+msgstr "App preferences"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.approve"
+msgstr "Approve"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.approved"
+msgstr "Approved"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.requestChangesDescription"
+msgstr "Ask for revisions before merging"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReviewPlugin.diff.layout.auto"
+msgstr "Automatic"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.autoFix.closed"
+msgstr "Automatic fixes are unavailable for closed pull requests"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.timeline.autoMergeEnabled"
+msgstr "Automerge enabled — the branch will merge when all requirements are met."
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.current"
+msgstr "Can merge without conflicts"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.edit.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.change"
+msgstr "Change pull request status"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.changedFiles"
+msgstr "Changed files"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.changes"
+msgstr "Changes"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.header.moreOptions"
+msgstr "Changes options"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.unavailable"
+msgstr "Changes unavailable"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReviewPlugin.reviewChat.open"
+msgstr "Chat about this pull request"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.checkAgain"
+msgstr "Check again"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.checking"
+msgstr "Checking…"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.sectionTitle"
+msgstr "Checks"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.description"
+msgstr "Choose a merge method and confirm."
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.emptyState.description"
+msgstr "Choose one from the sidebar to review its changes"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestSidePanel.state.closed"
+msgstr "Closed"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.close"
+msgstr "Closed"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.title"
+msgstr "Code review"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.connectionUnavailable"
+msgstr "Code Review is temporarily unavailable. Please try again shortly."
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.signInDescription"
+msgstr "Code Review reads pull requests through your ChatGPT account. Sign in to Codex with ChatGPT, then connect GitHub or GitLab."
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.githubLinks.codeReviewTab"
+msgstr "Code Review tab"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.expandOrCollapseDiffMenu.collapse"
+msgstr "Collapse all diffs"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.menu.collapse"
+msgstr "Collapse file"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.commentNow"
+msgstr "Comment"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.comment"
+msgstr "Comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.comment"
+msgstr "Comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.actions"
+msgstr "Comment actions"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.commented"
+msgstr "Commented"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.title"
+msgstr "Comments"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.commits"
+msgstr "Commits"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.description.singleMethod"
+msgstr "Confirm the selected merge method."
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+#: src/settings-view.tsx
+msgid "codex.pullRequests.inbox.connectGitHub"
+msgstr "Connect GitHub"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.connectGitlab"
+msgstr "Connect GitLab (beta)"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.connectDescription"
+msgstr "Connect your GitHub account, then check again."
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.menu.copyPath"
+msgstr "Copy path"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.header.copyNumber"
+msgstr "Copy pull request number {number}"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: pullRequest.headBranch
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.header.copySourceBranch"
+msgstr "Copy source branch {0}"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: pullRequest.baseBranch ?? ""
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.header.copyTargetBranch"
+msgstr "Copy target branch {0}"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.copyUrl"
+msgstr "Copy URL"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.saveError"
+msgstr "Could not save your instructions"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.error"
+msgstr "Could not submit this review"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.connectionFailed"
+msgstr "Couldn’t connect to GitHub"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.connectionError.title"
+msgstr "Couldn’t load Code Review"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.error"
+msgstr "Couldn’t search GitHub users"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.confirmMergeCommit"
+msgstr "Create merge commit"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.reviewLinks.externalBrowser"
+msgstr "Default browser"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.delete"
+msgstr "Delete"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.editorLabel"
+msgstr "Description editor"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.editorMode"
+msgstr "Description editor mode"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestsPage.detail.actions.disableAutoMerge"
+msgstr "Disable auto-merge"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestSidePanel.state.draft"
+msgstr "Draft"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.draft"
+msgstr "Draft"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.editButton"
+msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.edit"
+msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.edit"
+msgstr "Edit description"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentEditInput.ariaLabel"
+msgstr "Edit pull request comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.title.edit"
+msgstr "Edit title"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestsPage.detail.actions.autoMerge.menuItem"
+msgstr "Enable auto-merge"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.approveDescription"
+msgstr "Endorse merging these changes"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.expandOrCollapseDiffMenu.expand"
+msgstr "Expand all diffs"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.menu.expand"
+msgstr "Expand file"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.git.instructions.autoSave.error"
+msgstr "Failed to save instructions"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.actions"
+msgstr "File actions"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.fileTreeSearch.placeholder"
+msgstr "Filter files…"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.fix"
+msgstr "Fix"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.failingChecks"
+msgstr "Fix failing checks before merging"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.autoFix.missingConversation"
+msgstr "Fix is only available in an active chat"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.prepareToMerge.running"
+msgstr "Fixing…"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.localInstructions.placeholder"
+msgstr "For example: I care most about the data model. Tell me where we might be overcomplicating things."
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.placeholder"
+msgstr "For example: I care most about the data model. Tell me where we might be overcomplicating things."
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.provider.github"
+msgstr "GitHub"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.githubAccount"
+msgstr "GitHub account"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.commentError"
+msgstr "GitHub could not post this comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.error"
+msgstr "GitHub could not post this comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.actions.updateError"
+msgstr "GitHub could not update this pull request"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.rateLimited"
+msgstr "GitHub rate limit reached"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.subtitle"
+msgstr "GitHub will merge only if the displayed head commit still matches."
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.provider.gitlab"
+msgstr "GitLab (beta)"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.gitlabAccount"
+msgstr "GitLab account"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.error.gitlab"
+msgstr "GitLab could not post this comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.updateFailed"
+msgstr "GitLab could not update this merge request"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.projectDefaultSubtitle"
+msgstr "GitLab will merge only if the displayed head commit still matches"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestsPage.codeReview.hideFileTree"
+msgstr "Hide file tree"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.hideResolved"
+msgstr "Hide resolved"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.humanComments"
+msgstr "Human comments"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.placeholder"
+msgstr "Leave a comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.loading"
+msgstr "Loading activity"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReview.gitlab.states.loadingChanges"
+msgstr "Loading merge request changes"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.loading"
+msgstr "Loading pull request changes"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.file.tooltip.markViewed"
+msgstr "Mark as viewed"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.draft"
+msgstr "Mark this pull request ready for review before merging"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestsPage.detail.actions.merge.trigger"
+msgstr "Merge"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.commit"
+msgstr "Merge commit"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.conflicts"
+msgstr "Merge conflicts"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.title"
+msgstr "Merge pull request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.ariaLabel.gitlab"
+msgstr "Merge request comment"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.heading"
+msgstr "Merge status"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestSidePanel.state.merged"
+msgstr "Merged"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestsPage.detail.actions.merging"
+msgstr "Merging…"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.headChanged"
+msgstr "New commits were pushed. Review the latest changes and try again."
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.empty"
+msgstr "No activity"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.empty"
+msgstr "No changed files"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.empty.short"
+msgstr "No checks"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.empty"
+msgstr "No comments"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.empty"
+msgstr "No description provided"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.fileSearch.empty"
+msgstr "No matching files"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.reviews.empty"
+msgstr "No reviews"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.empty"
+msgstr "No users found"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.emptyPreview"
+msgstr "Nothing to preview"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.pendingTooltip"
+msgstr "Only visible to you until review is submitted"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestDetail.header.openState"
+msgstr "Open"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.openCommentInReview"
+msgstr "Open comment in review"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.openInGitHub"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.openInGitLab"
+msgstr "Open in GitLab"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.githubLinks.label"
+msgstr "Open review links in"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.optionalComment"
+msgstr "Optional comment"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.prepareToMerge.pause"
+msgstr "Pause watch and fix"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.pending"
+msgstr "Pending"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.pending"
+msgstr "Pending"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReview.pin"
+msgstr "Pin to sidebar"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.post"
+msgstr "Post comment"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.posted"
+msgstr "Posted"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.posting"
+msgstr "Posting comment"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.preview"
+msgstr "Preview"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/side-rail.tsx
+msgid "privateReview.inline.author"
+msgstr "Private review"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+#: src/detail/side-rail.tsx
+msgid "codeReview.sidebar.privateReviewWorking"
+msgstr "Private review in progress"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.ariaLabel"
+msgstr "Pull request comment"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.contentTabs"
+msgstr "Pull request content"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.unavailable"
+msgstr "Pull request details are unavailable"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.ariaLabel"
+msgstr "Pull request reply"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.editTitle.label"
+msgstr "Pull request title"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.open"
+msgstr "Ready for review"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.refreshGitQueries"
+msgstr "Refresh"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.removeSelf"
+msgstr "Remove your review request"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.reopen"
+msgstr "Reopen"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.unresolve"
+msgstr "Reopen"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.closed"
+msgstr "Reopen this pull request before merging"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.submit"
+msgstr "Reply"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.reply"
+msgstr "Reply"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.unknownAuthorPlaceholder"
+msgstr "Reply to comment"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.reviews.request"
+msgstr "Request"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.requestChanges"
+msgstr "Request changes"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.placeholder"
+msgstr "Request review from…"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.changesRequested"
+msgstr "Requested changes"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.resolve"
+msgstr "Resolve"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.resolve"
+msgstr "Resolve"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.conflicts"
+msgstr "Resolve merge conflicts before merging"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.statusResolved"
+msgstr "Resolved"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.retry"
+msgstr "Retry"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.description"
+msgstr "Review code, catch issues, and make fixes with Codex"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.comment"
+msgstr "Review comment"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision"
+msgstr "Review decision"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.menu.chat"
+msgstr "Review in a new chat"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.localInstructions.title"
+msgstr "Review instructions"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.toolbar.instructions"
+msgstr "Review instructions"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.provider"
+msgstr "Review provider"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.toolbar.start"
+msgstr "Review with Codex"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.reviews"
+msgstr "Reviews"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.menu.private"
+msgstr "Run a private review"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.save"
+msgstr "Save"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.edit.save"
+msgstr "Save"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.run"
+msgstr "Save and run"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentEditInput.submit"
+msgstr "Save changes"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.git.instructions.autoSave.saved"
+msgstr "Saved"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.prompt"
+msgstr "Search by name or GitHub username"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.prompt.gitlab"
+msgstr "Search by name or GitLab username"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.ariaLabel"
+msgstr "Search GitHub users"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.ariaLabel.gitlab"
+msgstr "Search GitLab users"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.loading"
+msgstr "Searching…"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.emptyState.title"
+msgstr "Select a pull request"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.setupProvider"
+msgstr "Set up GitHub"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.setupGitlabBeta"
+msgstr "Set up GitLab (beta)"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.commentDescription"
+msgstr "Share feedback or ask questions"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: resolved.length
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.showResolved"
+msgstr "Show {0} resolved"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestsPage.codeReview.showFileTree"
+msgstr "Show file tree"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.signIn"
+msgstr "Sign in with ChatGPT"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.states.timelineApprovedUnknown"
+msgstr "Someone approved these changes"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineMergedUnknown"
+msgstr "Someone merged this merge request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.github.states.timelineMergedUnknown"
+msgstr "Someone merged this pull request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineOpenedUnknown"
+msgstr "Someone opened this merge request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.github.states.timelineOpenedUnknown"
+msgstr "Someone opened this pull request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.states.timelineChangesRequestedUnknown"
+msgstr "Someone requested changes"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReviewPlugin.diff.layout.split"
+msgstr "Split"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.squash"
+msgstr "Squash"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.confirmSquash"
+msgstr "Squash and merge"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestStack.label"
+msgstr "Stack"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.startReview"
+msgstr "Start your review"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.unknown"
+msgstr "Still checking whether this can be merged"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.submit"
+msgstr "Submit"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestSubmitReview.open"
+msgstr "Submit review"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.title"
+msgstr "Submit review"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: pending.length
+#: src/detail/changes-tab.tsx
+msgid "pullRequestSubmitReview.openWithPending"
+msgstr "Submit review · {0}"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.summary.title"
+msgstr "Summary"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.title"
+msgstr "Tell Codex how to review your code"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.blocked"
+msgstr "This pull request can’t be merged yet"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReview.selectedAccountUnavailable"
+msgstr "This review is unavailable for the selected account"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.associatedTasks.title"
+msgstr "Threads"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.connectionError.retry"
+msgstr "Try again"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.retry"
+msgstr "Try again"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.retry"
+msgstr "Try again"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.loadError"
+msgstr "Unable to load app preferences"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.saveError"
+msgstr "Unable to save app preferences. Try again."
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReviewPlugin.diff.layout.unified"
+msgstr "Unified"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentUnknownAuthor"
+msgstr "Unknown author"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReview.unpin"
+msgstr "Unpin from sidebar"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: connection.hostname
+#. placeholder {1}: connection.name ?? connection.login ?? connection.accountLinkId
+#: src/settings-view.tsx
+msgid "codeReview.onboarding.useConnection"
+msgstr "Use {0} — {1}"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.viewCommentOnGitHub"
+msgstr "View on GitHub"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.viewCommentOnGitHub.gitlab"
+msgstr "View on GitLab"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.pendingChecks"
+msgstr "Wait for checks to finish before merging"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.waiting"
+msgstr "Waiting for review"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.prepareToMerge.watching"
+msgstr "Watch and fix"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.reviewLinks.inAppBrowser"
+msgstr "Web page in Cypheria"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.wordDiffs.label"
+msgstr "Word diffs"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.wrap.label"
+msgstr "Word wrap"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.write"
+msgstr "Write"

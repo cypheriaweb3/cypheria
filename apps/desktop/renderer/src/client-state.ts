@@ -252,3 +252,6 @@ export const dismissedAgentCommentsAtom = (threadId: string): ClientStateAtom<st
   dismissedAgentCommentAtoms.set(threadId, created)
   return created
 }
+
+/** Pull requests pinned to the Code Review sidebar. */
+export const codeReviewPinsAtom = atomFor(clientSettingDefinitions.codeReviewPins)

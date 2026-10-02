@@ -10,6 +10,7 @@ build/
 coverage/
 apps/desktop/renderer/src/locales/*/messages.js
 apps/website/src/locales/*/messages.js
+packages/code-review-app/src/locales/*/messages.js
 apps/desktop/.dev-app/
 .source/
 .wrangler/

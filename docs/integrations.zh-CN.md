@@ -51,7 +51,7 @@ Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本�
 内置插件是 Codex 和 Claude 访问 Cypheria 自有工具的途径。每个插件声明一个 MCP server，两者运行同一个中继程序，它本身不执行工具：它通过 `/api/v1/app-tools/*` 列出和调用所属 server 的工具，Server 以与客户端相同的代码为发起调用的 Thread 执行。Codex dynamic tools 只承载浏览器工具。
 
 - `cypheria-app-tools`，server 为 `cypheria_app_tools`：[Agent harnesses](agent-harnesses.zh-CN.md#codex) 列出的 Thread、项目、侧边栏、worktree、handoff 和 automation 工具。
-- `code-review`，server 为 `code-review`：`pull_requests.checks`，即官方 `code-review` 插件唯一向模型显示的工具。Cypheria 通过 Server 的 GitHub CLI 读取按 host、owner、仓库和编号指定的 GitHub 拉取请求的检查，不含 job 日志。官方插件的其他工具服务于其内嵌的拉取请求应用，Desktop 用自己的拉取请求面板取代它。
+- `code-review`，server 为 `code-review`：官方插件的 31 个 `pull_requests.*` 工具及其 MCP App `ui://pull-requests/app`。只有 `pull_requests.checks` 对模型可见；它通过 OpenAI 后端读取 GitHub 拉取请求的检查或 GitLab 合并请求的流水线，不含 job 日志。其他工具服务于该 App，Desktop 将其承载为代码审查页面和 Thread 拉取请求面板。App 资源和工具列表由 Server 自己提供；见[代码审查](code-review.zh-CN.md)。
 
 Agent 在自己的命令中用 `git` 和 `gh` 完成本地 Git 工作；Server Git 协议仍是客户端契约，不提供给模型，与官方桌面端一致。
 
@@ -119,6 +119,8 @@ Marketplace 总是对所有能读取它的 Agent 开放。
 ## Codex Apps
 
 Apps 遵循 OpenAI App Server/connector 模型，只属于 Codex harness 扩展。它们通过 `client.harnesses.codex.apps` 暴露，包括 list、enablement、connect、callable/accessibility state、install URL 和 plugin association。
+
+代码审查使用用户在这里建立的 GitHub 和 GitLab 连接，并凭 ChatGPT 登录通过 OpenAI 后端读取；见[代码审查](code-review.zh-CN.md#前提条件)。
 
 Desktop 在系统浏览器中打开 App 安装页面。窗口重新获得焦点后，会刷新 App 和 MCP 的可用状态；外部页面不会向本地发送可信的完成回调。
 

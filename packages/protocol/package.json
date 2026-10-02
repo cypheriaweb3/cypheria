@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./acp-adapter": "./src/agent/acp.ts",
     "./claude-types": "./src/agent/claude-agent-sdk-types.ts",
+    "./code-review-app": "./src/code-review-app.ts",
     "./codex-types": "./src/generated/codex/ts/index.ts",
     "./magpie-api": "./src/magpie-api.ts",
     "./opencode-types": "./src/agent/opencode-sdk-types.ts",

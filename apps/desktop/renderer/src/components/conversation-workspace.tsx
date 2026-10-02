@@ -132,6 +132,7 @@ import {
   McpIcon,
   PinIcon,
   PlusIcon,
+  PullRequestOpenIcon,
   SearchIcon,
   SidebarRightIcon,
   TasksIcon,
@@ -201,7 +202,7 @@ import {
   verifyDraftAttachments,
 } from "../composer-draft-storage.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
-import { nextRequestNonce, reviewFocusAtom, reviewPanelRequestAtom } from "../deep-links.js"
+import { reviewFocusAtom, reviewPanelRequestAtom } from "../deep-links.js"
 import { Route } from "../routes/index.js"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 import { desktopClientStorage } from "../storage.js"
@@ -209,6 +210,7 @@ import {
   type ConversationSubmitMode,
   ThreadConversationController,
 } from "../thread-conversation-controller.js"
+import { ThreadPullRequestPanel } from "./code-review/thread-panel.js"
 import { codeReviewPrompt } from "./code-review-prompt.js"
 import { CodexSummary } from "./codex-summary.js"
 import { ComposerModelSelector } from "./composer-model-selector.js"
@@ -967,6 +969,8 @@ export function ConversationWorkspace({
   )
   const [persistedPanelLayout, setPersistedPanelLayout] = useAtom(panelAtom)
   const summaryStateAtom = useMemo(() => summaryAtom(initialThreadId ?? "new"), [initialThreadId])
+  /** The pull request the Pull request tab shows; null shows the Thread's own pull request. */
+  const [pullRequestUrl, setPullRequestUrl] = useState<string | null>(null)
   const [summaryCheckpoint, setSummaryCheckpoint] = useAtom(summaryStateAtom)
   const summaryHostRef = useRef<HTMLDivElement>(null)
   const summaryToggleRef = useRef<HTMLButtonElement>(null)
@@ -1704,6 +1708,19 @@ export function ConversationWorkspace({
         title: i18n._(msg({ id: "chat.panel.browser", message: "Browser" })),
       },
       {
+        content:
+          rightVisibility === "visible" && rightTab === "pull-request" ? (
+            <ThreadPullRequestPanel
+              cwd={snapshot.thread?.roots[0] ?? null}
+              threadId={snapshot.thread?.id ?? null}
+              url={pullRequestUrl}
+            />
+          ) : null,
+        icon: <PullRequestOpenIcon />,
+        id: "pull-request",
+        title: i18n._(msg({ id: "chat.panel.pullRequest", message: "Pull request" })),
+      },
+      {
         content: (
           <ChatMcpAppPanel>
             <EmptyPanel>
@@ -1786,6 +1803,7 @@ export function ConversationWorkspace({
     openFileTabStable,
     agentId,
     agentReviewComments,
+    pullRequestUrl,
   ])
 
   const rightTabs = panelTabs.filter((tab) => openRightTabs.includes(tab.id))
@@ -2066,6 +2084,20 @@ export function ConversationWorkspace({
     },
     [setOpenRightTabs, setRightTab, setRightVisibility]
   )
+  const onOpenPullRequest = useCallback(
+    (url: string) => {
+      setPullRequestUrl(url)
+      openRightTab("pull-request")
+    },
+    [openRightTab]
+  )
+  const reviewFocus = useAtomValue(reviewFocusAtom)
+  useEffect(() => {
+    if (!reviewFocus?.pullRequest || !snapshot.thread?.id) return
+    if (reviewFocus.threadId && reviewFocus.threadId !== snapshot.thread.id) return
+    onOpenPullRequest(reviewFocus.pullRequest)
+    clientStateStore.set(reviewFocusAtom, null)
+  }, [onOpenPullRequest, reviewFocus, snapshot.thread?.id])
   const reviewPanelRequest = useAtomValue(reviewPanelRequestAtom)
   const currentThreadId = snapshot.thread?.id ?? null
   useEffect(() => {
@@ -2208,17 +2240,8 @@ export function ConversationWorkspace({
                 (current) => `${current}${current && !/\s$/u.test(current) ? " " : ""}${text} `
               )
             }
-            onOpenPullRequest={(url) => {
-              clientStateStore.set(reviewFocusAtom, {
-                line: null,
-                nonce: nextRequestNonce(),
-                path: null,
-                pullRequest: url,
-                side: "additions",
-                threadId: snapshot.thread?.id ?? null,
-              })
-              openRightTab("review")
-            }}
+            threadId={snapshot.thread?.id ?? null}
+            onOpenPullRequest={onOpenPullRequest}
             onOpenReview={() => openRightTab("review")}
           />
         </div>

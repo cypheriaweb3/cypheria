@@ -1,0 +1,1226 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Language: zh-CN\n"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: failing.length
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.failingCount"
+msgstr "{0} 项失败"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: passing.length
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.successfulCount"
+msgstr "{0} 项成功"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: reaction.content
+#. placeholder {1}: reaction.count
+#: src/detail/summary-tab.tsx
+msgid "codeReview.reactions.count"
+msgstr "{0}，{1} 个回应"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.pendingComments.short"
+msgstr "{pendingCount} 条待提交评论。提交前仅你可见。"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.approved"
+msgstr "{who} 批准了这些更改"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineMerged"
+msgstr "{who} 合并了此合并请求"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.merged"
+msgstr "{who} 合并了此 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineOpened"
+msgstr "{who} 创建了此合并请求"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.opened"
+msgstr "{who} 创建了此 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.timeline.changesRequested"
+msgstr "{who} 请求了更改"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.title"
+msgstr "活动"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.requiredComment"
+msgstr "添加评论…"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.reactions.add"
+msgstr "添加回应"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.addToReview"
+msgstr "添加到审查"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.localInstructions.description"
+msgstr "添加到你在代码审查中发起的审查，适用于所有仓库"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.all"
+msgstr "全部活动"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.comments"
+msgstr "全部评论"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.appPreferences.title"
+msgstr "应用偏好设置"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.approve"
+msgstr "批准"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.approved"
+msgstr "已批准"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.requestChangesDescription"
+msgstr "合并前要求修改"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReviewPlugin.diff.layout.auto"
+msgstr "自动"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.autoFix.closed"
+msgstr "已关闭的 Pull Request 无法使用自动修复"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.timeline.autoMergeEnabled"
+msgstr "已启用自动合并——满足所有要求后分支将自动合并。"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.current"
+msgstr "可以无冲突合并"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.edit.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.change"
+msgstr "更改 Pull Request 状态"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.changedFiles"
+msgstr "已更改的文件"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.changes"
+msgstr "更改"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.header.moreOptions"
+msgstr "“变更”选项"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.unavailable"
+msgstr "变更不可用"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReviewPlugin.reviewChat.open"
+msgstr "讨论此 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.checkAgain"
+msgstr "再次检查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.checking"
+msgstr "正在检查…"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.sectionTitle"
+msgstr "检查"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.description"
+msgstr "选择合并方式并确认。"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.emptyState.description"
+msgstr "从侧边栏选择一个以审查其更改"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestSidePanel.state.closed"
+msgstr "已关闭"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.close"
+msgstr "已关闭"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.title"
+msgstr "代码审查"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.connectionUnavailable"
+msgstr "代码审查暂时不可用，请稍后重试。"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.signInDescription"
+msgstr "代码审查通过你的 ChatGPT 账户读取 Pull Request。请先用 ChatGPT 登录 Codex，然后连接 GitHub 或 GitLab。"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.githubLinks.codeReviewTab"
+msgstr "代码审查标签页"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.expandOrCollapseDiffMenu.collapse"
+msgstr "折叠全部差异"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.menu.collapse"
+msgstr "折叠文件"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.commentNow"
+msgstr "评论"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.comment"
+msgstr "评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.comment"
+msgstr "评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.actions"
+msgstr "评论操作"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.commented"
+msgstr "已评论"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.title"
+msgstr "评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.commits"
+msgstr "提交"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.description.singleMethod"
+msgstr "确认所选的合并方法。"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+#: src/settings-view.tsx
+msgid "codex.pullRequests.inbox.connectGitHub"
+msgstr "连接 GitHub"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.connectGitlab"
+msgstr "连接 GitLab（测试版）"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.connectDescription"
+msgstr "连接你的 GitHub 账户，然后再次检查。"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.menu.copyPath"
+msgstr "复制路径"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.header.copyNumber"
+msgstr "复制 Pull Request 编号 {number}"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: pullRequest.headBranch
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.header.copySourceBranch"
+msgstr "复制源分支 {0}"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: pullRequest.baseBranch ?? ""
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.header.copyTargetBranch"
+msgstr "复制目标分支 {0}"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.copyUrl"
+msgstr "复制 URL"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.saveError"
+msgstr "无法保存你的说明"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.error"
+msgstr "GitHub 无法提交此审查"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.connectionFailed"
+msgstr "无法连接到 GitHub"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.connectionError.title"
+msgstr "无法加载代码审查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.error"
+msgstr "无法搜索 GitHub 用户"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.confirmMergeCommit"
+msgstr "创建合并提交"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.reviewLinks.externalBrowser"
+msgstr "默认浏览器"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.delete"
+msgstr "删除"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.editorLabel"
+msgstr "描述编辑器"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.editorMode"
+msgstr "描述编辑模式"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestsPage.detail.actions.disableAutoMerge"
+msgstr "禁用自动合并"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestSidePanel.state.draft"
+msgstr "草稿"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.draft"
+msgstr "草稿"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.editButton"
+msgstr "编辑"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.edit"
+msgstr "编辑"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.edit"
+msgstr "编辑描述"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentEditInput.ariaLabel"
+msgstr "编辑 Pull Request 评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.title.edit"
+msgstr "编辑标题"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestsPage.detail.actions.autoMerge.menuItem"
+msgstr "启用自动合并"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.approveDescription"
+msgstr "同意合并这些更改"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.expandOrCollapseDiffMenu.expand"
+msgstr "展开全部差异"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.menu.expand"
+msgstr "展开文件"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.git.instructions.autoSave.error"
+msgstr "未能保存说明"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.diff.fileHeader.actions"
+msgstr "文件操作"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.fileTreeSearch.placeholder"
+msgstr "筛选文件…"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.fix"
+msgstr "修复"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.failingChecks"
+msgstr "请先修复未通过的检查再合并"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.autoFix.missingConversation"
+msgstr "修复仅在活跃的聊天中可用"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.prepareToMerge.running"
+msgstr "正在修复…"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.localInstructions.placeholder"
+msgstr "例如：我最关心数据模型。告诉我哪些地方可能设计得过于复杂。"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.placeholder"
+msgstr "例如：我最关心数据模型。告诉我哪些地方可能设计得过于复杂。"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.provider.github"
+msgstr "GitHub"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.githubAccount"
+msgstr "GitHub 账户"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.commentError"
+msgstr "GitHub 无法发布此评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.error"
+msgstr "GitHub 无法发布此评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.actions.updateError"
+msgstr "GitHub 无法更新此 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codex.pullRequests.inbox.rateLimited"
+msgstr "已达到 GitHub 速率限制"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.subtitle"
+msgstr "仅当显示的 HEAD 提交仍然匹配时，GitHub 才会合并。"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.provider.gitlab"
+msgstr "GitLab（测试版）"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.gitlabAccount"
+msgstr "GitLab 账户"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.error.gitlab"
+msgstr "GitLab 无法发布此评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.updateFailed"
+msgstr "GitLab 无法更新此合并请求"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.projectDefaultSubtitle"
+msgstr "仅当显示的头部提交仍然一致时，GitLab 才会合并"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestsPage.codeReview.hideFileTree"
+msgstr "隐藏文件树"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.hideResolved"
+msgstr "隐藏已解决"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.filter.humanComments"
+msgstr "人工评论"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.placeholder"
+msgstr "留下评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.loading"
+msgstr "正在加载活动"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReview.gitlab.states.loadingChanges"
+msgstr "正在加载合并请求的更改"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.loading"
+msgstr "正在加载 Pull Request 更改"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.file.tooltip.markViewed"
+msgstr "标记为已查看"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.draft"
+msgstr "合并前请将此 Pull Request 标记为可供审查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestsPage.detail.actions.merge.trigger"
+msgstr "合并"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.commit"
+msgstr "合并提交"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.conflicts"
+msgstr "合并冲突"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.title"
+msgstr "合并 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.ariaLabel.gitlab"
+msgstr "合并请求评论"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestMergeStatus.heading"
+msgstr "合并状态"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestSidePanel.state.merged"
+msgstr "已合并"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestsPage.detail.actions.merging"
+msgstr "正在合并…"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.headChanged"
+msgstr "有新的提交被推送。请查看最新更改后重试。"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.activity.empty"
+msgstr "暂无活动"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.empty"
+msgstr "没有更改的文件"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.empty.short"
+msgstr "无检查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.empty"
+msgstr "暂无评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.empty"
+msgstr "未提供描述"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.fileSearch.empty"
+msgstr "没有匹配的文件"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.reviews.empty"
+msgstr "无审查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.empty"
+msgstr "未找到用户"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.emptyPreview"
+msgstr "没有可预览的内容"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.pendingTooltip"
+msgstr "提交审查前仅你可见"
+
+#. js-lingui-explicit-id
+#: src/detail/shared.tsx
+msgid "pullRequestDetail.header.openState"
+msgstr "打开"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.openCommentInReview"
+msgstr "在审查中打开评论"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.openInGitHub"
+msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.openInGitLab"
+msgstr "在 GitLab 中打开"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.githubLinks.label"
+msgstr "审查链接打开方式"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.optionalComment"
+msgstr "可选备注"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.prepareToMerge.pause"
+msgstr "暂停观察和修复"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.pending"
+msgstr "待提交"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.checks.pending"
+msgstr "进行中"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReview.pin"
+msgstr "固定到侧边栏"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.post"
+msgstr "发布评论"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.posted"
+msgstr "已发布"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.posting"
+msgstr "正在发布评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.preview"
+msgstr "预览"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/side-rail.tsx
+msgid "privateReview.inline.author"
+msgstr "私密审查"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+#: src/detail/side-rail.tsx
+msgid "codeReview.sidebar.privateReviewWorking"
+msgstr "私密审阅处理中"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentInput.ariaLabel"
+msgstr "Pull Request 评论"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.contentTabs"
+msgstr "Pull Request 内容"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.unavailable"
+msgstr "Pull Request 详情不可用"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.ariaLabel"
+msgstr "Pull Request 回复"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.editTitle.label"
+msgstr "Pull Request 标题"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestSidePanel.status.open"
+msgstr "可供审查"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.refreshGitQueries"
+msgstr "刷新"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.removeSelf"
+msgstr "移除对你的审查请求"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.reopen"
+msgstr "重新打开"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.unresolve"
+msgstr "取消解决"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.closed"
+msgstr "合并前请重新打开此 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.submit"
+msgstr "发布回复"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.reply"
+msgstr "回复"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentReplyInput.unknownAuthorPlaceholder"
+msgstr "回复评论"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.reviews.request"
+msgstr "请求"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.requestChanges"
+msgstr "请求更改"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.placeholder"
+msgstr "请求谁来评审…"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.changesRequested"
+msgstr "已请求更改"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "privateReview.finding.resolve"
+msgstr "解决"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.resolve"
+msgstr "解决"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.conflicts"
+msgstr "合并前请先解决合并冲突"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.comment.statusResolved"
+msgstr "已解决"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.retry"
+msgstr "重试"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.description"
+msgstr "使用 Codex 审查代码、发现并修复问题"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.comment"
+msgstr "审查评论"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision"
+msgstr "审查决定"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.menu.chat"
+msgstr "在新聊天中审查"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.localInstructions.title"
+msgstr "审查说明"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.toolbar.instructions"
+msgstr "审查说明"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.provider"
+msgstr "审查提供方"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.toolbar.start"
+msgstr "使用 Codex 审查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.reviews"
+msgstr "审查"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "privateReview.menu.private"
+msgstr "运行私密审查"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.save"
+msgstr "保存"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.edit.save"
+msgstr "保存"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.run"
+msgstr "保存并运行"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentEditInput.submit"
+msgstr "保存更改"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.git.instructions.autoSave.saved"
+msgstr "已保存"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.prompt"
+msgstr "按名字或 GitHub 用户名搜索"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.prompt.gitlab"
+msgstr "按姓名或 GitLab 用户名搜索"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.ariaLabel"
+msgstr "搜索 GitHub 用户"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.ariaLabel.gitlab"
+msgstr "搜索 GitLab 用户"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.approvals.search.loading"
+msgstr "正在搜索…"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.emptyState.title"
+msgstr "选择一个 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.setupProvider"
+msgstr "设置 GitHub"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.setupGitlabBeta"
+msgstr "设置 GitLab（测试版）"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.decision.commentDescription"
+msgstr "分享反馈或提出问题"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: resolved.length
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.comments.showResolved"
+msgstr "显示 {0} 条已解决"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestsPage.codeReview.showFileTree"
+msgstr "显示文件树"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.onboarding.signIn"
+msgstr "使用 ChatGPT 登录"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.states.timelineApprovedUnknown"
+msgstr "有人批准了这些更改"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineMergedUnknown"
+msgstr "有人合并了此合并请求"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.github.states.timelineMergedUnknown"
+msgstr "有人合并了此 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.gitlab.states.timelineOpenedUnknown"
+msgstr "有人创建了此合并请求"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.github.states.timelineOpenedUnknown"
+msgstr "有人创建了此 Pull Request"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "codeReview.states.timelineChangesRequestedUnknown"
+msgstr "有人请求了更改"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReviewPlugin.diff.layout.split"
+msgstr "拆分"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.squash"
+msgstr "压缩"
+
+#. js-lingui-explicit-id
+#: src/detail/merge.tsx
+msgid "pullRequestDetail.merge.confirmSquash"
+msgstr "压缩并合并"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestStack.label"
+msgstr "堆栈"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "code.diffComment.startReview"
+msgstr "开始审查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.unknown"
+msgstr "GitHub 仍在检查这是否可以合并"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.submit"
+msgstr "提交审查"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestSubmitReview.open"
+msgstr "提交审查"
+
+#. js-lingui-explicit-id
+#: src/detail/submit-review.tsx
+msgid "pullRequestSubmitReview.title"
+msgstr "提交审查"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: pending.length
+#: src/detail/changes-tab.tsx
+msgid "pullRequestSubmitReview.openWithPending"
+msgstr "提交审查 · {0}"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.summary.title"
+msgstr "摘要"
+
+#. js-lingui-explicit-id
+#: src/detail/review-instructions.tsx
+msgid "privateReview.instructions.title"
+msgstr "告诉 Codex 如何审查你的代码"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.blocked"
+msgstr "此 Pull Request 暂时无法合并"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReview.selectedAccountUnavailable"
+msgstr "所选账户无法访问此审查"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.associatedTasks.title"
+msgstr "线程"
+
+#. js-lingui-explicit-id
+#: src/root.tsx
+msgid "codeReview.connectionError.retry"
+msgstr "重试"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "pullRequestDetail.code.retry"
+msgstr "重试"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "pullRequestDetail.retry"
+msgstr "重试"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.loadError"
+msgstr "无法加载应用偏好设置"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "codeReview.settings.saveError"
+msgstr "无法保存应用偏好设置，请重试。"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codeReviewPlugin.diff.layout.unified"
+msgstr "统一"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.commentUnknownAuthor"
+msgstr "未知作者"
+
+#. js-lingui-explicit-id
+#: src/detail/pull-request-detail.tsx
+msgid "codeReview.unpin"
+msgstr "从侧边栏取消固定"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: connection.hostname
+#. placeholder {1}: connection.name ?? connection.login ?? connection.accountLinkId
+#: src/settings-view.tsx
+msgid "codeReview.onboarding.useConnection"
+msgstr "使用 {0} — {1}"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.viewCommentOnGitHub"
+msgstr "在 GitHub 上查看评论"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestsPage.detail.viewCommentOnGitHub.gitlab"
+msgstr "在 GitLab 上查看"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestDetail.actions.merge.disabled.pendingChecks"
+msgstr "请等待检查完成后再合并"
+
+#. js-lingui-explicit-id
+#: src/detail/side-rail.tsx
+msgid "pullRequestSidePanel.overview.reviewer.waiting"
+msgstr "等待评审"
+
+#. js-lingui-explicit-id
+#: src/detail/watch.tsx
+msgid "pullRequestSidePanel.prepareToMerge.watching"
+msgstr "监控并修复"
+
+#. js-lingui-explicit-id
+#: src/settings-view.tsx
+msgid "settings.codeReviewPlugin.reviewLinks.inAppBrowser"
+msgstr "Cypheria 中的网页"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.wordDiffs.label"
+msgstr "词级差异"
+
+#. js-lingui-explicit-id
+#: src/detail/changes-tab.tsx
+msgid "codex.review.wrap.label"
+msgstr "自动换行"
+
+#. js-lingui-explicit-id
+#: src/detail/summary-tab.tsx
+msgid "pullRequestDetail.description.write"
+msgstr "编辑"

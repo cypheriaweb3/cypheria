@@ -159,10 +159,10 @@ const virtualNavigationItems = [
   },
   {
     developmentOnly: false,
-    href: "/pull-requests",
+    href: "/code-review",
     icon: GitPullRequest,
-    id: "pull-requests",
-    label: msg({ id: "navigation.pullRequests", message: "Pull requests" }),
+    id: "code-review",
+    label: msg({ id: "navigation.codeReview", message: "Code Review" }),
   },
   {
     developmentOnly: false,
