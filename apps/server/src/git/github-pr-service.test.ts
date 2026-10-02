@@ -541,7 +541,7 @@ if (args[1] === "view") process.stdout.write(${JSON.stringify(JSON.stringify(pr)
 else {
   const request = JSON.parse(fs.readFileSync(args[args.indexOf("--input") + 1], "utf8"))
   let data
-  if (request.query.includes("mergeCommitAllowed")) data = { viewer: { login: "tester" }, repository: { mergeCommitAllowed: true, squashMergeAllowed: true, pullRequest: { additions: 4, deletions: 2, changedFiles: 1, headRefOid: ${JSON.stringify(head)}, author: { login: "tester", avatarUrl: null }, createdAt: "2026-09-23T00:00:00Z", autoMergeRequest: null } } }
+  if (request.query.includes("mergeCommitAllowed")) data = { viewer: { login: "tester" }, repository: { mergeCommitAllowed: true, squashMergeAllowed: true, pullRequest: { additions: 4, deletions: 2, changedFiles: 1, headRefOid: ${JSON.stringify(head)}, author: { login: "tester", avatarUrl: null }, createdAt: "2026-09-23T00:00:00Z", autoMergeRequest: null, mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" } } }
   else if (request.query.includes("reviewDecision")) data = { repository: { pullRequest: { reviewDecision: "REVIEW_REQUIRED", reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "reviewer" } }], pageInfo: { hasNextPage: false } }, reviews: request.variables.cursor ? { nodes: [{ author: { login: "reviewer" }, state: "APPROVED", submittedAt: "2026-09-24T00:00:00Z" }], pageInfo: { hasNextPage: false, endCursor: "page2" } } : { nodes: [{ author: { login: "tester" }, state: "COMMENTED", submittedAt: "2026-09-23T00:00:00Z" }], pageInfo: { hasNextPage: true, endCursor: "page1" } } } } }
   else if (request.query.includes("collaborators")) data = { repository: { collaborators: { edges: [{ node: { login: "reviewer", avatarUrl: null } }] } } }
   else data = { repository: { mentionableUsers: { nodes: [{ login: "reviewer", avatarUrl: null }] }, pullRequest: { participants: { nodes: [{ login: "reviewer", avatarUrl: null }] } } } }
@@ -557,6 +557,8 @@ else {
       changedFiles: 1,
       isAuthor: true,
       allowedMergeMethods: ["squash", "merge"],
+      mergeable: "CONFLICTING",
+      mergeStateStatus: "DIRTY",
     })
     expect(await service.reviewStatus(cwd, 42, head)).toMatchObject({
       reviewDecision: "REVIEW_REQUIRED",

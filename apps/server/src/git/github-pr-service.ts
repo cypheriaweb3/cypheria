@@ -75,7 +75,7 @@ const threadCommentsQuery = `query($threadId:ID!,$cursor:String!){node(id:$threa
 const threadReplyMutation = `mutation($threadId:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$threadId,body:$body}){comment{id}}}`
 const threadResolveMutation = `mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
 const threadUnresolveMutation = `mutation($threadId:ID!){unresolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
-const metadataQuery = `query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){mergeCommitAllowed squashMergeAllowed pullRequest(number:$number){additions deletions changedFiles headRefOid author{login avatarUrl} createdAt autoMergeRequest{enabledAt}}}}`
+const metadataQuery = `query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){mergeCommitAllowed squashMergeAllowed pullRequest(number:$number){additions deletions changedFiles headRefOid author{login avatarUrl} createdAt autoMergeRequest{enabledAt} mergeable mergeStateStatus}}}`
 const reviewStatusQuery = `query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewDecision reviewRequests(first:100){nodes{requestedReviewer{__typename ... on User{login} ... on Team{slug}}} pageInfo{hasNextPage}} reviews(first:100,after:$cursor){nodes{author{login} state submittedAt} pageInfo{hasNextPage endCursor}}}}}`
 const collaboratorQuery = `query($owner:String!,$repo:String!,$search:String!){repository(owner:$owner,name:$repo){collaborators(first:100,query:$search){edges{node{avatarUrl(size:48) login}}}}}`
 const mentionQuery = `query($owner:String!,$repo:String!,$number:Int!,$search:String!){repository(owner:$owner,name:$repo){mentionableUsers(first:10,query:$search){nodes{avatarUrl(size:48) login}} pullRequest(number:$number){participants(first:100){nodes{avatarUrl(size:48) login}}}}}`
@@ -459,6 +459,17 @@ export class GitHubPrService {
                 author: z.object({ login: z.string(), avatarUrl: z.url().nullable() }).nullable(),
                 createdAt: z.string().nullable(),
                 autoMergeRequest: z.object({ enabledAt: z.string() }).nullable(),
+                mergeable: z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]),
+                mergeStateStatus: z.enum([
+                  "BEHIND",
+                  "BLOCKED",
+                  "CLEAN",
+                  "DIRTY",
+                  "DRAFT",
+                  "HAS_HOOKS",
+                  "UNKNOWN",
+                  "UNSTABLE",
+                ]),
               })
               .nullable(),
           })
@@ -485,6 +496,8 @@ export class GitHubPrService {
       createdAt: details.createdAt,
       isAuthor: details.author?.login.toLowerCase() === result.viewer.login.toLowerCase(),
       isAutoMergeEnabled: details.autoMergeRequest !== null,
+      mergeable: details.mergeable,
+      mergeStateStatus: details.mergeStateStatus,
       allowedMergeMethods: [
         ...(result.repository?.squashMergeAllowed ? ["squash" as const] : []),
         ...(result.repository?.mergeCommitAllowed ? ["merge" as const] : []),

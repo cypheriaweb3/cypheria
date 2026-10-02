@@ -3543,3 +3543,78 @@ msgstr "在标签页中打开文件"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.openExternally"
 msgstr "用默认应用打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair"
+msgstr "修复"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.checks"
+msgstr "失败的检查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.comments"
+msgstr "评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.conflicts"
+msgstr "合并冲突"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.repair.everything"
+msgstr "全部"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.closed"
+msgstr "请先重新打开此拉取请求再合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.draft"
+msgstr "请先将此拉取请求标记为可审查再合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.conflicts"
+msgstr "请先解决合并冲突再合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.failingChecks"
+msgstr "请先修复失败的检查再合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.pendingChecks"
+msgstr "请等待检查完成后再合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.blocked"
+msgstr "此拉取请求暂时无法合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeBlocked.unknown"
+msgstr "GitHub 仍在检查能否合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeUnavailable"
+msgstr "无法合并：{reason}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeMethod.squash"
+msgstr "压缩并合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeMethod.merge"
+msgstr "创建合并提交"

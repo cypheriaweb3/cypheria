@@ -58,4 +58,18 @@ describe("GitHub PR watch", () => {
     expect(githubPrFixPrompt(pr, DEFAULT_GIT_SETTINGS, true)).toContain("Do not merge")
     expect(githubPrFixPrompt(pr, DEFAULT_GIT_SETTINGS, false)).toContain("Fix GitHub pull request")
   })
+
+  it("narrows a one-off repair to the chosen problem", () => {
+    const checks = githubPrFixPrompt(pr, DEFAULT_GIT_SETTINGS, false, "checks")
+    expect(checks).toContain("Fix the failing checks only")
+    expect(githubPrFixPrompt(pr, DEFAULT_GIT_SETTINGS, false, "conflicts")).toContain(
+      "Resolve the merge conflicts"
+    )
+    expect(githubPrFixPrompt(pr, DEFAULT_GIT_SETTINGS, false)).toContain(
+      "Inspect failing checks, review comments, and merge conflicts."
+    )
+    expect(githubPrFixPrompt(pr, DEFAULT_GIT_SETTINGS, true, "checks")).toContain(
+      "Inspect failing checks, review comments, and merge conflicts."
+    )
+  })
 })
