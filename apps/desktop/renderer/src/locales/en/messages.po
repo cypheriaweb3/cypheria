@@ -3013,3 +3013,88 @@ msgstr "View PR"
 #: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.createPr"
 msgstr "Create PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.rowSummary"
+msgstr "{path}, added lines: {additions}, deleted lines: {deletions}, comments: {comments}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.changedFiles"
+msgstr "Changed files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.pendingComments"
+msgstr "{count, plural, one {# review comment} other {# review comments}}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.sendComments"
+msgstr "Send to Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.clearComments"
+msgstr "Clear"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.removeComment"
+msgstr "Remove"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentBody"
+msgstr "Review comment"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentPlaceholder"
+msgstr "Tell the Agent what to change here…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.addComment"
+msgstr "Add comment"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.fileCount"
+msgstr "{count, plural, one {# file changed} other {# files changed}}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unifiedDiff"
+msgstr "Unified"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.splitDiff"
+msgstr "Split"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.disableWrap"
+msgstr "Disable word wrap"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.enableWrap"
+msgstr "Enable word wrap"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitSection"
+msgstr "Commit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchesSection"
+msgstr "Branches"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.worktreesSection"
+msgstr "Worktrees"

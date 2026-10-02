@@ -11,16 +11,26 @@ import {
 } from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
 import {
+  type ChatDiffAnnotation,
+  type ChatDiffTarget,
   ChatDiffViewer,
   ChatReviewDiffHost,
   type ChatReviewFileDescriptor,
-  ChatReviewFileList,
+  ChatReviewFileTree,
   ChatReviewPanel,
   ChatReviewToolbar,
+  type ChatReviewTreeFile,
 } from "@cypheria/ui/components/chat"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@cypheria/ui/components/collapsible"
+import { ChevronDownIcon } from "@cypheria/ui/components/icons"
 import { Input } from "@cypheria/ui/components/input"
 import { NativeSelect, NativeSelectOption } from "@cypheria/ui/components/native-select"
+import { Textarea } from "@cypheria/ui/components/textarea"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
@@ -28,11 +38,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAtom } from "jotai"
 import { type ReactNode, useEffect, useId, useState } from "react"
 
-import { gitReviewSourceAtom } from "../client-state.js"
+import { gitReviewSourceAtom, reviewCommentsAtom } from "../client-state.js"
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { commitChanges, hasCommittableChanges, parseCoAuthors } from "./git-commit-actions.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
+import { formatReviewComments, hunkAnchor } from "./review-comments.js"
 
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
@@ -45,15 +56,42 @@ const statusKind = (code: string): ChatReviewFileDescriptor["status"] => {
   return "modified"
 }
 
+const treeStatus = (code: string): ChatReviewTreeFile["status"] => {
+  if (code.includes("?")) return "untracked"
+  if (code.includes("D")) return "deleted"
+  if (code.includes("R")) return "renamed"
+  if (code.includes("A")) return "added"
+  return "modified"
+}
+
+function ReviewSection({
+  children,
+  defaultOpen,
+  title,
+}: Readonly<{ children: ReactNode; defaultOpen: boolean; title: string }>) {
+  return (
+    <Collapsible className="border-t" defaultOpen={defaultOpen}>
+      <CollapsibleTrigger className="group flex w-full items-center justify-between px-2 py-1.5 text-left font-medium text-xs hover:bg-accent">
+        {title}
+        <ChevronDownIcon className="size-3.5 transition-transform group-data-[panel-open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent>{children}</CollapsibleContent>
+    </Collapsible>
+  )
+}
+
 export function GitReviewPanel({
   cwd,
   fallback,
   onAddFile,
+  onSendComments,
   threadId,
 }: Readonly<{
   cwd: string
   fallback: ReactNode
   onAddFile?: (path: string) => void
+  /** Sends Review comments to the Thread's Agent as the next message. */
+  onSendComments?: (text: string) => void
   threadId: string | null
 }>) {
   const stashId = useId()
@@ -79,6 +117,11 @@ export function GitReviewPanel({
   const [reviewBaseSearch, setReviewBaseSearch] = useState("")
   const [reviewBase, setReviewBase] = useState("")
   const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
+  const [diffStyle, setDiffStyle] = useState<"split" | "unified">("unified")
+  const [wrapLines, setWrapLines] = useState(true)
+  const [commentDraft, setCommentDraft] = useState<ChatDiffTarget | null>(null)
+  const [commentBody, setCommentBody] = useState("")
+  const [reviewComments, setReviewComments] = useAtom(reviewCommentsAtom(threadId ?? `cwd:${cwd}`))
   const [fileSearch, setFileSearch] = useState("")
   const [newBranch, setNewBranch] = useState("")
   const [stashChanges, setStashChanges] = useState(false)
@@ -419,6 +462,152 @@ export function GitReviewPanel({
       : {}),
   }))
   const canCommit = hasCommittableChanges(status.data?.entries ?? [], commitIncludeUnstaged)
+  const sourceComments = reviewComments.filter((comment) => comment.source === source)
+  const treeFiles: ChatReviewTreeFile[] = files.map((file) => ({
+    path: String(file.path),
+    status: treeStatus(visibleEntries.find((entry) => entry.path === file.id)?.code ?? "M"),
+    ...(file.additions !== undefined ? { additions: file.additions } : {}),
+    ...(file.deletions !== undefined ? { deletions: file.deletions } : {}),
+    comments: sourceComments.filter((comment) => comment.path === file.id).length,
+  }))
+  const hunkActions = (hunk: { header: string; index: number }) => (
+    <div className="flex flex-wrap items-center gap-1 border-y bg-muted/40 px-2 py-1">
+      <Button
+        disabled={busy}
+        onClick={() => applyReview(source === "staged" ? "unstage" : "stage", hunk.index)}
+        size="sm"
+        type="button"
+        variant="ghost"
+      >
+        {source === "staged" ? (
+          <Trans id="git.review.unstageHunk">Unstage section</Trans>
+        ) : (
+          <Trans id="git.review.stageHunk">Stage section</Trans>
+        )}
+      </Button>
+      {source === "unstaged" ? (
+        <Button
+          disabled={busy}
+          onClick={() => {
+            const snapshot = diff.data
+            if (snapshot?.revision) setPendingRevert({ snapshot, hunkIndex: hunk.index })
+          }}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <Trans id="git.review.revertHunk">Revert section</Trans>
+        </Button>
+      ) : null}
+    </div>
+  )
+  const diffAnnotations: ChatDiffAnnotation[] = activePath
+    ? [
+        ...(source === "staged" || source === "unstaged"
+          ? (diff.data?.hunks ?? []).flatMap((hunk) => {
+              const anchor = hunkAnchor(hunk.header)
+              return anchor
+                ? [
+                    {
+                      content: hunkActions(hunk),
+                      key: `hunk:${hunk.index}`,
+                      lineNumber: anchor.lineNumber,
+                      path: activePath,
+                      side: anchor.side,
+                    },
+                  ]
+                : []
+            })
+          : []),
+        ...sourceComments
+          .filter((comment) => comment.path === activePath)
+          .map((comment) => ({
+            content: (
+              <div className="flex items-start gap-2 border-y bg-background p-2 text-xs">
+                <p className="min-w-0 flex-1 whitespace-pre-wrap">{comment.body}</p>
+                <Button
+                  onClick={() =>
+                    setReviewComments((current) =>
+                      current.filter((entry) => entry.id !== comment.id)
+                    )
+                  }
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trans id="git.review.removeComment">Remove</Trans>
+                </Button>
+              </div>
+            ),
+            key: `comment:${comment.id}`,
+            lineNumber: comment.lineNumber,
+            path: comment.path,
+            side: comment.side,
+          })),
+        ...(commentDraft && commentDraft.path === activePath
+          ? [
+              {
+                content: (
+                  <div className="space-y-1 border-y bg-background p-2">
+                    <Textarea
+                      aria-label={i18n._(
+                        msg({ id: "git.review.commentBody", message: "Review comment" })
+                      )}
+                      autoFocus
+                      onChange={(event) => setCommentBody(event.target.value)}
+                      placeholder={i18n._(
+                        msg({
+                          id: "git.review.commentPlaceholder",
+                          message: "Tell the Agent what to change here…",
+                        })
+                      )}
+                      rows={3}
+                      value={commentBody}
+                    />
+                    <div className="flex gap-1">
+                      <Button
+                        disabled={!commentBody.trim()}
+                        onClick={() => {
+                          const draft = commentDraft
+                          setReviewComments((current) => [
+                            ...current,
+                            {
+                              body: commentBody.trim(),
+                              id: crypto.randomUUID(),
+                              lineNumber: draft.lineNumber,
+                              path: draft.path,
+                              side: draft.side,
+                              source,
+                            },
+                          ])
+                          setCommentDraft(null)
+                          setCommentBody("")
+                        }}
+                        size="sm"
+                        type="button"
+                      >
+                        <Trans id="git.review.addComment">Add comment</Trans>
+                      </Button>
+                      <Button
+                        onClick={() => setCommentDraft(null)}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trans id="git.review.cancel">Cancel</Trans>
+                      </Button>
+                    </div>
+                  </div>
+                ),
+                key: "comment-draft",
+                lineNumber: commentDraft.lineNumber,
+                path: commentDraft.path,
+                side: commentDraft.side,
+              },
+            ]
+          : []),
+      ]
+    : []
 
   if (status.isError) {
     const canInit = /not a git repository/iu.test(status.error.message)
@@ -552,40 +741,60 @@ export function GitReviewPanel({
           </NativeSelect>
         </div>
       ) : null}
-      <div className="flex items-center gap-2 border-b p-2">
-        <Input
-          aria-label={i18n._(
-            msg({ id: "git.review.searchFiles", message: "Search changed files" })
-          )}
-          className="h-8 min-w-0 flex-1"
-          maxLength={200}
-          onChange={(event) => setFileSearch(event.target.value)}
-          placeholder={i18n._(
-            msg({ id: "git.review.searchFiles", message: "Search changed files" })
-          )}
-          value={fileSearch}
-        />
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {files.length}/{entries.length}
+      <div className="flex flex-wrap items-center gap-2 border-b px-2 py-1.5">
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {i18n._({
+            ...msg({
+              id: "git.review.fileCount",
+              message: "{count, plural, one {# file changed} other {# files changed}}",
+            }),
+            values: { count: entries.length },
+          })}
         </span>
         {lineCounts.data ? (
-          <span className="shrink-0 font-mono text-xs tabular-nums">
+          <span className="font-mono text-xs tabular-nums">
             <span className="text-emerald-600">+{visibleAdditions}</span>{" "}
             <span className="text-destructive">-{visibleDeletions}</span>
           </span>
         ) : null}
+        <label
+          className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"
+          htmlFor={whitespaceId}
+        >
+          <Checkbox
+            id={whitespaceId}
+            checked={ignoreWhitespace}
+            onCheckedChange={(checked) => setIgnoreWhitespace(checked === true)}
+          />
+          <Trans id="git.review.ignoreWhitespace">Ignore whitespace changes</Trans>
+        </label>
+        <Button
+          aria-pressed={diffStyle === "split"}
+          onClick={() => setDiffStyle((value) => (value === "split" ? "unified" : "split"))}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {diffStyle === "split" ? (
+            <Trans id="git.review.unifiedDiff">Unified</Trans>
+          ) : (
+            <Trans id="git.review.splitDiff">Split</Trans>
+          )}
+        </Button>
+        <Button
+          aria-pressed={wrapLines}
+          onClick={() => setWrapLines((value) => !value)}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          {wrapLines ? (
+            <Trans id="git.review.disableWrap">Disable word wrap</Trans>
+          ) : (
+            <Trans id="git.review.enableWrap">Enable word wrap</Trans>
+          )}
+        </Button>
       </div>
-      <label
-        className="flex items-center gap-2 border-b px-2 py-1.5 text-xs text-muted-foreground"
-        htmlFor={whitespaceId}
-      >
-        <Checkbox
-          id={whitespaceId}
-          checked={ignoreWhitespace}
-          onCheckedChange={(checked) => setIgnoreWhitespace(checked === true)}
-        />
-        <Trans id="git.review.ignoreWhitespace">Ignore whitespace changes</Trans>
-      </label>
       {lineCounts.isError ? (
         <p className="border-b p-2 text-xs text-destructive">{lineCounts.error.message}</p>
       ) : null}
@@ -607,110 +816,6 @@ export function GitReviewPanel({
               </NativeSelectOption>
             ))}
           </NativeSelect>
-        </div>
-      ) : null}
-      {status.data ? (
-        <div className="space-y-2 border-b p-2">
-          <Input
-            aria-label={i18n._(
-              msg({ id: "git.review.searchBranches", message: "Search branches" })
-            )}
-            className="h-8"
-            maxLength={200}
-            onChange={(event) => setBranchSearch(event.target.value)}
-            placeholder={i18n._(
-              msg({ id: "git.review.searchBranches", message: "Search branches" })
-            )}
-            value={branchSearch}
-          />
-          <div className="flex items-center gap-2">
-            <NativeSelect
-              aria-label={i18n._(msg({ id: "git.review.branch", message: "Branch" }))}
-              className="min-w-0 flex-1"
-              onChange={(event) => setTargetBranch(event.target.value)}
-              size="sm"
-              value={targetBranch || status.data.branch || ""}
-            >
-              <NativeSelectOption value="">
-                <Trans id="git.review.selectBranch">Select branch</Trans>
-              </NativeSelectOption>
-              {status.data.branch &&
-              !branches.data?.some((branch) => branchValue(branch) === status.data.branch) ? (
-                <NativeSelectOption value={status.data.branch}>
-                  {status.data.branch}
-                </NativeSelectOption>
-              ) : null}
-              {targetBranch &&
-              targetBranch !== status.data.branch &&
-              !branches.data?.some((branch) => branchValue(branch) === targetBranch) ? (
-                <NativeSelectOption value={targetBranch}>{targetBranch}</NativeSelectOption>
-              ) : null}
-              {branches.data?.map((branch) => (
-                <NativeSelectOption
-                  key={`${branch.scope}:${branch.name}`}
-                  value={branchValue(branch)}
-                >
-                  {branch.name}
-                  {branch.scope === "remote" ? (
-                    <>
-                      {" "}
-                      (<Trans id="git.review.remoteBranch">remote</Trans>)
-                    </>
-                  ) : null}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <Button
-              disabled={busy || !targetBranch || targetBranch === status.data.branch}
-              onClick={() =>
-                void mutate(async () =>
-                  (await ensureCypheriaClient()).git.checkout(cwd, targetBranch, stashChanges)
-                )
-              }
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.switch">Switch</Trans>
-            </Button>
-          </div>
-          <label
-            className="flex items-center gap-2 text-xs text-muted-foreground"
-            htmlFor={stashId}
-          >
-            <Checkbox
-              id={stashId}
-              checked={stashChanges}
-              onCheckedChange={(checked) => setStashChanges(checked === true)}
-            />
-            <Trans id="git.review.stashChanges">Stash local changes before switching</Trans>
-          </label>
-          <div className="flex gap-2">
-            <Input
-              aria-label={i18n._(msg({ id: "git.review.newBranch", message: "New branch name" }))}
-              onChange={(event) => setNewBranch(event.target.value)}
-              placeholder={i18n._(msg({ id: "git.review.newBranch", message: "New branch name" }))}
-              value={newBranch}
-            />
-            <Button
-              disabled={busy || !newBranch.trim()}
-              onClick={() =>
-                void mutate(async () => {
-                  const name = await (await ensureCypheriaClient()).git.createBranch(
-                    cwd,
-                    newBranch.trim()
-                  )
-                  setTargetBranch(name)
-                  setNewBranch("")
-                })
-              }
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.createBranch">Create</Trans>
-            </Button>
-          </div>
         </div>
       ) : null}
       {status.isPending ? (
@@ -746,162 +851,198 @@ export function GitReviewPanel({
           <Trans id="git.review.empty">No changes in this source</Trans>
         </p>
       ) : null}
-      {entries.length > 0 && files.length === 0 ? (
-        <p className="p-3 text-sm text-muted-foreground">
-          <Trans id="git.review.noMatchingFiles">No files match this search</Trans>
-        </p>
-      ) : null}
-      {files.length > 0 ? (
-        <ChatReviewFileList files={files} onSelectFile={setSelectedPath} tree />
-      ) : null}
-      {activePath ? (
-        <ChatReviewDiffHost>
-          <div className="flex flex-wrap gap-1 border-b p-2">
-            <Button
-              onClick={() =>
-                void navigator.clipboard
-                  .writeText(activePath)
-                  .catch((error: unknown) =>
-                    setActionError(error instanceof Error ? error.message : String(error))
-                  )
-              }
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <Trans id="git.review.copyPath">Copy path</Trans>
-            </Button>
-            {onAddFile ? (
-              <Button onClick={() => onAddFile(activePath)} size="sm" type="button" variant="ghost">
-                <Trans id="git.review.addToChat">Add to chat</Trans>
-              </Button>
-            ) : null}
-            {window.cypheria ? (
-              <>
-                <Button
-                  onClick={() =>
-                    void window.cypheria?.app
-                      .gitFileAction({ cwd, path: activePath, action: "open" })
-                      .catch((error: unknown) =>
-                        setActionError(error instanceof Error ? error.message : String(error))
-                      )
+      {files.length > 0 || fileSearch ? (
+        <div className="@container flex min-h-0 flex-col border-b">
+          <div className="flex min-h-0 flex-col @3xl:flex-row">
+            <ChatReviewFileTree
+              className="h-56 shrink-0 border-b @3xl:h-[40rem] @3xl:w-64 @3xl:border-r @3xl:border-b-0"
+              files={treeFiles}
+              filter={fileSearch}
+              labels={{
+                filter: i18n._(
+                  msg({ id: "git.review.searchFiles", message: "Search changed files" })
+                ),
+                noMatches: i18n._(
+                  msg({ id: "git.review.noMatchingFiles", message: "No files match this search" })
+                ),
+                rowSummary: (file) =>
+                  i18n._({
+                    ...msg({
+                      id: "git.review.rowSummary",
+                      message:
+                        "{path}, added lines: {additions}, deleted lines: {deletions}, comments: {comments}",
+                    }),
+                    values: {
+                      additions: file.additions ?? 0,
+                      comments: file.comments ?? 0,
+                      deletions: file.deletions ?? 0,
+                      path: file.path,
+                    },
+                  }),
+                tree: i18n._(msg({ id: "git.review.changedFiles", message: "Changed files" })),
+              }}
+              onFilterChange={setFileSearch}
+              onSelectFile={setSelectedPath}
+              selectedPath={activePath ?? null}
+            />
+            {activePath ? (
+              <ChatReviewDiffHost className="flex min-w-0 flex-1 flex-col border-t-0">
+                <div className="flex flex-wrap gap-1 border-b p-2">
+                  <Button
+                    onClick={() =>
+                      void navigator.clipboard
+                        .writeText(activePath)
+                        .catch((error: unknown) =>
+                          setActionError(error instanceof Error ? error.message : String(error))
+                        )
+                    }
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trans id="git.review.copyPath">Copy path</Trans>
+                  </Button>
+                  {onAddFile ? (
+                    <Button
+                      onClick={() => onAddFile(activePath)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trans id="git.review.addToChat">Add to chat</Trans>
+                    </Button>
+                  ) : null}
+                  {window.cypheria ? (
+                    <>
+                      <Button
+                        onClick={() =>
+                          void window.cypheria?.app
+                            .gitFileAction({ cwd, path: activePath, action: "open" })
+                            .catch((error: unknown) =>
+                              setActionError(error instanceof Error ? error.message : String(error))
+                            )
+                        }
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trans id="git.review.openFile">Open file</Trans>
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          void window.cypheria?.app
+                            .gitFileAction({ cwd, path: activePath, action: "save" })
+                            .catch((error: unknown) =>
+                              setActionError(error instanceof Error ? error.message : String(error))
+                            )
+                        }
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trans id="git.review.saveAs">Save as…</Trans>
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+                <ChatDiffViewer
+                  annotations={diffAnnotations}
+                  className="max-h-[40rem]"
+                  diffStyle={diffStyle}
+                  fallback={
+                    <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
+                      {diff.isError
+                        ? diff.error.message
+                        : diff.data?.diff ||
+                          (diff.isPending
+                            ? i18n._(
+                                msg({ id: "git.review.diffLoading", message: "Loading diff…" })
+                              )
+                            : i18n._(
+                                msg({
+                                  id: "git.review.noTextDiff",
+                                  message: "No text diff available",
+                                })
+                              ))}
+                    </pre>
                   }
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Trans id="git.review.openFile">Open file</Trans>
-                </Button>
-                <Button
-                  onClick={() =>
-                    void window.cypheria?.app
-                      .gitFileAction({ cwd, path: activePath, action: "save" })
-                      .catch((error: unknown) =>
-                        setActionError(error instanceof Error ? error.message : String(error))
-                      )
-                  }
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Trans id="git.review.saveAs">Save as…</Trans>
-                </Button>
-              </>
+                  onRequestComment={(target) => {
+                    setCommentBody("")
+                    setCommentDraft(target)
+                  }}
+                  patch={diff.data?.diff ?? ""}
+                  wrap={wrapLines}
+                />
+                {source === "staged" || source === "unstaged" ? (
+                  <div className="flex gap-2 border-t p-2">
+                    {source === "unstaged" ? (
+                      <>
+                        <Button
+                          disabled={busy}
+                          onClick={() => applyReview("stage")}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          <Trans id="git.review.stage">Stage file</Trans>
+                        </Button>
+                        <Button
+                          disabled={busy}
+                          onClick={() => {
+                            const snapshot = diff.data
+                            if (snapshot?.revision) setPendingRevert({ snapshot })
+                          }}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          <Trans id="git.review.revertFile">Revert file</Trans>
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        disabled={busy}
+                        onClick={() => applyReview("unstage")}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Trans id="git.review.unstage">Unstage file</Trans>
+                      </Button>
+                    )}
+                  </div>
+                ) : null}
+              </ChatReviewDiffHost>
             ) : null}
           </div>
-          <ChatDiffViewer
-            className="max-h-[36rem]"
-            fallback={
-              <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
-                {diff.isError
-                  ? diff.error.message
-                  : diff.data?.diff ||
-                    (diff.isPending
-                      ? i18n._(msg({ id: "git.review.diffLoading", message: "Loading diff…" }))
-                      : i18n._(
-                          msg({ id: "git.review.noTextDiff", message: "No text diff available" })
-                        ))}
-              </pre>
-            }
-            patch={diff.data?.diff ?? ""}
-          />
-        </ChatReviewDiffHost>
-      ) : null}
-      {activePath && (source === "staged" || source === "unstaged") && diff.data?.hunks.length ? (
-        <div className="space-y-1 border-t p-2">
-          {diff.data.hunks.map((hunk) => (
-            <div className="flex items-center gap-2" key={hunk.index}>
-              <span className="min-w-0 flex-1 truncate font-mono text-xs" title={hunk.header}>
-                {hunk.header}
+          {reviewComments.length > 0 ? (
+            <div className="flex items-center gap-2 border-t p-2">
+              <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                {i18n._({
+                  ...msg({
+                    id: "git.review.pendingComments",
+                    message: "{count, plural, one {# review comment} other {# review comments}}",
+                  }),
+                  values: { count: reviewComments.length },
+                })}
               </span>
               <Button
-                disabled={busy}
-                onClick={() => applyReview(source === "staged" ? "unstage" : "stage", hunk.index)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                {source === "staged" ? (
-                  <Trans id="git.review.unstageHunk">Unstage section</Trans>
-                ) : (
-                  <Trans id="git.review.stageHunk">Stage section</Trans>
-                )}
-              </Button>
-              {source === "unstaged" ? (
-                <Button
-                  disabled={busy}
-                  onClick={() => {
-                    const snapshot = diff.data
-                    if (snapshot?.revision) setPendingRevert({ snapshot, hunkIndex: hunk.index })
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Trans id="git.review.revertHunk">Revert section</Trans>
-                </Button>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {activePath && (source === "staged" || source === "unstaged") ? (
-        <div className="flex gap-2 border-t p-2">
-          {source === "unstaged" ? (
-            <>
-              <Button
-                disabled={busy}
-                onClick={() => applyReview("stage")}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Trans id="git.review.stage">Stage file</Trans>
-              </Button>
-              <Button
-                disabled={busy}
+                disabled={!onSendComments || !status.data}
                 onClick={() => {
-                  const snapshot = diff.data
-                  if (snapshot?.revision) setPendingRevert({ snapshot })
+                  if (!onSendComments || !status.data) return
+                  onSendComments(formatReviewComments(status.data.repository.root, reviewComments))
+                  setReviewComments([])
                 }}
                 size="sm"
                 type="button"
-                variant="outline"
               >
-                <Trans id="git.review.revertFile">Revert file</Trans>
+                <Trans id="git.review.sendComments">Send to Agent</Trans>
               </Button>
-            </>
-          ) : (
-            <Button
-              disabled={busy}
-              onClick={() => applyReview("unstage")}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.unstage">Unstage file</Trans>
-            </Button>
-          )}
+              <Button onClick={() => setReviewComments([])} size="sm" type="button" variant="ghost">
+                <Trans id="git.review.clearComments">Clear</Trans>
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {reviewUndos.data?.length ? (
@@ -1009,217 +1150,324 @@ export function GitReviewPanel({
         </AlertDialogContent>
       </AlertDialog>
       {status.data ? (
-        <div className="space-y-2 border-t p-2">
-          <div className="flex gap-2">
+        <ReviewSection
+          defaultOpen={true}
+          title={i18n._(msg({ id: "git.review.commitSection", message: "Commit" }))}
+        >
+          <div className="space-y-2 border-t p-2">
+            <div className="flex gap-2">
+              <Input
+                aria-label={i18n._(
+                  msg({ id: "git.review.commitMessage", message: "Commit message" })
+                )}
+                className="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-sm"
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder={i18n._(
+                  msg({ id: "git.review.commitMessage", message: "Commit message" })
+                )}
+                value={message}
+              />
+              <Button
+                disabled={busy || !canCommit}
+                onClick={() =>
+                  void mutate(async () => {
+                    const generated = await (await ensureCypheriaClient()).git.generateText(
+                      cwd,
+                      "commit"
+                    )
+                    setMessage(generated.title)
+                  })
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.generateMessage">Generate</Trans>
+              </Button>
+            </div>
             <Input
               aria-label={i18n._(
-                msg({ id: "git.review.commitMessage", message: "Commit message" })
+                msg({ id: "git.review.coAuthors", message: "Co-authors, separated by semicolons" })
               )}
-              className="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-sm"
-              onChange={(event) => setMessage(event.target.value)}
+              onChange={(event) => setCoAuthors(event.target.value)}
               placeholder={i18n._(
-                msg({ id: "git.review.commitMessage", message: "Commit message" })
+                msg({ id: "git.review.coAuthors", message: "Co-authors, separated by semicolons" })
               )}
-              value={message}
+              value={coAuthors}
             />
-            <Button
-              disabled={busy || !canCommit}
-              onClick={() =>
-                void mutate(async () => {
-                  const generated = await (await ensureCypheriaClient()).git.generateText(
-                    cwd,
-                    "commit"
+            <label
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+              htmlFor={commitIncludeUnstagedId}
+            >
+              <Checkbox
+                checked={commitIncludeUnstaged}
+                id={commitIncludeUnstagedId}
+                onCheckedChange={(checked) => setCommitIncludeUnstaged(checked === true)}
+              />
+              <Trans id="git.review.includeUnstaged">Include unstaged changes</Trans>
+            </label>
+            <div className="flex gap-2">
+              <Button
+                disabled={busy || !canCommit}
+                onClick={() =>
+                  void mutate(async () => {
+                    await commitChanges((await ensureCypheriaClient()).git, cwd, {
+                      coAuthors: parseCoAuthors(coAuthors),
+                      includeUnstaged: commitIncludeUnstaged,
+                      message,
+                      push: false,
+                    })
+                    setMessage("")
+                  })
+                }
+                size="sm"
+                type="button"
+              >
+                <Trans id="git.review.commit">Commit</Trans>
+              </Button>
+              <Button
+                disabled={busy || !canCommit}
+                onClick={() =>
+                  void mutate(async () => {
+                    await commitChanges((await ensureCypheriaClient()).git, cwd, {
+                      coAuthors: parseCoAuthors(coAuthors),
+                      includeUnstaged: commitIncludeUnstaged,
+                      message,
+                      push: true,
+                    })
+                    setMessage("")
+                  })
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.commitAndPush">Commit and push</Trans>
+              </Button>
+              <Button
+                disabled={busy || !status.data.head}
+                onClick={() =>
+                  void mutate(async () => (await ensureCypheriaClient()).git.push(cwd))
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.push">Push</Trans>
+              </Button>
+            </div>
+          </div>
+        </ReviewSection>
+      ) : null}
+      {status.data ? (
+        <ReviewSection
+          defaultOpen={false}
+          title={i18n._(msg({ id: "git.review.branchesSection", message: "Branches" }))}
+        >
+          <div className="space-y-2 border-b p-2">
+            <Input
+              aria-label={i18n._(
+                msg({ id: "git.review.searchBranches", message: "Search branches" })
+              )}
+              className="h-8"
+              maxLength={200}
+              onChange={(event) => setBranchSearch(event.target.value)}
+              placeholder={i18n._(
+                msg({ id: "git.review.searchBranches", message: "Search branches" })
+              )}
+              value={branchSearch}
+            />
+            <div className="flex items-center gap-2">
+              <NativeSelect
+                aria-label={i18n._(msg({ id: "git.review.branch", message: "Branch" }))}
+                className="min-w-0 flex-1"
+                onChange={(event) => setTargetBranch(event.target.value)}
+                size="sm"
+                value={targetBranch || status.data.branch || ""}
+              >
+                <NativeSelectOption value="">
+                  <Trans id="git.review.selectBranch">Select branch</Trans>
+                </NativeSelectOption>
+                {status.data.branch &&
+                !branches.data?.some((branch) => branchValue(branch) === status.data.branch) ? (
+                  <NativeSelectOption value={status.data.branch}>
+                    {status.data.branch}
+                  </NativeSelectOption>
+                ) : null}
+                {targetBranch &&
+                targetBranch !== status.data.branch &&
+                !branches.data?.some((branch) => branchValue(branch) === targetBranch) ? (
+                  <NativeSelectOption value={targetBranch}>{targetBranch}</NativeSelectOption>
+                ) : null}
+                {branches.data?.map((branch) => (
+                  <NativeSelectOption
+                    key={`${branch.scope}:${branch.name}`}
+                    value={branchValue(branch)}
+                  >
+                    {branch.name}
+                    {branch.scope === "remote" ? (
+                      <>
+                        {" "}
+                        (<Trans id="git.review.remoteBranch">remote</Trans>)
+                      </>
+                    ) : null}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <Button
+                disabled={busy || !targetBranch || targetBranch === status.data.branch}
+                onClick={() =>
+                  void mutate(async () =>
+                    (await ensureCypheriaClient()).git.checkout(cwd, targetBranch, stashChanges)
                   )
-                  setMessage(generated.title)
-                })
-              }
-              size="sm"
-              type="button"
-              variant="outline"
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.switch">Switch</Trans>
+              </Button>
+            </div>
+            <label
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+              htmlFor={stashId}
             >
-              <Trans id="git.review.generateMessage">Generate</Trans>
-            </Button>
-          </div>
-          <Input
-            aria-label={i18n._(
-              msg({ id: "git.review.coAuthors", message: "Co-authors, separated by semicolons" })
-            )}
-            onChange={(event) => setCoAuthors(event.target.value)}
-            placeholder={i18n._(
-              msg({ id: "git.review.coAuthors", message: "Co-authors, separated by semicolons" })
-            )}
-            value={coAuthors}
-          />
-          <label
-            className="flex items-center gap-2 text-xs text-muted-foreground"
-            htmlFor={commitIncludeUnstagedId}
-          >
-            <Checkbox
-              checked={commitIncludeUnstaged}
-              id={commitIncludeUnstagedId}
-              onCheckedChange={(checked) => setCommitIncludeUnstaged(checked === true)}
-            />
-            <Trans id="git.review.includeUnstaged">Include unstaged changes</Trans>
-          </label>
-          <div className="flex gap-2">
-            <Button
-              disabled={busy || !canCommit}
-              onClick={() =>
-                void mutate(async () => {
-                  await commitChanges((await ensureCypheriaClient()).git, cwd, {
-                    coAuthors: parseCoAuthors(coAuthors),
-                    includeUnstaged: commitIncludeUnstaged,
-                    message,
-                    push: false,
+              <Checkbox
+                id={stashId}
+                checked={stashChanges}
+                onCheckedChange={(checked) => setStashChanges(checked === true)}
+              />
+              <Trans id="git.review.stashChanges">Stash local changes before switching</Trans>
+            </label>
+            <div className="flex gap-2">
+              <Input
+                aria-label={i18n._(msg({ id: "git.review.newBranch", message: "New branch name" }))}
+                onChange={(event) => setNewBranch(event.target.value)}
+                placeholder={i18n._(
+                  msg({ id: "git.review.newBranch", message: "New branch name" })
+                )}
+                value={newBranch}
+              />
+              <Button
+                disabled={busy || !newBranch.trim()}
+                onClick={() =>
+                  void mutate(async () => {
+                    const name = await (await ensureCypheriaClient()).git.createBranch(
+                      cwd,
+                      newBranch.trim()
+                    )
+                    setTargetBranch(name)
+                    setNewBranch("")
                   })
-                  setMessage("")
-                })
-              }
-              size="sm"
-              type="button"
-            >
-              <Trans id="git.review.commit">Commit</Trans>
-            </Button>
-            <Button
-              disabled={busy || !canCommit}
-              onClick={() =>
-                void mutate(async () => {
-                  await commitChanges((await ensureCypheriaClient()).git, cwd, {
-                    coAuthors: parseCoAuthors(coAuthors),
-                    includeUnstaged: commitIncludeUnstaged,
-                    message,
-                    push: true,
-                  })
-                  setMessage("")
-                })
-              }
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.commitAndPush">Commit and push</Trans>
-            </Button>
-            <Button
-              disabled={busy || !status.data.head}
-              onClick={() => void mutate(async () => (await ensureCypheriaClient()).git.push(cwd))}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.push">Push</Trans>
-            </Button>
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.createBranch">Create</Trans>
+              </Button>
+            </div>
           </div>
-        </div>
+        </ReviewSection>
       ) : null}
       {status.data?.head ? (
-        <div className="space-y-2 border-t p-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium">
-              <Trans id="git.review.worktrees">Worktrees</Trans>
-            </span>
-            <NativeSelect
-              aria-label={i18n._(
-                msg({ id: "git.review.worktreeStart", message: "Worktree start point" })
-              )}
-              className="min-w-0 max-w-40"
-              onChange={(event) => setWorktreeStartPoint(event.target.value)}
-              size="sm"
-              value={worktreeStartPoint}
-            >
-              <NativeSelectOption value="HEAD">HEAD</NativeSelectOption>
-              {worktreeStartPoint !== "HEAD" &&
-              !branches.data?.some((entry) => branchValue(entry) === worktreeStartPoint) ? (
-                <NativeSelectOption value={worktreeStartPoint}>
-                  {worktreeStartPoint}
-                </NativeSelectOption>
-              ) : null}
-              {branches.data?.map((entry) => (
-                <NativeSelectOption key={`${entry.scope}:${entry.name}`} value={branchValue(entry)}>
-                  {entry.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <Button
-              disabled={busy || worktreeJobRunning}
-              onClick={() =>
-                void mutate(async () => {
-                  const job = await (await ensureCypheriaClient()).git.startWorktreeJob(cwd, {
-                    startPoint: worktreeStartPoint === "HEAD" ? undefined : worktreeStartPoint,
-                    includeChanges: worktreeIncludeChanges,
-                    environmentConfigPath: worktreeEnvironmentPath.trim() || null,
-                  })
-                  setWorktreeJobId(job.id)
-                })
-              }
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.createWorktree">Create worktree</Trans>
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-xs" htmlFor={worktreeChangesId}>
-              <Checkbox
-                checked={worktreeIncludeChanges}
-                id={worktreeChangesId}
-                onCheckedChange={(checked) => setWorktreeIncludeChanges(checked === true)}
-              />
-              <Trans id="git.review.includeLocalChanges">Include local changes</Trans>
-            </label>
-            <Input
-              aria-label={i18n._(
-                msg({
-                  id: "git.review.environmentConfig",
-                  message: "Local environment config path",
-                })
-              )}
-              className="min-w-40 flex-1"
-              onChange={(event) => setWorktreeEnvironmentPath(event.target.value)}
-              placeholder={i18n._(
-                msg({ id: "git.review.noEnvironment", message: "No local environment" })
-              )}
-              value={worktreeEnvironmentPath}
-            />
-          </div>
-          {worktreeJob.data ? (
-            <div className="space-y-1 rounded-md border p-2 text-xs">
-              <p>
-                {worktreeJob.data.phase}
-                {worktreeJob.data.path ? ` · ${worktreeJob.data.path}` : ""}
-              </p>
-              {worktreeJob.data.error ? (
-                <p className="text-destructive">{worktreeJob.data.error}</p>
-              ) : null}
-              {worktreeJob.data.log ? (
-                <pre className="max-h-36 overflow-auto whitespace-pre-wrap">
-                  {worktreeJob.data.log}
-                </pre>
-              ) : null}
-              <div className="flex gap-2">
-                {worktreeJobRunning ? (
-                  <Button
-                    onClick={() =>
-                      void mutate(async () => {
-                        await (await ensureCypheriaClient()).git.cancelWorktreeJob(
-                          worktreeJob.data.id
-                        )
-                        await worktreeJob.refetch()
-                      })
-                    }
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Trans id="git.review.cancelWorktree">Cancel</Trans>
-                  </Button>
+        <ReviewSection
+          defaultOpen={false}
+          title={i18n._(msg({ id: "git.review.worktreesSection", message: "Worktrees" }))}
+        >
+          <div className="space-y-2 border-t p-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium">
+                <Trans id="git.review.worktrees">Worktrees</Trans>
+              </span>
+              <NativeSelect
+                aria-label={i18n._(
+                  msg({ id: "git.review.worktreeStart", message: "Worktree start point" })
+                )}
+                className="min-w-0 max-w-40"
+                onChange={(event) => setWorktreeStartPoint(event.target.value)}
+                size="sm"
+                value={worktreeStartPoint}
+              >
+                <NativeSelectOption value="HEAD">HEAD</NativeSelectOption>
+                {worktreeStartPoint !== "HEAD" &&
+                !branches.data?.some((entry) => branchValue(entry) === worktreeStartPoint) ? (
+                  <NativeSelectOption value={worktreeStartPoint}>
+                    {worktreeStartPoint}
+                  </NativeSelectOption>
                 ) : null}
-                {["failed", "cancelled"].includes(worktreeJob.data.phase) ? (
-                  <>
+                {branches.data?.map((entry) => (
+                  <NativeSelectOption
+                    key={`${entry.scope}:${entry.name}`}
+                    value={branchValue(entry)}
+                  >
+                    {entry.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <Button
+                disabled={busy || worktreeJobRunning}
+                onClick={() =>
+                  void mutate(async () => {
+                    const job = await (await ensureCypheriaClient()).git.startWorktreeJob(cwd, {
+                      startPoint: worktreeStartPoint === "HEAD" ? undefined : worktreeStartPoint,
+                      includeChanges: worktreeIncludeChanges,
+                      environmentConfigPath: worktreeEnvironmentPath.trim() || null,
+                    })
+                    setWorktreeJobId(job.id)
+                  })
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.createWorktree">Create worktree</Trans>
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-xs" htmlFor={worktreeChangesId}>
+                <Checkbox
+                  checked={worktreeIncludeChanges}
+                  id={worktreeChangesId}
+                  onCheckedChange={(checked) => setWorktreeIncludeChanges(checked === true)}
+                />
+                <Trans id="git.review.includeLocalChanges">Include local changes</Trans>
+              </label>
+              <Input
+                aria-label={i18n._(
+                  msg({
+                    id: "git.review.environmentConfig",
+                    message: "Local environment config path",
+                  })
+                )}
+                className="min-w-40 flex-1"
+                onChange={(event) => setWorktreeEnvironmentPath(event.target.value)}
+                placeholder={i18n._(
+                  msg({ id: "git.review.noEnvironment", message: "No local environment" })
+                )}
+                value={worktreeEnvironmentPath}
+              />
+            </div>
+            {worktreeJob.data ? (
+              <div className="space-y-1 rounded-md border p-2 text-xs">
+                <p>
+                  {worktreeJob.data.phase}
+                  {worktreeJob.data.path ? ` · ${worktreeJob.data.path}` : ""}
+                </p>
+                {worktreeJob.data.error ? (
+                  <p className="text-destructive">{worktreeJob.data.error}</p>
+                ) : null}
+                {worktreeJob.data.log ? (
+                  <pre className="max-h-36 overflow-auto whitespace-pre-wrap">
+                    {worktreeJob.data.log}
+                  </pre>
+                ) : null}
+                <div className="flex gap-2">
+                  {worktreeJobRunning ? (
                     <Button
                       onClick={() =>
                         void mutate(async () => {
-                          await (await ensureCypheriaClient()).git.retryWorktreeJob(
+                          await (await ensureCypheriaClient()).git.cancelWorktreeJob(
                             worktreeJob.data.id
                           )
                           await worktreeJob.refetch()
@@ -1229,15 +1477,16 @@ export function GitReviewPanel({
                       type="button"
                       variant="outline"
                     >
-                      <Trans id="git.review.retryWorktree">Retry</Trans>
+                      <Trans id="git.review.cancelWorktree">Cancel</Trans>
                     </Button>
-                    {worktreeJob.data.path ? (
+                  ) : null}
+                  {["failed", "cancelled"].includes(worktreeJob.data.phase) ? (
+                    <>
                       <Button
                         onClick={() =>
                           void mutate(async () => {
                             await (await ensureCypheriaClient()).git.retryWorktreeJob(
-                              worktreeJob.data.id,
-                              true
+                              worktreeJob.data.id
                             )
                             await worktreeJob.refetch()
                           })
@@ -1246,146 +1495,166 @@ export function GitReviewPanel({
                         type="button"
                         variant="outline"
                       >
-                        <Trans id="git.review.skipSetup">Skip setup</Trans>
+                        <Trans id="git.review.retryWorktree">Retry</Trans>
                       </Button>
-                    ) : null}
-                  </>
-                ) : null}
+                      {worktreeJob.data.path ? (
+                        <Button
+                          onClick={() =>
+                            void mutate(async () => {
+                              await (await ensureCypheriaClient()).git.retryWorktreeJob(
+                                worktreeJob.data.id,
+                                true
+                              )
+                              await worktreeJob.refetch()
+                            })
+                          }
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          <Trans id="git.review.skipSetup">Skip setup</Trans>
+                        </Button>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ) : null}
-          {syncedBranch.data ? (
-            <div className="space-y-1 rounded-md border p-2 text-xs">
-              <p>
-                <Trans id="git.review.syncedBranch">Synced branch</Trans>:{" "}
-                {syncedBranch.data.branch}
-              </p>
-              {syncedBranch.data.branchHead !== syncedBranch.data.expectedHead ? (
-                <p className="text-destructive">
-                  <Trans id="git.review.syncedBranchChanged">
-                    The branch changed outside this worktree. Refresh before syncing.
-                  </Trans>
+            ) : null}
+            {syncedBranch.data ? (
+              <div className="space-y-1 rounded-md border p-2 text-xs">
+                <p>
+                  <Trans id="git.review.syncedBranch">Synced branch</Trans>:{" "}
+                  {syncedBranch.data.branch}
                 </p>
-              ) : null}
-              <div className="flex gap-2">
-                <Button
-                  disabled={
-                    busy ||
-                    (syncedBranch.data.branchHead === syncedBranch.data.worktreeHead &&
-                      !syncedBranch.data.worktreeDirty) ||
-                    syncedBranch.data.branchHead !== syncedBranch.data.expectedHead ||
-                    syncedBranch.data.sourceDirty
-                  }
-                  onClick={() => setPendingSync("sync")}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Trans id="git.review.syncBranch">Sync worktree to branch</Trans>
-                </Button>
-                {syncedBranch.data.backupRef ? (
+                {syncedBranch.data.branchHead !== syncedBranch.data.expectedHead ? (
+                  <p className="text-destructive">
+                    <Trans id="git.review.syncedBranchChanged">
+                      The branch changed outside this worktree. Refresh before syncing.
+                    </Trans>
+                  </p>
+                ) : null}
+                <div className="flex gap-2">
                   <Button
-                    disabled={busy || syncedBranch.data.sourceDirty}
-                    onClick={() => setPendingSync("undo")}
+                    disabled={
+                      busy ||
+                      (syncedBranch.data.branchHead === syncedBranch.data.worktreeHead &&
+                        !syncedBranch.data.worktreeDirty) ||
+                      syncedBranch.data.branchHead !== syncedBranch.data.expectedHead ||
+                      syncedBranch.data.sourceDirty
+                    }
+                    onClick={() => setPendingSync("sync")}
                     size="sm"
                     type="button"
                     variant="outline"
                   >
-                    <Trans id="git.review.undoSync">Undo last sync</Trans>
+                    <Trans id="git.review.syncBranch">Sync worktree to branch</Trans>
                   </Button>
-                ) : null}
+                  {syncedBranch.data.backupRef ? (
+                    <Button
+                      disabled={busy || syncedBranch.data.sourceDirty}
+                      onClick={() => setPendingSync("undo")}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trans id="git.review.undoSync">Undo last sync</Trans>
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ) : null}
-          {threadId ? (
-            <label
-              className="flex items-center gap-2 text-xs text-muted-foreground"
-              htmlFor={moveChangesId}
-            >
-              <Checkbox
-                checked={moveChanges}
-                id={moveChangesId}
-                onCheckedChange={(checked) => setMoveChanges(checked === true)}
-              />
-              <Trans id="git.review.copyChangesOnMove">Copy local changes when moving thread</Trans>
-            </label>
-          ) : null}
-          {threadId &&
-          worktrees.data?.some(
-            (entry) => entry.path === status.data.repository.root && entry.managed
-          ) ? (
-            <Button
-              disabled={busy || !worktrees.data?.find((entry) => !entry.managed && entry.active)}
-              onClick={() => {
-                const checkout = worktrees.data?.find((entry) => !entry.managed && entry.active)
-                if (checkout)
-                  void mutate(async () =>
-                    (await ensureCypheriaClient()).git.moveThreadToWorktree(
-                      cwd,
-                      checkout.path,
-                      threadId,
-                      { copyChanges: moveChanges }
+            ) : null}
+            {threadId ? (
+              <label
+                className="flex items-center gap-2 text-xs text-muted-foreground"
+                htmlFor={moveChangesId}
+              >
+                <Checkbox
+                  checked={moveChanges}
+                  id={moveChangesId}
+                  onCheckedChange={(checked) => setMoveChanges(checked === true)}
+                />
+                <Trans id="git.review.copyChangesOnMove">
+                  Copy local changes when moving thread
+                </Trans>
+              </label>
+            ) : null}
+            {threadId &&
+            worktrees.data?.some(
+              (entry) => entry.path === status.data.repository.root && entry.managed
+            ) ? (
+              <Button
+                disabled={busy || !worktrees.data?.find((entry) => !entry.managed && entry.active)}
+                onClick={() => {
+                  const checkout = worktrees.data?.find((entry) => !entry.managed && entry.active)
+                  if (checkout)
+                    void mutate(async () =>
+                      (await ensureCypheriaClient()).git.moveThreadToWorktree(
+                        cwd,
+                        checkout.path,
+                        threadId,
+                        { copyChanges: moveChanges }
+                      )
                     )
-                  )
-              }}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.moveToCheckout">Move thread to checkout</Trans>
-            </Button>
-          ) : null}
-          {worktrees.data
-            ?.filter((entry) => entry.managed)
-            .map((entry) => (
-              <div className="flex items-center gap-2" key={entry.path}>
-                <span className="min-w-0 flex-1 truncate text-xs" title={entry.path}>
-                  {entry.path}
-                </span>
-                {threadId && entry.active && entry.path !== status.data.repository.root ? (
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.moveToCheckout">Move thread to checkout</Trans>
+              </Button>
+            ) : null}
+            {worktrees.data
+              ?.filter((entry) => entry.managed)
+              .map((entry) => (
+                <div className="flex items-center gap-2" key={entry.path}>
+                  <span className="min-w-0 flex-1 truncate text-xs" title={entry.path}>
+                    {entry.path}
+                  </span>
+                  {threadId && entry.active && entry.path !== status.data.repository.root ? (
+                    <Button
+                      disabled={
+                        busy || Boolean(entry.ownerThreadId && entry.ownerThreadId !== threadId)
+                      }
+                      onClick={() =>
+                        void mutate(async () =>
+                          (await ensureCypheriaClient()).git.moveThreadToWorktree(
+                            cwd,
+                            entry.path,
+                            threadId,
+                            { copyChanges: moveChanges }
+                          )
+                        )
+                      }
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trans id="git.review.moveThreadHere">Move thread here</Trans>
+                    </Button>
+                  ) : null}
                   <Button
-                    disabled={
-                      busy || Boolean(entry.ownerThreadId && entry.ownerThreadId !== threadId)
-                    }
+                    disabled={busy || entry.path === status.data.repository.root}
                     onClick={() =>
                       void mutate(async () =>
-                        (await ensureCypheriaClient()).git.moveThreadToWorktree(
-                          cwd,
-                          entry.path,
-                          threadId,
-                          { copyChanges: moveChanges }
-                        )
+                        entry.active
+                          ? (await ensureCypheriaClient()).git.deleteWorktree(cwd, entry.path)
+                          : (await ensureCypheriaClient()).git.restoreWorktree(cwd, entry.path)
                       )
                     }
                     size="sm"
                     type="button"
                     variant="outline"
                   >
-                    <Trans id="git.review.moveThreadHere">Move thread here</Trans>
+                    {entry.active ? (
+                      <Trans id="git.review.deleteWorktree">Delete</Trans>
+                    ) : (
+                      <Trans id="git.review.restoreWorktree">Restore</Trans>
+                    )}
                   </Button>
-                ) : null}
-                <Button
-                  disabled={busy || entry.path === status.data.repository.root}
-                  onClick={() =>
-                    void mutate(async () =>
-                      entry.active
-                        ? (await ensureCypheriaClient()).git.deleteWorktree(cwd, entry.path)
-                        : (await ensureCypheriaClient()).git.restoreWorktree(cwd, entry.path)
-                    )
-                  }
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  {entry.active ? (
-                    <Trans id="git.review.deleteWorktree">Delete</Trans>
-                  ) : (
-                    <Trans id="git.review.restoreWorktree">Restore</Trans>
-                  )}
-                </Button>
-              </div>
-            ))}
-        </div>
+                </div>
+              ))}
+          </div>
+        </ReviewSection>
       ) : null}
       {origin.data?.provider === "gitlab" ? (
         <GitLabMrPanel

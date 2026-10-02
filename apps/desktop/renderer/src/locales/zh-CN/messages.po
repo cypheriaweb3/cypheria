@@ -3013,3 +3013,88 @@ msgstr "查看 PR"
 #: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.createPr"
 msgstr "创建 PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.rowSummary"
+msgstr "{path}，新增 {additions} 行，删除 {deletions} 行，{comments} 条评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.changedFiles"
+msgstr "变更的文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.pendingComments"
+msgstr "{count} 条评审评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.sendComments"
+msgstr "发送给 Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.clearComments"
+msgstr "清除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.removeComment"
+msgstr "移除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentBody"
+msgstr "评审评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentPlaceholder"
+msgstr "告诉 Agent 这里要改什么…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.addComment"
+msgstr "添加评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.fileCount"
+msgstr "{count} 个文件有变更"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unifiedDiff"
+msgstr "合并视图"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.splitDiff"
+msgstr "并排视图"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.disableWrap"
+msgstr "关闭自动换行"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.enableWrap"
+msgstr "开启自动换行"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitSection"
+msgstr "提交"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchesSection"
+msgstr "分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.worktreesSection"
+msgstr "工作树"

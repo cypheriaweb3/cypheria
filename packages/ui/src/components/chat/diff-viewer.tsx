@@ -32,6 +32,10 @@ export type ChatDiffViewerProps = {
   onRequestComment?: (target: ChatDiffTarget) => void
   /** A unified diff with `diff --git` headers, one file or many. */
   patch: string
+  /** Old and new side by side, or interleaved. Unified by default. */
+  diffStyle?: "split" | "unified"
+  /** Wrap long lines instead of scrolling them. On by default. */
+  wrap?: boolean
   /** Shown in place of the viewer when the patch holds no file diff. */
   fallback?: ReactNode
 }
@@ -72,6 +76,8 @@ const itemIdFor = (
 export function ChatDiffViewer({
   annotations = [],
   className,
+  diffStyle = "unified",
+  wrap = true,
   fallback,
   focus,
   onRequestComment,
@@ -100,7 +106,7 @@ export function ChatDiffViewer({
   const canComment = Boolean(onRequestComment)
   const options = useMemo(
     () => ({
-      diffStyle: "unified" as const,
+      diffStyle,
       enableGutterUtility: canComment,
       onGutterUtilityClick: (
         range: { end: number; side?: ChatDiffSide; start: number },
@@ -114,10 +120,10 @@ export function ChatDiffViewer({
           side: range.side ?? "additions",
         })
       },
-      overflow: "wrap" as const,
+      overflow: wrap ? ("wrap" as const) : ("scroll" as const),
       themeType: themeMode,
     }),
-    [canComment, files, onRequestComment, themeMode]
+    [canComment, diffStyle, files, onRequestComment, themeMode, wrap]
   )
   const focusKey = focus
     ? `${focus.path}:${focus.side}:${focus.lineNumber}:${focus.nonce ?? ""}`
