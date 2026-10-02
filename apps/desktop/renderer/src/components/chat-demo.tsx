@@ -32,6 +32,7 @@ import {
   ChatComposerUtilityBar,
   ChatContextUsage,
   ChatDesktopNotificationPreview,
+  ChatDiffViewer,
   ChatFileChange,
   ChatFileChanges,
   ChatFixedTurnSummary,
@@ -1239,8 +1240,37 @@ export default function ChatDemo() {
             statusLabel={(file) => file.status}
             onSelectFile={setSelectedReviewFile}
           />
-          <ChatReviewDiffHost className="m-2 rounded-lg border p-3">
-            <pre>{`@@ -0,0 +1,5 @@\n+export function ChatDemo() {\n+  return <ChatWorkspaceShell />\n+}`}</pre>
+          <ChatReviewDiffHost className="m-2 rounded-lg border">
+            <ChatDiffViewer
+              annotations={[
+                {
+                  content: (
+                    <p className="border-y bg-muted/40 p-2 text-xs">
+                      Reviewer: keep the shell free of Review state.
+                    </p>
+                  ),
+                  key: "demo-thread",
+                  lineNumber: 2,
+                  path: "chat-demo.test.tsx",
+                  side: "additions",
+                },
+              ]}
+              className="max-h-80"
+              onRequestComment={() => undefined}
+              patch={[
+                "diff --git a/chat-demo.test.tsx b/chat-demo.test.tsx",
+                "new file mode 100644",
+                "--- /dev/null",
+                "+++ b/chat-demo.test.tsx",
+                "@@ -0,0 +1,5 @@",
+                "+export function ChatDemo() {",
+                "+  return <ChatWorkspaceShell />",
+                "+}",
+                "+",
+                "+export const demo = true",
+                "",
+              ].join("\n")}
+            />
           </ChatReviewDiffHost>
         </ChatReviewPanel>
       ),

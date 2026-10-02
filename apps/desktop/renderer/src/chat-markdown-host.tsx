@@ -10,6 +10,7 @@ import { useMemo } from "react"
 
 import { clientStateStore, threadFilesAtom } from "./client-state.js"
 import { ensureCypheriaClient } from "./cypheria-client.js"
+import { nextRequestNonce, reviewFocusAtom } from "./deep-links.js"
 
 type Options = {
   readonly openFilesPanel: () => void
@@ -101,7 +102,17 @@ export function useThreadMarkdownHost({
         showThreadPath(threadId, resolved)
         openFilesPanel()
       },
-      openReview: () => openReviewPanel(),
+      openReview: (target) => {
+        clientStateStore.set(reviewFocusAtom, {
+          line: target.line ?? null,
+          nonce: nextRequestNonce(),
+          path: target.path ?? null,
+          pullRequest: target.pr,
+          side: target.side === "left" ? "deletions" : "additions",
+          threadId,
+        })
+        openReviewPanel()
+      },
       openThread,
       resolvePath: async (path, signal) => {
         const client = await ensureCypheriaClient()

@@ -204,7 +204,7 @@ const treeThemeStyle = {
 } as CSSProperties
 
 /** Keeps syntax tokens from the Pierre themes while the surface, type, and gutters follow Cypheria. */
-const fileThemeStyle = {
+export const chatCodeThemeStyle = {
   "--diffs-bg-context-override": "var(--background)",
   "--diffs-bg-context-gutter-override": "var(--background)",
   "--diffs-bg-hover-override": "var(--accent)",
@@ -912,7 +912,7 @@ function ChatFileViewer({
               file={fileContents}
               onEditComplete={onEditComplete}
               options={options}
-              style={fileThemeStyle}
+              style={chatCodeThemeStyle}
             />
           </Virtualizer>
         </EditProvider>

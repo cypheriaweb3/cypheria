@@ -27,6 +27,7 @@ import { CYPHERIA_BROWSER_CHANNELS } from "./browser-channels.js"
 
 export * from "./browser.js"
 export * from "./codex.js"
+export * from "./deep-link.js"
 export * from "./integrations.js"
 
 export const IPC_PROTOCOL_VERSION = 1
@@ -40,6 +41,8 @@ export const CYPHERIA_IPC_CHANNELS = {
   appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
   appExternalOpen: "app.external.open",
+  appDeepLink: "app.deep-link",
+  appDeepLinkTake: "app.deep-link.take",
   appDirectoryPick: "app.directory.pick",
   appSoundPick: "app.sound.pick",
   appConfigOpen: "app.config.open",
@@ -1316,7 +1319,17 @@ export const storageAttachmentListPageContract = {
   { items: AttachmentFileInspectionEntry[]; nextCursor: string | null }
 >
 
+/** Takes the deep links that arrived before the renderer could receive them. */
+export const appDeepLinkTakeContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appDeepLinkTake,
+  namespace: "app",
+  request: EmptyPayloadSchema,
+  response: z.object({ links: z.array(z.string().max(8192)) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { links: string[] }>
+
 export const ipcContracts = {
+  appDeepLinkTake: appDeepLinkTakeContract,
   appDirectoryPick: appDirectoryPickContract,
   appSoundPick: appSoundPickContract,
   appExternalOpen: appExternalOpenContract,
@@ -1375,6 +1388,9 @@ export type CypheriaPreloadApi = {
     readonly pickDirectory: () => Promise<{ path: string | null }>
     readonly pickSoundFile: () => Promise<{ path: string | null }>
     readonly openExternal: (url: string) => Promise<{ opened: true }>
+    /** Links into the app that other applications opened; the renderer routes them. */
+    readonly onDeepLink: (handler: (url: string) => void) => () => void
+    readonly takeDeepLinks: () => Promise<{ links: string[] }>
     readonly openConfig: () => Promise<{ opened: true }>
     readonly revealProject: (projectId: string) => Promise<{ revealed: true }>
     readonly openProject: (projectId: string) => Promise<{ opened: true }>

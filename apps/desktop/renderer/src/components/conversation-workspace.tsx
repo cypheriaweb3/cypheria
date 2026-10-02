@@ -198,6 +198,7 @@ import {
   verifyDraftAttachments,
 } from "../composer-draft-storage.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import { reviewPanelRequestAtom } from "../deep-links.js"
 import { Route } from "../routes/index.js"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 import { desktopClientStorage } from "../storage.js"
@@ -1970,6 +1971,14 @@ export function ConversationWorkspace({
     },
     [setOpenRightTabs, setRightTab, setRightVisibility]
   )
+  const reviewPanelRequest = useAtomValue(reviewPanelRequestAtom)
+  const currentThreadId = snapshot.thread?.id ?? null
+  useEffect(() => {
+    if (!reviewPanelRequest || !currentThreadId) return
+    if (reviewPanelRequest.threadId && reviewPanelRequest.threadId !== currentThreadId) return
+    openRightTab("review")
+    clientStateStore.set(reviewPanelRequestAtom, null)
+  }, [currentThreadId, openRightTab, reviewPanelRequest])
   const markdownHost = useThreadMarkdownHost({
     openFilesPanel: () => openRightTab("files"),
     openReviewPanel: () => openRightTab("review"),

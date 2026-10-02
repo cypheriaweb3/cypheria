@@ -54,7 +54,7 @@ The detailed future service boundary and threat model are in [Marketplace](marke
 
 ## Codex desktop parity
 
-- [ ] Turn on the pull request diff link capability once a `cypheria://review` link opens the exact pull request, and register the `cypheria://` scheme with the operating system for links from outside the app.
+- [ ] Declare the `cypheria://` URL scheme in each platform's packaged-app manifest, so links from other applications reach an installed Desktop; development builds register it at startup.
 - [ ] Port the official instruction sections that need client features Cypheria lacks: workspace dependencies, LaTeX, running summaries, writing blocks, non-technical UI, and heartbeat cards.
 - [ ] Carry the Agent-side tools the official desktop mounts but Cypheria does not yet: `set_thread_read_state`, `get_thread_emoji`, `set_thread_emoji`, `create_project`, `list_hosts`, `read_settings`, `write_settings`, `get_usage_limits`, and `consume_usage_reset`.
 

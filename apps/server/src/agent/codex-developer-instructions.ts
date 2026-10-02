@@ -67,7 +67,7 @@ export type CodexInstructionCapabilities = {
  *
  * - `fileLinks`, `media`: `thread.paths.resolve` and `thread.files.read` back links and inline media.
  * - `codeComments`, `artifactFollowUps`: Desktop renders the directives.
- * - `prDiffLinks` stays off until a `cypheria://review` link can open the exact pull request.
+ * - `prDiffLinks`: Desktop opens a `cypheria://review` link on that GitHub pull request's diff at the line.
  * - `createdThreadDirective` follows the `create_thread` app tool.
  */
 export const CYPHERIA_RENDERING_CAPABILITIES: Omit<CodexInstructionCapabilities, "tools"> = {
@@ -76,7 +76,7 @@ export const CYPHERIA_RENDERING_CAPABILITIES: Omit<CodexInstructionCapabilities,
   createdThreadDirective: false,
   fileLinks: true,
   media: true,
-  prDiffLinks: false,
+  prDiffLinks: true,
 }
 
 export const NO_CODEX_INSTRUCTION_CAPABILITIES: CodexInstructionCapabilities = {

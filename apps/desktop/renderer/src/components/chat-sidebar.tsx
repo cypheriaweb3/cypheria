@@ -811,7 +811,7 @@ export function ChatSidebar({
                         onCopyThread={(kind, thread) => {
                           if (kind === "cwd") void copyText(thread.roots[0] ?? "")
                           if (kind === "link")
-                            void copyText(`cypheria://app/?thread=${encodeURIComponent(thread.id)}`)
+                            void copyText(`cypheria://threads/${encodeURIComponent(thread.id)}`)
                           if (kind === "markdown") void copyThreadMarkdown(thread)
                         }}
                         onCreateProject={() => setProjectDialogOpen(true)}

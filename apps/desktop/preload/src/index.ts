@@ -114,6 +114,14 @@ const cypheriaApi: CypheriaPreloadApi = {
     pickDirectory: () => invoke(CYPHERIA_IPC_CHANNELS.appDirectoryPick),
     pickSoundFile: () => invoke(CYPHERIA_IPC_CHANNELS.appSoundPick),
     openExternal: (url) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appExternalOpen, { url }),
+    onDeepLink: (handler) => {
+      const listener = (_event: IpcRendererEvent, url: unknown): void => {
+        if (typeof url === "string") handler(url)
+      }
+      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.appDeepLink, listener)
+      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.appDeepLink, listener)
+    },
+    takeDeepLinks: () => invoke(CYPHERIA_IPC_CHANNELS.appDeepLinkTake),
     openConfig: () => invoke(CYPHERIA_IPC_CHANNELS.appConfigOpen),
     revealProject: (projectId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectReveal, { projectId }),

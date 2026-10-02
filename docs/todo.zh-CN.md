@@ -57,7 +57,7 @@ title: 当前路线图
 
 ## Codex 桌面版对齐
 
-- [ ] 在 `cypheria://review` 链接能打开确切的拉取请求后，开启拉取请求 diff 链接能力，并向操作系统注册 `cypheria://` scheme，以支持应用外链接。
+- [ ] 在各平台打包应用的 manifest 中声明 `cypheria://` URL scheme，使其他应用的链接能到达已安装的 Desktop；开发版在启动时注册。
 - [ ] 移植官方指令中依赖 Cypheria 尚缺客户端功能的章节：工作区依赖、LaTeX、运行摘要、写作块、非技术 UI 和 heartbeat 卡片。
 - [ ] 补充官方桌面版挂载而 Cypheria 尚未提供的 Agent 工具：`set_thread_read_state`、`get_thread_emoji`、`set_thread_emoji`、`create_project`、`list_hosts`、`read_settings`、`write_settings`、`get_usage_limits` 和 `consume_usage_reset`。
 
