@@ -38,15 +38,15 @@ title: 当前路线图
   - 在 harness 支持时添加 Skill recording。
   - 完成 loading、empty、error、disabled、update、advisory 和 permission states。
   - 在打包 Electron build 中验证 authenticated connector authorization。
-  - 完成 [Integrations](integrations.zh-CN.md) 所述 Cypheria 原生 plugin process、permission 和 Desktop contribution 契约。
+  - 完成 [Plugin Extensions 限制](plugin-extensions.zh-CN.md#限制)中的各项：Claude 工具调用的只读 App 与对 Claude 隐藏仅供 App 使用的工具、Expo 与 CLI 托管、表单上传，以及 implicit resource 选择。
+  - 在开发与打包的 Electron 构建中用 Bits & Bolts 插件端到端验证 Desktop App 沙箱：入口、global 页面的工作区 Thread、文件查看器、模型上下文、消息、设置、提及与表单。
+  - 定义 Cypheria 原生 manifest，以及第三方 `cypheria/*` host 请求的权限模型。
   - 以 custom source 的形式添加 Pi 和 OpenCode 插件适配器，并支持 Claude 使用托管在 claude.ai 的 marketplace。
 
 ## 本地 Git 与拉取请求
 
-- [ ] 在 Server 中完成 ChatGPT Desktop 的本地 Git 操作清单，包括仓库查询、受保护的 Review 修改、轮次差异、工作树归属与迁移、缓存失效以及持久化 Git 设置。
-- [ ] 按操作、仓库访问和实际工具 scope，在 `gh` CLI 与已连接 GitHub App 工具之间完成 GitHub PR 路由；补齐 Desktop PR 流程及失败恢复状态。
-- [ ] 通过已连接 GitLab App 工具完成 GitLab MR 操作，并校验 connector、账户 link、工具 scope、项目和 URL；按需保留浏览器表单创建路径。
-- [ ] 在打包 Electron 中验证 Connect 行为，并在 Cypheria 管理的 Codex home 中验证 GitHub/GitLab 授权和实际 PR/MR 调用。
+- [ ] 使用真实 ChatGPT 账户对照 OpenAI 后端验证代码审查：GitHub 和 GitLab 连接（包括多个账户）、收件箱分区、详情读取、写入、检查和私密审查，并确认 GitLab 的响应结构。
+- [ ] 端到端验证创建 PR：使用已登录的 `gh`，使用在 ChatGPT 中关联的 GitHub 和 GitLab 账户（确认 `github.create_pull_request` 与 `gitlab.create_merge_request` 的参数和结果结构），以及通过浏览器页面。
 
 ## 内置浏览器
 

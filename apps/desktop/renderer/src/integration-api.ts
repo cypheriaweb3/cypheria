@@ -11,6 +11,8 @@ import { ensureCypheriaClient } from "./cypheria-client.js"
 const codex = "codex" as const
 
 export type PluginAgent = "claude" | "codex"
+/** Agents whose MCP servers Cypheria manages. */
+export type McpAgent = "codex" | "pi"
 export type PluginIdentity = { marketplaceName: string; pluginName: string }
 
 export const integrationApi = {
@@ -39,21 +41,21 @@ export const integrationApi = {
       }),
   },
   mcp: {
-    add: async (input: { name: string; url: string }) =>
-      (await ensureCypheriaClient()).integrations.mcp.add({ agentId: codex, ...input }),
-    list: async (): Promise<CodexMcpListResult> =>
-      (await ensureCypheriaClient()).integrations.mcp.list({ agentId: codex }),
-    login: async (name: string) => {
+    add: async (input: { name: string; url: string }, agentId: McpAgent = codex) =>
+      (await ensureCypheriaClient()).integrations.mcp.add({ agentId, ...input }),
+    list: async (agentId: McpAgent = codex): Promise<CodexMcpListResult> =>
+      (await ensureCypheriaClient()).integrations.mcp.list({ agentId }),
+    login: async (name: string, agentId: McpAgent = codex) => {
       const { authorizationUrl } = await (await ensureCypheriaClient()).integrations.mcp.login({
-        agentId: codex,
+        agentId,
         id: name,
       })
       if (!window.cypheria) throw new Error("Opening external links requires Cypheria Desktop.")
       await window.cypheria.app.openExternal(authorizationUrl)
     },
-    setEnabled: async (name: string, enabled: boolean) =>
+    setEnabled: async (name: string, enabled: boolean, agentId: McpAgent = codex) =>
       (await ensureCypheriaClient()).integrations.mcp.setEnabled({
-        agentId: codex,
+        agentId,
         enabled,
         id: name,
       }),

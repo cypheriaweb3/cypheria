@@ -688,7 +688,7 @@ const bundledPluginVersion = async (
 ): Promise<string | undefined> => {
   try {
     const text = await readFile(
-      join(marketplaceDirectory, "plugins", name, ".claude-plugin", "plugin.json"),
+      join(marketplaceDirectory, name, ".claude-plugin", "plugin.json"),
       "utf8"
     )
     const version = (JSON.parse(text) as { version?: unknown }).version

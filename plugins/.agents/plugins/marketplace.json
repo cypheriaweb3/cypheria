@@ -1,0 +1,32 @@
+{
+  "name": "cypheria-bundled",
+  "interface": {
+    "displayName": "Cypheria"
+  },
+  "plugins": [
+    {
+      "name": "cypheria-app-tools",
+      "source": {
+        "source": "local",
+        "path": "./cypheria-app-tools"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "code-review",
+      "source": {
+        "source": "local",
+        "path": "./code-review"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

@@ -13,65 +13,25 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/composer-model-selector.tsx
-msgid "chat.agent"
-msgstr "Agent"
+#. placeholder {0}: provider.exposedModels
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "{0} models"
+msgstr "{0} 个模型"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.derived"
-msgstr "推导值"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.fileCount"
+msgstr "{count} 个文件有变更"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.estimated"
-msgstr "估算值"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.pendingComments"
+msgstr "{count} 条评审评论"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.queried"
-msgstr "实时查询"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.reported"
-msgstr "Agent 上报"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/composer-model-selector.tsx
-msgid "chat.speed"
-msgstr "速度"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.group.tools"
-msgstr "工具活动"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.group.subagents"
-msgstr "子代理活动"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.turnDiffAvailable"
-msgstr "本轮差异可用"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.computerUse.elevatedRisk"
-msgstr "高风险"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.computerUse.disclosure"
-msgstr "Computer Use 可以操作电脑上的应用，也可能在工作时截取屏幕画面。你可以随时停止它。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.computerUse.firstUse"
-msgstr "电脑访问请求"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.rowSummary"
+msgstr "{path}，新增 {additions} 行，删除 {deletions} 行，{comments} 条评论"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -89,6 +49,15 @@ msgid "settings.general.cmdIfMultiline"
 msgstr "多行输入时用 ⌘ Enter 发送"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.range"
+msgstr "1–{lineCount}"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
+msgstr "由 magpie 运行的本地网关，为 Cypheria 管理的 Agent 提供所有模型与订阅。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.revertDescription"
 msgstr "撤销前会保存可恢复的副本。"
@@ -99,9 +68,19 @@ msgid "chat.interaction.actionRequired"
 msgstr "需要操作"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.activity"
-msgstr "活动"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prActions"
+msgstr "拉取请求 #{number} 的操作"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.addComment"
+msgstr "添加评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions.placeholder"
+msgstr "添加提交信息指引…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -109,9 +88,74 @@ msgid "chat.prompt.addFiles"
 msgstr "添加文件"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.addFolder"
+msgstr "添加文件夹"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.project.addFolders"
 msgstr "添加 Codex 可以读取和编辑的文件夹"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions.placeholder"
+msgstr "添加 Pull Request 指引…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.addToChat"
+msgstr "添加到聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.addPrToChat"
+msgstr "添加到聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.addedWorkspaceDirectories"
+msgstr "新增"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.added"
+msgstr "新增"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions.description"
+msgstr "将添加到提交信息生成提示中"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions.description"
+msgstr "将添加到 PR 标题/描述生成提示中"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address"
+msgstr "地址"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.fixComments.prompt"
+msgstr "处理 {url} 附带的审查评论。编辑前请确认仓库和已检出的分支与此 Pull Request 一致。针对可执行的反馈做最小且安全的修改，并说明哪些内容需要澄清或已经处理。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/composer-model-selector.tsx
+msgid "chat.agent"
+msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentTools"
+msgstr "Agent 浏览器工具"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig"
+msgstr "Agent 默认值"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -119,14 +163,21 @@ msgid "settings.agentHarnesses"
 msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.instructions"
-msgstr "Agent 指令"
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.reported"
+msgstr "Agent 上报"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateAll"
-msgstr "全部"
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Agents"
+msgstr "Agents"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "AI gateway"
+msgstr "AI 网关"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "All time"
+msgstr "全部时间"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -144,6 +195,49 @@ msgid "chat.interaction.alwaysAllow"
 msgstr "始终允许"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask.description"
+msgstr "编辑外部文件和使用互联网时始终询问"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.upstreamRefresh.ariaLabel"
+msgstr "创建工作树前始终获取上游更新"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.upstreamRefresh.label"
+msgstr "创建工作树前始终获取上游更新"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.forcePush.ariaLabel"
+msgstr "始终强制推送"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.forcePush.label"
+msgstr "始终强制推送"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "An Agent set to a routing group has each request served by one of its members, by the group's routing."
+msgstr "设为路由组的 Agent，每个请求都按该组的路由方式由其中一个成员处理。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.answer"
+msgstr "回答"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "API port"
+msgstr "API 端口"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/model-context.tsx
+msgid "extension.context.label"
+msgstr "App 上下文"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "外观"
@@ -159,9 +253,19 @@ msgid "chat.approval"
 msgstr "审批"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.approve"
-msgstr "批准"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve"
+msgstr "替我批准"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.approved"
+msgstr "已批准"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.approvedBadge"
+msgstr "已批准"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -184,6 +288,11 @@ msgid "navigation.archiveProjectChats"
 msgstr "归档会话"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.archived"
+msgstr "已归档"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.group.archived"
 msgstr "已归档"
@@ -204,9 +313,40 @@ msgid "chat.panel.artifacts"
 msgstr "产物"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: entrypoint.title
+#: renderer/src/components/extensions/global-app-page.tsx
+msgid "extension.global.placeholder"
+msgstr "询问关于 {0} 的问题"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/code-review.tsx
+msgid "codeReview.chat.placeholder"
+msgstr "询问关于这个拉取请求的问题"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.placeholderShort"
 msgstr "输入你的问题…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask"
+msgstr "请求批准"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrSubmit"
+msgstr "附加"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPr"
+msgstr "附加已有的拉取请求…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrTitle"
+msgstr "附加拉取请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -214,9 +354,44 @@ msgid "navigation.auditLog"
 msgstr "审计日志"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.author"
+msgstr "作者"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.authored"
+msgstr "我创建的"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.auto"
+msgstr "自动"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.ariaLabel"
+msgstr "自动删除限制"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.label"
+msgstr "自动删除限制"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.watchAutoMerge"
-msgstr "自动合并关注的 PR"
+msgid "settings.git.pullRequestWatch.autoMerge.ariaLabel"
+msgstr "准备就绪后自动合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.autoMerge.label"
+msgstr "准备就绪时自动合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.disabled"
+msgstr "自动删除已关闭。Cypheria 不会自动清理旧工作树。重新开启后将再次使用此保存的上限。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -224,24 +399,35 @@ msgid "settings.language.automatic"
 msgstr "自动检测"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.autoCleanup"
-msgstr "自动清理工作树"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.ariaLabel"
+msgstr "自动删除旧工作树"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.label"
+msgstr "自动删除旧工作树"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.back"
+msgstr "后退"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
+#: renderer/src/components/code-review/sidebar.tsx
 msgid "settings.backToWorkspace"
 msgstr "返回工作区"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.base"
-msgstr "基准分支"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.processes"
+msgstr "后台进程"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.bestEffort"
-msgstr "尽力刷新"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.baseBranch"
+msgstr "基础分支"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -252,6 +438,11 @@ msgstr "底部"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.bottomPanelControl.title"
 msgstr "底部面板控件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.label"
+msgstr "分支"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -265,28 +456,34 @@ msgstr "分支"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.branchPrefix"
+msgid "settings.git.branchPrefix.ariaLabel"
 msgstr "分支前缀"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.branches"
-msgstr "分支和审查"
+msgid "settings.git.branchPrefix.label"
+msgstr "分支前缀"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchesSection"
+msgstr "分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.browser"
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.section"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.browser"
-msgstr "浏览器"
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tabs"
+msgstr "浏览器标签页"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -295,6 +492,7 @@ msgstr "按项目"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/create-pull-request-dialog.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "common.cancel"
 msgstr "取消"
@@ -302,7 +500,13 @@ msgstr "取消"
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/components/project-create-dialog.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.cancel"
 msgstr "取消"
 
 #. js-lingui-explicit-id
@@ -311,14 +515,39 @@ msgid "git.review.cancel"
 msgstr "取消"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.cancel"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.cancelWorktree"
 msgstr "取消"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.cancelled"
 msgstr "已取消"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.mediaUnavailable"
+msgstr "无法显示"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.syncConfirm"
+msgstr "更改此线程的工作区目录？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.changeThreadWorkspace"
+msgstr "更改工作区目录？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.changedFiles"
+msgstr "变更的文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.changesRequestedBadge"
+msgstr "已要求更改"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -336,9 +565,24 @@ msgid "navigation.deleteSectionDescription"
 msgstr "此分组中的对话将返回到最近列表。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.checks"
-msgstr "检查"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksFailing"
+msgstr "检查失败"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksPending"
+msgstr "检查进行中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksSuccessful"
+msgstr "检查通过"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.choose"
+msgstr "选择聊天"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -346,9 +590,24 @@ msgid "chat.project.validation"
 msgstr "请选择文件夹并输入项目名称。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.choose"
+msgstr "选择分支"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.chooseCustomSound"
 msgstr "选择自定义声音…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.description"
+msgstr "选择 Cypheria 合并 Pull Request 的方式"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.choose"
+msgstr "选择项目"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -366,13 +625,38 @@ msgid "settings.general.chooseFolder"
 msgstr "选择…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "common.close"
-msgstr "关闭"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.clearComments"
+msgstr "清除"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.close"
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clear"
+msgstr "清除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.clear"
+msgstr "清空输入"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.clearSite"
+msgstr "清除网站数据"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDappDescription"
+msgstr "清除 dApp 标签页使用的 Cookie、存储和缓存。钱包授权会保留。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWebDescription"
+msgstr "清除网页标签页使用的 Cookie、存储和缓存。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "common.close"
 msgstr "关闭"
 
 #. js-lingui-explicit-id
@@ -381,9 +665,14 @@ msgid "chat.workspace.closeBottomPanel"
 msgstr "关闭"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.closeTitle"
-msgstr "关闭拉取请求？"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.close"
+msgstr "关闭概览"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.close"
+msgstr "关闭标签页"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -391,19 +680,74 @@ msgid "chat.workspace.closeTerminal"
 msgstr "关闭终端"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateClosed"
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.closeSharedTerminalConfirm"
+msgstr "要为所有已连接的客户端关闭这个共享终端吗？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prClosed"
 msgstr "已关闭"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.codeChanges"
-msgstr "代码更改"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.closedBadge"
+msgstr "已关闭"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.coAuthors"
+msgstr "共同作者，用分号分隔"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.codeReview"
+msgstr "代码审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.codeReview"
+msgstr "代码审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.title"
+msgstr "代码审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewBranch"
+msgstr "对照 {branch} 进行代码审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewUncommitted"
+msgstr "代码审查：未提交的变更"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.subagent.codexCollaboration"
 msgstr "Codex 协作"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.upstreamRefresh.description"
+msgstr "Codex 通常会在常规 Git 操作中获取分支更新。此设置还会在创建每个新工作树前获取上游更新。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix.placeholder"
+msgstr "codex/"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseAll"
+msgstr "折叠全部差异"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseFile"
+msgstr "折叠文件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -416,19 +760,72 @@ msgid "git.review.commitSource"
 msgstr "提交"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.commitInstructions"
-msgstr "提交指令"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitSection"
+msgstr "提交"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commitMessage"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "git.review.commit"
+msgstr "提交已暂存内容"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.commit"
+msgstr "提交"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.includeLocalChanges"
+msgstr "提交并包含本地更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
+msgid "git.review.commitAndPush"
+msgstr "提交并推送"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions.ariaLabel"
+msgstr "提交指令"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions.label"
 msgstr "提交说明"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commit"
-msgstr "提交已暂存内容"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "git.review.commitMessage"
+msgstr "提交说明"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.messagePlaceholder"
+msgstr "提交信息（留空则自动生成）…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitOrPush"
+msgstr "提交或推送"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitTo"
+msgstr "提交到"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.compact"
+msgstr "紧凑"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.compact"
+msgstr "压缩上下文"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -441,19 +838,40 @@ msgid "settings.general.composerSection"
 msgstr "输入框"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.connectedApp"
-msgstr "已连接 GitHub App"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.firstUse"
+msgstr "电脑访问请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.disclosure"
+msgstr "Computer Use 可以操作电脑上的应用，也可能在工作时截取屏幕画面。你可以随时停止它。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.confirm"
+msgstr "确认"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/elicitation-form.tsx
 msgid "common.continue"
 msgstr "继续"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.conversation"
-msgstr "会话"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.continueGitHub"
+msgstr "在 GitHub 中继续"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.continueGitLab"
+msgstr "在 GitLab 中继续"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.autoMerge.description"
+msgstr "继续监控，直到 Pull Request 合并"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -461,14 +879,24 @@ msgid "chat.error.conversation"
 msgstr "会话错误"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.markDraft"
-msgstr "转为草稿"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.conversations.title"
+msgstr "对话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.copy"
 msgstr "复制"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyMenu"
+msgstr "复制"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyAbsolutePath"
+msgstr "复制绝对路径"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -481,14 +909,73 @@ msgid "navigation.copyMarkdown"
 msgstr "将会话复制为 Markdown"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.copyCleanup"
+msgstr "复制清理命令"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyContents"
+msgstr "复制文件内容"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.copyGitApply"
+msgstr "复制 git apply 命令"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyGitHubLink"
+msgstr "复制 GitHub 链接"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.copyPrLink"
+msgstr "复制链接"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.copy"
+msgstr "复制链接"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.copyChangesOnMove"
+msgstr "移动线程时复制本地更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.copyPath"
+msgstr "复制路径"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRootPath"
+msgstr "复制相对于文件夹的路径"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRepoPath"
+msgstr "复制相对于仓库的路径"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.copyWorkingDirectory"
 msgstr "复制工作目录"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Cost"
+msgstr "费用"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.error"
 msgstr "无法搜索对话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.retry"
+msgstr "加载失败，请重试"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -501,39 +988,59 @@ msgid "git.review.createBranch"
 msgstr "创建"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.createDraft"
-msgstr "创建草稿 MR"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.description"
+msgstr "创建 {projectName} 的隔离副本，让此聊天可以并行工作。项目中的其他源文件夹仍会直接访问。所选分支将作为 worktree 的起点。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.createHint"
-msgstr "从已推送的当前分支创建"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.draft"
+msgstr "创建为草稿"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.createHint"
-msgstr "从已推送的当前分支创建"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createDraft"
+msgstr "创建草稿 PR"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.create"
-msgstr "创建 MR"
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.createDraftPullRequest.ariaLabel"
+msgstr "创建草稿 Pull Request"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.create"
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.createDraftPullRequest.label"
+msgstr "创建草稿 Pull Request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.gitlabTitle"
+msgstr "创建合并请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createMergeRequest"
+msgstr "创建合并请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.title"
+msgstr "创建 PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.create"
+msgstr "创建 PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.createPr"
 msgstr "创建 PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.project.create"
 msgstr "创建项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.prDraft"
-msgstr "默认创建草稿 PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -551,12 +1058,65 @@ msgid "navigation.sort.created"
 msgstr "创建时间"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createdMergeRequest"
+msgstr "已为 {branch} 创建合并请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.created"
+msgstr "已为 {branch} 创建 PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.githubAccount"
+msgstr "使用在 ChatGPT 中关联的 GitHub 账号创建。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.cli"
+msgstr "使用 GitHub CLI 创建。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.gitlabAccount"
+msgstr "使用在 ChatGPT 中关联的 GitLab 账号创建。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.usage.credits"
 msgstr "积分"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+#: renderer/src/components/thread-files-panel.tsx
+msgid "chat.summary.workspace.cwd"
+msgstr "当前工作目录"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.projectlessDirectoryCreationWarning"
+msgstr "当前工作目录将改为新建的无项目托管目录，其中包含 work/ 和 outputs/。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDapp"
+msgstr "dApp 浏览数据"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp.hint"
+msgstr "dApp 标签页使用独立的共享配置，可以使用你的钱包。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.date"
+msgstr "日期"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/elicitation-form.tsx
+#: renderer/src/components/extensions/extension-elicitations.tsx
 msgid "chat.interaction.decline"
 msgstr "拒绝"
 
@@ -576,11 +1136,6 @@ msgid "settings.workspace.terminalLocation.label"
 msgstr "默认终端位置"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.forcePush"
-msgstr "默认使用带租约的强制推送"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.standaloneChat"
 msgstr "默认使用独立聊天"
@@ -588,6 +1143,11 @@ msgstr "默认使用独立聊天"
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.delete"
+msgstr "删除"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.delete"
 msgstr "删除"
 
 #. js-lingui-explicit-id
@@ -616,14 +1176,74 @@ msgid "chat.interaction.deny"
 msgstr "拒绝"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.disableAutoMerge"
-msgstr "关闭自动合并"
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.derived"
+msgstr "推导值"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.activity"
-msgstr "讨论与审查"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.bodyField"
+msgstr "描述"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.detachPr"
+msgstr "从聊天中解除"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.general.reviewDelivery.detached"
+msgstr "单独"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prDetached"
+msgstr "已从此聊天中解除 #{number}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.detached"
+msgstr "游离 HEAD"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.detailed"
+msgstr "详细"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.options"
+msgstr "差异选项"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.description"
+msgstr "Cypheria 创建托管工作树的目录。留空则使用默认位置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.disable"
+msgstr "关闭自动删除"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.title"
+msgstr "禁用工作树自动删除功能？"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode.ariaLabel"
+msgstr "禁用基于 Git 的差异对比"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode.label"
+msgstr "禁用基于 Git 的差异对比"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment"
+msgstr "忽略"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -632,13 +1252,28 @@ msgid "settings.language.label"
 msgstr "显示语言"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.clear"
+msgstr "不在项目中工作"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "chat.done"
 msgstr "完成"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.draft"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prDraft"
+msgstr "草稿"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.draftBadge"
+msgstr "草稿"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.drafts"
 msgstr "草稿"
 
 #. js-lingui-explicit-id
@@ -658,6 +1293,7 @@ msgstr "编辑"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "navigation.editProject"
 msgstr "编辑项目"
 
@@ -667,9 +1303,9 @@ msgid "navigation.editSection"
 msgstr "编辑分组"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.enableAutoMerge"
-msgstr "开启自动合并"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.elevatedRisk"
+msgstr "高风险"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -681,10 +1317,29 @@ msgstr "启用权限提醒"
 msgid "settings.general.questionNotifications"
 msgstr "启用问题提醒"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Enable the AI gateway"
+msgstr "启用 AI 网关"
+
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.enterOption"
 msgstr "Enter"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.placeholder"
+msgstr "输入网址"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.empty"
+msgstr "输入网址以打开页面。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.invalid"
+msgstr "请输入有效的整数行号"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -692,9 +1347,23 @@ msgid "chat.workspace.enterFullscreen"
 msgstr "进入全屏"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.threadError"
+msgstr "出错"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.error"
 msgstr "错误"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Errors"
+msgstr "错误"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.estimated"
+msgstr "估算值"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -717,9 +1386,33 @@ msgid "chat.workspace.exitFullscreen"
 msgstr "退出全屏"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandAll"
+msgstr "展开全部差异"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandFile"
+msgstr "展开文件"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.failed"
 msgstr "失败"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Failed"
+msgstr "失败"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-settings.tsx
+msgid "settings.git.instructions.autoSave.error"
+msgstr "未能保存说明"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.loading.body"
+msgstr "正在获取工作树详细信息…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -737,9 +1430,39 @@ msgid "chat.files"
 msgstr "个文件"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.active"
+msgstr "请等待当前 turn 完成后再更改目录。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.finishTurnBeforeWorkspaceMove"
+msgstr "请等待当前 turn 完成后再更改工作区。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.githubBrowser"
+msgstr "在浏览器中的 GitHub 完成。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.gitlabBrowser"
+msgstr "在浏览器中的 GitLab 完成。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.fixChecks.prompt"
+msgstr "修复 {url} 中失败的检查。编辑前请确认仓库和已检出的分支与此 Pull Request 一致。阅读检查输出，做最小且安全的修改，运行相关检查，然后提交并推送修复。"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.followUp"
 msgstr "跟进消息行为"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.instructions.placeholder"
+msgstr "例如：检查通过后评论 /merge，并批准不相关的 Chromatic 变更…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -747,9 +1470,38 @@ msgid "navigation.forkChat"
 msgstr "Fork 会话"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.reviewFull"
-msgstr "完整"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.fork"
+msgstr "在新聊天中分叉"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.forward"
+msgstr "前进"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess"
+msgstr "完全访问"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "Gateway"
+msgstr "网关"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.gateway"
+msgstr "网关"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Gateway port"
+msgstr "网关端口"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.general"
+msgstr "通用"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -767,8 +1519,13 @@ msgid "settings.general"
 msgstr "常规"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.generateMessage"
+msgstr "生成"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.title"
+msgid "settings.section.git-settings"
 msgstr "Git"
 
 #. js-lingui-explicit-id
@@ -777,14 +1534,9 @@ msgid "settings.git"
 msgstr "Git"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.heading"
-msgstr "GitHub 拉取请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.heading"
-msgstr "GitLab 合并请求"
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine"
+msgstr "跳转到行"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -807,14 +1559,54 @@ msgid "chat.workspace.hideBottomPanel"
 msgstr "隐藏底部面板"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.minimize"
+msgstr "隐藏聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideGenerated"
+msgstr "隐藏生成的文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.hide"
+msgstr "隐藏 git blame"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideImports"
+msgstr "隐藏导入"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.hideTerminalPanel"
 msgstr "隐藏终端面板"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment.tooltip"
+msgstr "从 diff 中隐藏此评论；它仍保留在对话中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrPlaceholder"
+msgstr "https://github.com/owner/repository/pull/1"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.ignoreWhitespace"
+msgstr "忽略空白更改"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.images"
 msgstr "图片"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.cwdWarning"
+msgstr "重要：当前工作目录将发生改变。后续命令和 Agent turn 将从新的首个目录运行。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -823,28 +1615,75 @@ msgstr "合并为一个列表"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.includeLocalChanges"
+msgstr "包含本地更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
+msgid "git.review.includeUnstaged"
+msgstr "包含未暂存的更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.init"
 msgstr "初始化仓库"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.general.reviewDelivery.inline"
+msgstr "内联"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.input"
 msgstr "输入"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Installing…"
+msgstr "正在安装…"
+
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.group.integrations"
 msgstr "集成"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "It was used without reaching the gateway."
+msgstr "它被使用过，但请求没有经过网关。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its model was changed outside the gateway."
+msgstr "它的模型在网关之外被修改了。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its settings no longer send it through the gateway."
+msgstr "它的设置已不再经过网关。"
+
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.menuBarDescription"
-msgstr "关闭主窗口后仍在 macOS 菜单栏保留 Cypheria"
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile"
+msgstr "跳转到文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.placeholder"
+msgstr "跳转到文件…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.keep"
+msgstr "保持自动删除"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.plainTextDescription"
 msgstr "编写消息时将代码、Markdown 和链接保留为原始文本"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.menuBarDescription"
+msgstr "关闭主窗口后仍在 macOS 菜单栏保留 Cypheria"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -856,6 +1695,10 @@ msgstr "请使用简短且容易识别的标题。"
 msgid "settings.general.preventSleepDescription"
 msgstr "Cypheria 运行任务时阻止电脑休眠"
 
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Key"
+msgstr "密钥"
+
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.languageLabel"
@@ -866,20 +1709,58 @@ msgstr "语言"
 msgid "settings.language.description"
 msgstr "应用 UI 语言"
 
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 30 days"
+msgstr "最近 30 天"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 7 days"
+msgstr "最近 7 天"
+
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.lastTurn"
 msgstr "最后一轮"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.reviewLastTurn"
-msgstr "仅最后一轮"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.updated"
 msgstr "最近更新"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout"
+msgstr "布局"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.layout"
+msgstr "布局"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.titlePlaceholder"
+msgstr "留空则自动生成"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.bodyPlaceholder"
+msgstr "留空则自动生成"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentToolsDescription"
+msgstr "允许 Agent 在自己的对话中打开并控制浏览器标签页，包括已登录的页面和 dApp 标签页。钱包签名仍遵循你的策略和审批。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.queried"
+msgstr "实时查询"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.fullFiles"
+msgstr "加载完整文件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/plugins-page.tsx
@@ -909,19 +1790,9 @@ msgid "git.review.diffLoading"
 msgstr "正在加载差异…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.diffLoading"
-msgstr "正在加载差异…"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.loadingEarlier"
 msgstr "正在加载更早的消息…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.loading"
-msgstr "正在加载合并请求…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -929,9 +1800,33 @@ msgid "git.review.loading"
 msgstr "正在加载仓库变更…"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.description"
-msgstr "本地 Codex Git 和拉取请求偏好设置"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.loading"
+msgstr "正在加载…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.loading"
+msgstr "正在加载拉取请求"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.local"
+msgstr "本地分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.environmentConfig"
+msgstr "本地环境配置路径"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/thread-panel.tsx
+msgid "chat.panel.pullRequest.loading"
+msgstr "正在查找此聊天的 Pull Request…"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
+msgstr "magpie 会修改 Cypheria 管理的 Agent 在其 Cypheria 目录中的设置。为每个 Agent 选择它使用的模型或路由组。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -954,59 +1849,34 @@ msgid "navigation.markAsUnread"
 msgstr "标记为未读"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.markReady"
-msgstr "标记为可供审查"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp"
 msgstr "MCP 应用"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.merge"
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.merge"
 msgstr "合并"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.mergeCommit"
-msgstr "合并提交"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.mergeMethod"
-msgstr "合并方式"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeTitle"
-msgstr "合并拉取请求？"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.comment"
-msgstr "合并请求评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.description"
-msgstr "合并请求描述"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.number"
-msgstr "合并请求编号"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.title"
-msgstr "合并请求标题"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateMerged"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prMerged"
 msgstr "已合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.mergedBadge"
+msgstr "已合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "extension.global.composer"
+msgstr "消息"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.actions"
+msgstr "消息操作"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1014,9 +1884,23 @@ msgid "chat.prompt.label"
 msgstr "给 Cypheria 发消息"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/composer-model-selector.tsx
 msgid "chat.model"
 msgstr "模型"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Model"
+msgstr "模型"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prMore"
+msgstr "更多拉取请求操作"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.moveChat"
+msgstr "移动对话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -1027,6 +1911,11 @@ msgstr "将终端移到右侧"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.moveTerminalBottom"
 msgstr "将终端移到底部"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.ownerHint"
+msgstr "删除前请先将此工作树中的聊天移到其他位置"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1040,13 +1929,33 @@ msgstr "将线程移回检出目录"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.changeThreadWorkspaceDescription"
+msgstr "移动此对话也会更新 Agent 后续使用的工作目录和工作区目录。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.manualReview.personalInstructionsHeading"
+msgstr "我的自定义审查说明："
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.needsMyReview"
+msgstr "需要我审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.needsMyTeamsReview"
+msgstr "需要我的团队审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "网络"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.never"
-msgstr "从不"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.newBranch"
+msgstr "新分支"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1060,29 +1969,44 @@ msgid "navigation.newChat"
 msgstr "新建对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.newChat"
+msgstr "新建会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.untitled"
+msgstr "新聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.newChat"
+msgstr "新聊天"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.newChatInNamedProject"
 msgstr "在 {projectName} 中新建会话"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.newTitle"
-msgstr "新的合并请求标题"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.newChat"
+msgstr "在此工作树中新建聊天"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.editBody"
-msgstr "新的拉取请求正文"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.editTitle"
-msgstr "新的拉取请求标题"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.new"
+msgstr "新建项目"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.newSection"
 msgstr "新建分组"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.new"
+msgstr "新标签页"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1105,6 +2029,11 @@ msgid "chat.panel.browser.empty"
 msgstr "未打开浏览器会话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChanges"
+msgstr "没有变更"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.empty"
 msgstr "此来源没有变更"
@@ -1115,9 +2044,19 @@ msgid "navigation.noChats"
 msgstr "暂无对话"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.noChecks"
-msgstr "没有检查"
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.noRecent"
+msgstr "还没有聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChecks"
+msgstr "没有 CI 检查"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.conversations.empty"
+msgstr "没有与此工作树关联的对话。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1131,11 +2070,6 @@ msgstr "没有匹配的文件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.files.empty"
-msgstr "未生成文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.goal.empty"
 msgstr "此任务尚未设置目标"
 
@@ -1143,6 +2077,10 @@ msgstr "此任务尚未设置目标"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.images.empty"
 msgstr "此会话中没有图片"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "No installed Agent is enabled."
+msgstr "没有已启用的已安装 Agent。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1155,6 +2093,11 @@ msgid "settings.language.empty"
 msgstr "未找到语言"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.noEnvironment"
+msgstr "无本地环境"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.noMatches"
 msgstr "没有匹配的已归档会话"
@@ -1163,6 +2106,11 @@ msgstr "没有匹配的已归档会话"
 #: renderer/src/components/chat-search.tsx
 msgid "search.noMatches"
 msgstr "没有匹配的对话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.empty"
+msgstr "没有匹配的文件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1175,11 +2123,6 @@ msgid "navigation.noPinnedChats"
 msgstr "暂无置顶对话"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.noChecks"
-msgstr "没有流水线检查"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.plan.empty"
 msgstr "暂无计划"
@@ -1190,14 +2133,18 @@ msgid "settings.archived.noProject"
 msgstr "无项目"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.empty"
+msgstr "未找到项目"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noProjects"
 msgstr "暂无项目"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.noPullRequests"
-msgstr "未找到拉取请求"
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "No provider yet."
+msgstr "还没有提供方。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1208,6 +2155,10 @@ msgstr "暂无最近对话。"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.search.empty"
 msgstr "未找到结果"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "No routing group yet."
+msgstr "还没有路由组。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1225,6 +2176,30 @@ msgid "git.review.noTextDiff"
 msgstr "没有可显示的文本差异"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.empty.title"
+msgstr "尚无工作树"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.noWorkspaceDirectories"
+msgstr "无"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Not installed"
+msgstr "未安装"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Not ready"
+msgstr "未就绪"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.empty"
+msgstr "暂无可概览的内容"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.notificationSound"
 msgstr "通知声音"
@@ -1235,13 +2210,47 @@ msgid "settings.general.notificationsSection"
 msgstr "通知"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.description"
+msgstr "要保留的托管工作树数量；超过后，较旧的工作树会自动被清理。Cypheria 会在删除工作树前创建快照，因此被清理的工作树应始终可以恢复。"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.offOption"
 msgstr "关闭"
 
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Off"
+msgstr "已关闭"
+
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateOpen"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve.description"
+msgstr "仅对检测为可能不安全的操作进行询问"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.unsupported"
+msgstr "只能打开 http 和 https 页面。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode.description"
+msgstr "在“变更”面板中仅显示“上一轮”差异，并禁用“未暂存”/“已暂存”/“分支”，以避免 Git 操作"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.open"
+msgstr "打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prOpen"
+msgstr "打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/extension-elicitations.tsx
+msgid "extension.form.openLink"
 msgstr "打开"
 
 #. js-lingui-explicit-id
@@ -1250,14 +2259,99 @@ msgid "chat.panel.empty"
 msgstr "打开一个面板标签页以检查任务上下文"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp"
+msgstr "以 dApp 打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web"
+msgstr "以网页打开"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.openBottomPanelTab"
 msgstr "打开底部面板标签"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.openForm"
-msgstr "在浏览器中打开表单"
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.openDapp"
+msgstr "打开 dApp 标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.devtools"
+msgstr "打开开发者工具"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.openFile"
+msgstr "打开文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.heading"
+msgstr "打开文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab.tooltip"
+msgstr "在标签页中打开文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openExternally"
+msgstr "用默认应用打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.openFile"
+msgstr "在文件中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.openFull"
+msgstr "在完整聊天中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.openGitHub"
+msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.openInGitHub"
+msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openPrInGitHub"
+msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.github"
+msgstr "在 GitHub 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.openGitLab"
+msgstr "在 GitLab 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openPrInGitLab"
+msgstr "在 GitLab 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.gitlab"
+msgstr "在 GitLab 中打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab"
+msgstr "在标签页中打开"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1265,9 +2359,29 @@ msgid "navigation.openProjectFolder"
 msgstr "打开项目文件夹"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openReview"
+msgstr "打开 Review"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.openSidePanelTab"
 msgstr "打开侧边面板标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.open"
+msgstr "打开标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.createdThread"
+msgstr "打开新对话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.openingTerminal"
+msgstr "正在打开终端…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1278,6 +2392,22 @@ msgstr "组织侧栏"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.output"
 msgstr "输出"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.outputs"
+msgstr "产出"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileOutside"
+msgstr "不在此对话的文件夹内"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+#: renderer/src/components/git-review-panel.tsx
+msgid "chat.markdown.priority"
+msgstr "P{priority}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1305,14 +2435,24 @@ msgid "navigation.pin"
 msgstr "置顶"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.pin"
+msgstr "置顶 Pull Request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.pin"
+msgstr "固定概览"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pinned"
 msgstr "置顶"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.checks"
-msgstr "流水线检查"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.pinned"
+msgstr "已固定"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1320,9 +2460,15 @@ msgid "settings.general.plainText"
 msgstr "纯文本输入框"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.plan"
 msgstr "计划"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.manualReview.prompt"
+msgstr "请对 {url} 进行私密审查。查找可执行的缺陷并评估整体影响。使用一个不带先前聊天上下文的全新审查子代理。不要修改代码，也不要代表我发送或发布任何内容。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1345,29 +2491,14 @@ msgid "settings.general.popoutHotkey"
 msgstr "弹出窗口快捷键"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.postComment"
-msgstr "发表评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.postComment"
-msgstr "发表评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.prInstructions"
-msgstr "PR 指令"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.watchInstructions"
-msgstr "PR 关注指令"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "偏好设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix.description"
+msgstr "Cypheria 创建新分支时使用的前缀"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1378,6 +2509,11 @@ msgstr "请按快捷键…"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.preventSleep"
 msgstr "运行时防止休眠"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.primary"
+msgstr "主要"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1391,6 +2527,7 @@ msgstr "项目"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "navigation.projectName"
 msgstr "项目名称"
 
@@ -1415,37 +2552,68 @@ msgid "navigation.projects"
 msgstr "项目"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.body"
-msgstr "拉取请求正文"
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.providers"
+msgstr "提供方"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Providers"
+msgstr "提供方"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.commentBody"
-msgstr "拉取请求评论"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.pullRequest"
+msgstr "Pull Request"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewBody"
-msgstr "拉取请求审查"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.listState"
-msgstr "拉取请求状态"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.title"
-msgstr "拉取请求标题"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.actions"
+msgstr "Pull Request 操作"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.pullRequests"
+msgid "settings.git.prInstructions.ariaLabel"
+msgstr "Pull Request 说明"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions.label"
+msgstr "Pull Request 说明"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.ariaLabel"
+msgstr "Pull Request 合并方法"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.label"
+msgstr "Pull Request 合并方法"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrUrl"
+msgstr "拉取请求或合并请求的 URL"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.instructions.ariaLabel"
+msgstr "Pull Request 监控说明"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.pullRequests"
 msgstr "拉取请求"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.unsupported"
+msgstr "创建拉取请求需要指向 github.com 或 gitlab.com 的 origin 远程仓库。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
 msgid "git.review.push"
 msgstr "推送"
 
@@ -1475,19 +2643,19 @@ msgid "chat.state.ready"
 msgstr "就绪"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.ready"
-msgstr "就绪"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.reasoning"
 msgstr "推理"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/composer-model-selector.tsx
 msgid "chat.reasoningEffort"
 msgstr "推理强度"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.recents"
+msgstr "最近"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1495,9 +2663,39 @@ msgid "navigation.recentChats"
 msgstr "最近对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.recent"
+msgstr "最近的聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.merged"
+msgstr "最近合并"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.recents"
 msgstr "最近"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.description"
+msgstr "推荐大多数用户启用。仅当你需要手动管理旧工作树和磁盘使用空间时，再关闭此功能。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.refresh"
+msgstr "刷新"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.refresh"
+msgstr "刷新"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.reload"
+msgstr "重新加载"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1506,8 +2704,19 @@ msgstr "远端"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/model-context.tsx
 msgid "common.remove"
 msgstr "移除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.removeComment"
+msgstr "移除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeFolder"
+msgstr "移除文件夹"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1520,14 +2729,24 @@ msgid "navigation.removeFromSection"
 msgstr "从分区中移除"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeLocalProject"
+msgstr "移除本地项目"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProject"
 msgstr "移除项目"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.removeReviewer"
-msgstr "移除 Reviewer"
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removedWorkspaceDirectories"
+msgstr "移除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.removed"
+msgstr "移除"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1539,20 +2758,9 @@ msgstr "重命名"
 msgid "navigation.renameChat"
 msgstr "重命名会话"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reopen"
-msgstr "重新打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.requestChanges"
-msgstr "请求修改"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.requestReviewer"
-msgstr "请求 Reviewer"
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Requests"
+msgstr "请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1565,9 +2773,18 @@ msgid "chat.workspace.resizeSidePanel"
 msgstr "调整侧边面板大小"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.restartRoot"
-msgstr "重启 Server 后新的工作树根目录才会生效。"
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.fixConflicts.prompt"
+msgstr "解决 {url} 的合并冲突。请确认仓库和已检出的分支与此 Pull Request 一致，切勿修改无关的检出。获取最新的目标分支，按此仓库的惯例进行合并或变基，解决冲突并运行相关检查，然后提交并推送解决结果。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Restart"
+msgstr "重启"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.restart"
+msgstr "重启 Server 以使用新的根目录。"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -1588,6 +2805,16 @@ msgstr "恢复会话"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.description"
 msgstr "将会话恢复到侧栏，或永久删除不再需要的会话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.results"
+msgstr "结果"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.retryWorktree"
+msgstr "重试"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1615,19 +2842,29 @@ msgid "chat.panel.review"
 msgstr "审查"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewComment"
-msgstr "审查评论"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentBody"
+msgstr "评审评论"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.reviewMode"
-msgstr "审查模式"
+msgid "settings.general.reviewDelivery.label"
+msgstr "审查结果呈现方式"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewer"
-msgstr "Reviewer 用户名或团队"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.description"
+msgstr "为保持响应，Review 跳过了 {count} 个未跟踪文件。如果它们是生成的文件，请忽略或清理后刷新。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewind"
+msgstr "回退到此处"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewindReplaceDraft"
+msgstr "回退会替换当前的输入草稿。是否继续？"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1635,24 +2872,53 @@ msgid "settings.workspace.terminalLocation.right"
 msgstr "右侧"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.routing"
+msgstr "路由"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Routing groups"
+msgstr "路由组"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.threadRunning"
+msgstr "运行中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.running"
+msgstr "运行中"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.running"
 msgstr "运行中"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running"
+msgstr "运行中"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running since"
+msgstr "启动时间"
+
+#. placeholder {0}: view.version
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
+msgstr "为 Cypheria 的 Agent 运行 magpie：用一个本地端点提供所有模型与订阅，并支持路由组和用量统计。首次开启时会安装 magpie {0}。"
+
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "navigation.save"
 msgstr "保存"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.save"
-msgstr "保存更改"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.save"
-msgstr "保存 Git 设置"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.saveAs"
+msgstr "另存为…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1660,9 +2926,14 @@ msgid "navigation.saveSection"
 msgstr "保存分组"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.saveTitle"
-msgstr "保存标题"
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.saveThreadForTerminal"
+msgstr "保存为 Thread 后才能使用终端。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-settings.tsx
+msgid "settings.git.instructions.autoSave.saved"
+msgstr "已保存"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1673,6 +2944,11 @@ msgstr "已保存的撤销记录"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.schedules"
 msgstr "计划任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.schedules"
+msgstr "日程"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1686,14 +2962,14 @@ msgid "navigation.search"
 msgstr "搜索"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.searchAction"
-msgstr "搜索"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.search"
 msgstr "搜索已归档会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.searchBaseBranches"
+msgstr "搜索基础分支"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1721,8 +2997,18 @@ msgid "settings.language.search"
 msgstr "搜索语言"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.search"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.searchPlaceholder"
+msgstr "搜索或粘贴 PR 链接"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.search"
+msgstr "搜索项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.search"
 msgstr "搜索拉取请求"
 
 #. js-lingui-explicit-id
@@ -1751,6 +3037,21 @@ msgid "navigation.section"
 msgstr "分区"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.sections"
+msgstr "分区"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.description"
+msgstr "从工作区文件树中选择一个文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.selectBaseBranch"
+msgstr "选择基础分支"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.selectBranch"
 msgstr "选择分支"
@@ -1766,14 +3067,35 @@ msgid "chat.prompt.send"
 msgstr "发送"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "extension.global.send"
+msgstr "发送"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.sendShortcut"
 msgstr "发送快捷键"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.sendComments"
+msgstr "发送给 Agent"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: item.origin.title
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.fromApp"
+msgstr "由 {0} 发送"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.popoutHotkeyDescription"
 msgstr "设置弹出窗口的全局快捷键。留空则关闭此功能。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.setPrimary"
+msgstr "设为主要"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1783,6 +3105,11 @@ msgstr "设置 Cypheria 何时提醒你任务已完成"
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.title"
+msgstr "设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/plugin-extension-settings.tsx
+msgid "extension.settings.title"
 msgstr "设置"
 
 #. js-lingui-explicit-id
@@ -1801,9 +3128,19 @@ msgid "settings.general.permissionNotificationsDescription"
 msgstr "需要授予权限时显示提醒"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.tooltip"
+msgstr "在行号栏显示作者、日期和提交信息"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.bottomPanelControl.toggle"
 msgstr "在应用标题栏中显示底部面板控件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.expand"
+msgstr "显示聊天"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1811,15 +3148,45 @@ msgid "settings.general.contextUsage"
 msgstr "显示上下文窗口用量"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/tool-call-app.tsx
+msgid "extension.app.expand"
+msgstr "全屏显示"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.show"
+msgstr "显示 git blame"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.menuBar"
 msgstr "在菜单栏显示"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/tool-call-app.tsx
+msgid "extension.app.collapse"
+msgstr "内联显示"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.showLess"
+msgstr "收起"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "navigation.showMore"
 msgstr "显示更多"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.showMore"
+msgstr "显示更多"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "sidebarElectron.showMore"
+msgstr "展开显示"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
@@ -1832,9 +3199,9 @@ msgid "settings.general.contextUsageDescription"
 msgstr "在输入框中显示 token 用量"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.listTruncated"
-msgstr "显示最近的拉取请求"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.title"
+msgstr "仅显示已跟踪的变更"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1842,14 +3209,24 @@ msgid "chat.workspace.sidePanelTabs"
 msgstr "侧边面板标签页"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options"
+msgstr "侧边栏显示选项"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "签名策略"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.checksPartial"
-msgstr "部分流水线检查未能加载。"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.skipSetup"
+msgstr "跳过设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.error.body"
+msgstr "加载工作树时出错。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1862,18 +3239,35 @@ msgid "settings.general.notificationSoundDescription"
 msgstr "任务完成、权限请求和问题提醒的声音"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/file-viewers.tsx
+msgid "extension.fileViewer.builtin"
+msgstr "源文件"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.project.sourceFolders"
 msgstr "源文件夹"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.sources"
 msgstr "来源"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/composer-model-selector.tsx
+msgid "chat.speed"
+msgstr "速度"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.split"
+msgstr "并排"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.squash"
+msgid "settings.git.pullRequestMergeMethod.squash"
 msgstr "压缩合并"
 
 #. js-lingui-explicit-id
@@ -1892,6 +3286,11 @@ msgid "git.review.staged"
 msgstr "已暂存"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.general.reviewDelivery.description"
+msgstr "尽可能在当前聊天中启动 /review，或启动单独的审查聊天"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "开始会话"
@@ -1902,9 +3301,34 @@ msgid "settings.general.standaloneChatDescription"
 msgstr "在任何项目之外开始新聊天"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: entrypoint.title
+#: renderer/src/components/extensions/extension-app-panel.tsx
+msgid "chat.panel.extension.noThread"
+msgstr "开始对话后即可打开 {0}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.files.empty"
+msgstr "未生成文件"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Starting…"
+msgstr "正在启动…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.newChatHint"
+msgstr "使用相同的文件和分支开始新聊天"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.stashChanges"
 msgstr "切换前储藏本地更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.status"
+msgstr "状态"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1917,9 +3341,34 @@ msgid "chat.prompt.steerPlaceholder"
 msgstr "调整当前任务方向…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.stop"
+msgstr "停止"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/workspace-chat.tsx
 msgid "chat.prompt.stop"
 msgstr "停止"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.stop"
+msgstr "停止"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.stopConfirm"
+msgstr "停止后台进程？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.threadStopped"
+msgstr "已停止"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Stopped"
+msgstr "已停止"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1928,11 +3377,21 @@ msgstr "子代理"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.subagents"
+msgstr "子代理活动"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.subagents"
 msgstr "子代理"
 
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Subscription"
+msgstr "订阅"
+
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/codex-summary.tsx
 msgid "chat.panel.summary"
 msgstr "摘要"
 
@@ -1942,14 +3401,63 @@ msgid "git.review.switch"
 msgstr "切换"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.syncAction"
+msgstr "同步"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.sync"
+msgstr "同步到项目工作区目录"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncBranch"
+msgstr "将工作树同步到分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncedBranch"
+msgstr "已同步分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentPlaceholder"
+msgstr "告诉 Agent 这里要改什么…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.terminal"
 msgstr "终端"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.terminalReady"
+msgstr "终端已准备好打开。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.terminalTabs"
 msgstr "终端标签"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The Agent could not be changed"
+msgstr "无法修改该 Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncedBranchChanged"
+msgstr "分支已在此工作树之外发生变化。请先刷新再同步。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncConfirmDescription"
+msgstr "分支检出必须是干净的。Cypheria 会将未提交的工作树文件放入快照提交，并保存之前的分支提交以便撤销。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.unavailable"
+msgstr "浏览器仅在 Desktop 主窗口中可用。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1957,9 +3465,18 @@ msgid "navigation.archiveChatDescription"
 msgstr "该会话将移至已归档会话。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeDescription"
-msgstr "显示的头部提交必须仍与拉取请求一致。"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.newBranchHint"
+msgstr "当前检出位于其基础分支上，因此拉取请求需要自己的分支。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.currentDirectoryWillChange"
+msgstr "当前工作目录将发生改变。这会影响后续命令和 Agent 操作。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The gateway could not be changed"
+msgstr "无法修改网关"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1967,9 +3484,17 @@ msgid "settings.general.projectlessFolderDescription"
 msgstr "在项目之外开始的任务默认存放数据的位置。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.closeDescription"
-msgstr "之后仍可重新打开此拉取请求。"
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.projectlessDirectoryCleanupWarning"
+msgstr "原有的无项目工作区目录在不再被其他对话引用时会被删除。"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "The requests the gateway served, their tokens and their cost."
+msgstr "网关处理的请求、其 token 数与费用。"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
+msgstr "Cypheria 所管理 Agent 的订阅（登录信息保存在这些 Agent 自己的位置），以及用密钥添加的提供方。"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -1977,14 +3502,63 @@ msgid "settings.theme.title"
 msgstr "主题"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.unsupported"
+msgstr "此 Agent 不支持在创建后更改工作区目录。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.agentCannotChangeWorkspace"
+msgstr "此 Agent 不支持在对话创建后更改所需的工作区目录。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/thread-panel.tsx
+msgid "chat.panel.pullRequest.empty"
+msgstr "此聊天没有 Pull Request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.waiting"
+msgstr "此聊天正在等待你的回答。"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileUnavailable"
+msgstr "此文件不可用"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/elicitation-form.tsx
+msgid "extension.form.unsupported"
+msgstr "此表单请求的输入 Cypheria 暂时无法收集。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.loadFailed"
+msgstr "无法加载此页面：{loadError}"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.deleteConfirm.description"
 msgstr "此操作会永久删除该会话，且无法撤销。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/global-app-page.tsx
+msgid "extension.global.unavailable"
+msgstr "此插件页面不可用。请确认插件已安装并启用。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProjectDescription"
 msgstr "此操作只会从侧栏移除项目，不会删除项目文件或会话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.titleField"
+msgstr "标题"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Today"
+msgstr "今天"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1997,6 +3571,20 @@ msgid "chat.workspace.toggleSidePanel"
 msgstr "切换右侧面板"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.summary.toggle"
+msgstr "切换概览"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Tokens"
+msgstr "Token"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.tools"
+msgstr "工具活动"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.tryAgain"
 msgstr "重试"
@@ -2007,14 +3595,60 @@ msgid "settings.general.turnNotifications"
 msgstr "任务完成提醒"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.turnDiffAvailable"
+msgstr "本轮差异可用"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Turn the gateway on to see its providers."
+msgstr "开启网关后可查看其提供方。"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Turn the gateway on to see its routing groups."
+msgstr "开启网关后可查看其路由组。"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Turn the gateway on to see its usage."
+msgstr "开启网关后可查看其用量。"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Turn the gateway on to set up the Agents."
+msgstr "开启网关后可设置 Agent。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.error.title"
+msgstr "无法加载工作树"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.uncommitted"
 msgstr "未提交"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.undo"
+msgstr "撤销"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.undoDelete"
+msgstr "撤销删除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.undoSync"
+msgstr "撤销上次同步"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.undoRevert"
 msgstr "恢复更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.unified"
+msgstr "统一"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2027,9 +3661,24 @@ msgid "navigation.unpin"
 msgstr "取消置顶"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.unpin"
+msgstr "取消置顶 Pull Request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.unpin"
+msgstr "取消固定概览"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.unread"
 msgstr "未读"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess.description"
+msgstr "不受限制地访问互联网和电脑上的任何文件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -2057,14 +3706,48 @@ msgid "search.untitled"
 msgstr "未命名对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.conversations.untitled"
+msgstr "未命名对话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editProjectDescription"
 msgstr "更新此项目在侧栏中显示的名称。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncConfirmTitle"
+msgstr "更新已同步的分支？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.usage"
+msgstr "用量"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Usage"
+msgstr "用量"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.upstreamRefresh"
-msgstr "上游刷新"
+msgid "settings.git.forcePush.description"
+msgstr "从 Cypheria 推送时使用 --force-with-lease"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.createDraftPullRequest.description"
+msgstr "从 Cypheria 创建 PR 时默认使用草稿 Pull Request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig.description"
+msgstr "使用 Codex Agent 配置的权限"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Version"
+msgstr "版本"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -2072,14 +3755,54 @@ msgid "menu.view"
 msgstr "查看"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.open"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.view"
 msgstr "查看"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.viewPr"
+msgstr "查看 PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.viewed"
+msgstr "已查看"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.waitingBadge"
+msgstr "等待评审"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.origin"
+msgstr "钱包请求仅限于 {dappOrigin}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.wallets"
 msgstr "钱包与资产"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.title"
+msgstr "监控并修复 Pull Request"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.description"
+msgstr "强烈建议保持自动删除开启，以免旧工作树不断累积并占用不必要的磁盘空间。如果你更想自行管理旧工作树，可以关闭此选项，Cypheria 将不再自动删除它们。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWeb"
+msgstr "网页浏览数据"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web.hint"
+msgstr "网页标签页不会获得钱包。"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -2096,1333 +3819,9 @@ msgstr "文件和文件夹默认打开的位置"
 msgid "menu.window"
 msgstr "窗口"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.state.working"
-msgstr "正在处理…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.workspace"
-msgstr "工作区导航"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.worktreeRoot"
-msgstr "工作树根目录"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.worktrees"
-msgstr "工作树"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.worktrees"
-msgstr "工作树"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.keepCount"
-msgstr "保留工作树数量"
-
-#. js-lingui-explicit-id
-msgid "git.github.allRepositories"
-msgstr "所有仓库"
-
-#. js-lingui-explicit-id
-msgid "git.github.commitChanges"
-msgstr "创建前提交本地改动"
-
-#. js-lingui-explicit-id
-msgid "git.github.commitMessage"
-msgstr "提交说明（留空则自动生成）"
-
-#. js-lingui-explicit-id
-msgid "git.review.generateMessage"
-msgstr "生成"
-
-#. js-lingui-explicit-id
-msgid "git.github.generateDescription"
-msgstr "生成"
-
-#. js-lingui-explicit-id
-msgid "git.github.linkedChats"
-msgstr "关联的聊天："
-
-#. js-lingui-explicit-id
-msgid "git.github.newBranch"
-msgstr "新分支（可选）"
-
-#. js-lingui-explicit-id
-msgid "git.github.board"
-msgstr "跨仓库拉取请求"
-
-#. js-lingui-explicit-id
-msgid "git.github.repositoryFilter"
-msgstr "仓库筛选"
-
-#. js-lingui-explicit-id
-msgid "settings.git.githubConnector"
-msgstr "CLI 无法执行操作时使用已连接的 GitHub App 工具"
-
-#. js-lingui-explicit-id
-msgid "git.github.boardRepositorySearch"
-msgstr "仓库（所有者/名称）"
-
-#. js-lingui-explicit-id
-msgid "settings.general.permissionsSection"
-msgstr "权限"
-
-#. js-lingui-explicit-id
-msgid "settings.general.defaultPermissions"
-msgstr "默认权限"
-
-#. js-lingui-explicit-id
-msgid "settings.general.defaultPermissionsDescription"
-msgstr "默认情况下，Cypheria 可以读取和编辑工作区中的文件。需要更多访问权限时，它可以提出请求。"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccess"
-msgstr "完全访问权限"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessDescription"
-msgstr "以完全访问权限运行时，Cypheria 无需征求批准即可编辑计算机上的任何文件，并运行可访问网络的命令。这会显著增加数据丢失、泄露或发生意外行为的风险。"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessConfirmTitle"
-msgstr "允许使用完全访问权限？"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessConfirmDescription"
-msgstr "选择后，Cypheria 无需征求批准即可访问互联网并读取、编辑文件，包括执行可能具有破坏性的命令。"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessConfirmNote"
-msgstr "开启后，输入框的权限菜单会显示“完全访问权限”，但不会立即启用该权限。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.addFolder"
-msgstr "添加文件夹"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.primary"
-msgstr "主要"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.removeFolder"
-msgstr "移除文件夹"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.removeLocalProject"
-msgstr "移除本地项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.setPrimary"
-msgstr "设为主要"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.actions"
-msgstr "消息操作"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.fork"
-msgstr "在新聊天中分叉"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.rewind"
-msgstr "回退到此处"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.rewindReplaceDraft"
-msgstr "回退会替换当前的输入草稿。是否继续？"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.address"
-msgstr "地址"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.address.placeholder"
-msgstr "输入网址"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.address.unsupported"
-msgstr "只能打开 http 和 https 页面。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.back"
-msgstr "后退"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.dapp.clearSite"
-msgstr "清除网站数据"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.dapp.origin"
-msgstr "钱包请求仅限于 {dappOrigin}"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.devtools"
-msgstr "打开开发者工具"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.empty"
-msgstr "输入网址以打开页面。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.forward"
-msgstr "前进"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.loadFailed"
-msgstr "无法加载此页面：{loadError}"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.dapp"
-msgstr "以 dApp 打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.dapp.hint"
-msgstr "dApp 标签页使用独立的共享配置，可以使用你的钱包。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.web"
-msgstr "以网页打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.web.hint"
-msgstr "网页标签页不会获得钱包。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.reload"
-msgstr "重新加载"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.stop"
-msgstr "停止"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.close"
-msgstr "关闭标签页"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.new"
-msgstr "新标签页"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.open"
-msgstr "打开标签页"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tabs"
-msgstr "浏览器标签页"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.unavailable"
-msgstr "浏览器仅在 Desktop 主窗口中可用。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.section"
-msgstr "浏览器"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.agentTools"
-msgstr "Agent 浏览器工具"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.agentToolsDescription"
-msgstr "允许 Agent 在自己的对话中打开并控制浏览器标签页，包括已登录的页面和 dApp 标签页。钱包签名仍遵循你的策略和审批。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearWeb"
-msgstr "网页浏览数据"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearWebDescription"
-msgstr "清除网页标签页使用的 Cookie、存储和缓存。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearDapp"
-msgstr "dApp 浏览数据"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearDappDescription"
-msgstr "清除 dApp 标签页使用的 Cookie、存储和缓存。钱包授权会保留。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clear"
-msgstr "清除"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.closeSharedTerminalConfirm"
-msgstr "要为所有已连接的客户端关闭这个共享终端吗？"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.saveThreadForTerminal"
-msgstr "保存为 Thread 后才能使用终端。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.openingTerminal"
-msgstr "正在打开终端…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.terminalReady"
-msgstr "终端已准备好打开。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.clear"
-msgstr "清空输入"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.newChat"
-msgstr "新建会话"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.status"
-msgstr "状态"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.compact"
-msgstr "压缩上下文"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.toggle"
-msgstr "切换概览"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.pin"
-msgstr "固定概览"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.unpin"
-msgstr "取消固定概览"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.close"
-msgstr "关闭概览"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.loading"
-msgstr "正在加载…"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.empty"
-msgstr "暂无可概览的内容"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.outputs"
-msgstr "产出"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.processes"
-msgstr "后台进程"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.pullRequests"
-msgstr "拉取请求"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.schedules"
-msgstr "日程"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.running"
-msgstr "运行中"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.showLess"
-msgstr "收起"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.showMore"
-msgstr "显示更多"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.stop"
-msgstr "停止"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.stopConfirm"
-msgstr "停止后台进程？"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.cancel"
-msgstr "取消"
-
-#. js-lingui-explicit-id
-msgid "navigation.changeThreadWorkspace"
-msgstr "更改工作区目录？"
-
-#. js-lingui-explicit-id
-msgid "navigation.changeThreadWorkspaceDescription"
-msgstr "移动此对话也会更新 Agent 后续使用的工作目录和工作区目录。"
-
-#. js-lingui-explicit-id
-msgid "navigation.currentDirectoryWillChange"
-msgstr "当前工作目录将发生改变。这会影响后续命令和 Agent 操作。"
-
-#. js-lingui-explicit-id
-msgid "navigation.projectlessDirectoryCleanupWarning"
-msgstr "原有的无项目工作区目录在不再被其他对话引用时会被删除。"
-
-#. js-lingui-explicit-id
-msgid "navigation.projectlessDirectoryCreationWarning"
-msgstr "当前工作目录将改为新建的无项目托管目录，其中包含 work/ 和 outputs/。"
-
-#. js-lingui-explicit-id
-msgid "navigation.noWorkspaceDirectories"
-msgstr "无"
-
-#. js-lingui-explicit-id
-msgid "navigation.addedWorkspaceDirectories"
-msgstr "新增"
-
-#. js-lingui-explicit-id
-msgid "navigation.removedWorkspaceDirectories"
-msgstr "移除"
-
-#. js-lingui-explicit-id
-msgid "navigation.finishTurnBeforeWorkspaceMove"
-msgstr "请等待当前 turn 完成后再更改工作区。"
-
-#. js-lingui-explicit-id
-msgid "navigation.agentCannotChangeWorkspace"
-msgstr "此 Agent 不支持在对话创建后更改所需的工作区目录。"
-
-#. js-lingui-explicit-id
-msgid "navigation.moveChat"
-msgstr "移动对话"
-
-#. js-lingui-explicit-id
-msgid "files.undoDelete"
-msgstr "撤销删除"
-
-#. js-lingui-explicit-id
-msgid "files.open"
-msgstr "打开"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.sync"
-msgstr "同步到项目工作区目录"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.syncConfirm"
-msgstr "更改此线程的工作区目录？"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.cwdWarning"
-msgstr "重要：当前工作目录将发生改变。后续命令和 Agent turn 将从新的首个目录运行。"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.syncAction"
-msgstr "同步"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.active"
-msgstr "请等待当前 turn 完成后再更改目录。"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.unsupported"
-msgstr "此 Agent 不支持在创建后更改工作区目录。"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.directories"
-msgstr "工作区目录"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.cwd"
-msgstr "当前工作目录"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.added"
-msgstr "新增"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.removed"
-msgstr "移除"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.openDapp"
-msgstr "打开 dApp 标签页"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.agentConfig"
-msgstr "Agent 默认值"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.agentConfig.description"
-msgstr "使用 Codex Agent 配置的权限"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.approve"
-msgstr "替我批准"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.approve.description"
-msgstr "仅对检测为可能不安全的操作进行询问"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.ask"
-msgstr "请求批准"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.ask.description"
-msgstr "编辑外部文件和使用互联网时始终询问"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.fullAccess"
-msgstr "完全访问"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.fullAccess.description"
-msgstr "不受限制地访问互联网和电脑上的任何文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.choose"
-msgstr "选择项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.clear"
-msgstr "不在项目中工作"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.label"
-msgstr "项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.branch.choose"
-msgstr "选择分支"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.branch.label"
-msgstr "分支"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.branch.local"
-msgstr "本地分支"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.worktree.description"
-msgstr "创建 {projectName} 的隔离副本，让此聊天可以并行工作。项目中的其他源文件夹仍会直接访问。所选分支将作为 worktree 的起点。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.worktree.gitRequired"
-msgstr "Worktree 要求项目的第一个源文件夹是 Git 仓库。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.worktree.label"
-msgstr "Worktree"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.search"
-msgstr "搜索项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.empty"
-msgstr "未找到项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.new"
-msgstr "新建项目"
-
-#. placeholder {0}: provider.exposedModels
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "{0} models"
-msgstr "{0} 个模型"
-
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
-msgstr "由 magpie 运行的本地网关，为 Cypheria 管理的 Agent 提供所有模型与订阅。"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Agents"
-msgstr "Agents"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "AI gateway"
-msgstr "AI 网关"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "All time"
-msgstr "全部时间"
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "An Agent set to a routing group has each request served by one of its members, by the group's routing."
-msgstr "设为路由组的 Agent，每个请求都按该组的路由方式由其中一个成员处理。"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "API port"
-msgstr "API 端口"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Cost"
-msgstr "费用"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Enable the AI gateway"
-msgstr "启用 AI 网关"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Errors"
-msgstr "错误"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Failed"
-msgstr "失败"
-
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "Gateway"
-msgstr "网关"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "settings.gateway"
-msgstr "网关"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Gateway port"
-msgstr "网关端口"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.general"
-msgstr "通用"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Installing…"
-msgstr "正在安装…"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "It was used without reaching the gateway."
-msgstr "它被使用过，但请求没有经过网关。"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Its model was changed outside the gateway."
-msgstr "它的模型在网关之外被修改了。"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Its settings no longer send it through the gateway."
-msgstr "它的设置已不再经过网关。"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Key"
-msgstr "密钥"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Last 30 days"
-msgstr "最近 30 天"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Last 7 days"
-msgstr "最近 7 天"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
-msgstr "magpie 会修改 Cypheria 管理的 Agent 在其 Cypheria 目录中的设置。为每个 Agent 选择它使用的模型或路由组。"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Model"
-msgstr "模型"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "No installed Agent is enabled."
-msgstr "没有已启用的已安装 Agent。"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "No provider yet."
-msgstr "还没有提供方。"
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "No routing group yet."
-msgstr "还没有路由组。"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Not installed"
-msgstr "未安装"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "Not ready"
-msgstr "未就绪"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Off"
-msgstr "已关闭"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.providers"
-msgstr "提供方"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Providers"
-msgstr "提供方"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Requests"
-msgstr "请求"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Restart"
-msgstr "重启"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.routing"
-msgstr "路由"
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "Routing groups"
-msgstr "路由组"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Running"
-msgstr "运行中"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Running since"
-msgstr "启动时间"
-
-#. placeholder {0}: view.version
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
-msgstr "为 Cypheria 的 Agent 运行 magpie：用一个本地端点提供所有模型与订阅，并支持路由组和用量统计。首次开启时会安装 magpie {0}。"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Starting…"
-msgstr "正在启动…"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Stopped"
-msgstr "已停止"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Subscription"
-msgstr "订阅"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "The Agent could not be changed"
-msgstr "无法修改该 Agent"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "The gateway could not be changed"
-msgstr "无法修改网关"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "The requests the gateway served, their tokens and their cost."
-msgstr "网关处理的请求、其 token 数与费用。"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
-msgstr "Cypheria 所管理 Agent 的订阅（登录信息保存在这些 Agent 自己的位置），以及用密钥添加的提供方。"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Today"
-msgstr "今天"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Tokens"
-msgstr "Token"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Turn the gateway on to see its providers."
-msgstr "开启网关后可查看其提供方。"
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "Turn the gateway on to see its routing groups."
-msgstr "开启网关后可查看其路由组。"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Turn the gateway on to see its usage."
-msgstr "开启网关后可查看其用量。"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Turn the gateway on to set up the Agents."
-msgstr "开启网关后可设置 Agent。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.usage"
-msgstr "用量"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Usage"
-msgstr "用量"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Version"
-msgstr "版本"
-
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Wire again"
 msgstr "重新接入"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.priority"
-msgstr "P{priority}"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.createdThread"
-msgstr "打开新对话"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.fileOutside"
-msgstr "不在此对话的文件夹内"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.fileUnavailable"
-msgstr "此文件不可用"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.mediaUnavailable"
-msgstr "无法显示"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.openFile"
-msgstr "在文件中打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.focusUnsupported"
-msgstr "此链接未指向 GitHub 拉取请求。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.focusOtherRepository"
-msgstr "此拉取请求不属于当前工作目录所在的仓库。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.commitOrPush"
-msgstr "提交或推送"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.detached"
-msgstr "游离 HEAD"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.commitTo"
-msgstr "提交到"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.messagePlaceholder"
-msgstr "提交信息（留空则自动生成）…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.noChanges"
-msgstr "没有变更"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.openReview"
-msgstr "打开 Review"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.viewPr"
-msgstr "查看 PR"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prActions"
-msgstr "拉取请求 #{number} 的操作"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prDraft"
-msgstr "草稿"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prMerged"
-msgstr "已合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prClosed"
-msgstr "已关闭"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prOpen"
-msgstr "打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.noChecks"
-msgstr "没有 CI 检查"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.checksFailing"
-msgstr "检查失败"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.checksPending"
-msgstr "检查进行中"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.checksSuccessful"
-msgstr "检查通过"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.openPrInGitHub"
-msgstr "在 GitHub 中打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.copyPrLink"
-msgstr "复制链接"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.addPrToChat"
-msgstr "添加到聊天"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions"
-msgstr "提及 GitHub 用户"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions.loading"
-msgstr "正在搜索 GitHub 用户…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions.error"
-msgstr "无法搜索 GitHub 用户"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions.empty"
-msgstr "未找到 GitHub 用户"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.createPr"
-msgstr "创建 PR"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.rowSummary"
-msgstr "{path}，新增 {additions} 行，删除 {deletions} 行，{comments} 条评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.changedFiles"
-msgstr "变更的文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.pendingComments"
-msgstr "{count} 条评审评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.sendComments"
-msgstr "发送给 Agent"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.clearComments"
-msgstr "清除"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.removeComment"
-msgstr "移除"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commentBody"
-msgstr "评审评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commentPlaceholder"
-msgstr "告诉 Agent 这里要改什么…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.addComment"
-msgstr "添加评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.fileCount"
-msgstr "{count} 个文件有变更"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commitSection"
-msgstr "提交"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.branchesSection"
-msgstr "分支"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.worktreesSection"
-msgstr "工作树"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.allPullRequests"
-msgstr "所有拉取请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.tabSummary"
-msgstr "概要"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.tabCode"
-msgstr "代码"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.tabActivity"
-msgstr "动态"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.submitReview"
-msgstr "提交审查"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewDecision"
-msgstr "审查结论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewDecisionHint"
-msgstr "选择审查结论，并可添加评论。仅当所显示的 head 提交仍然一致时，审查才会生效。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.optionalComment"
-msgstr "可选评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.pullRequestSection"
-msgstr "拉取请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.mergeRequestSection"
-msgstr "合并请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.needsReview"
-msgstr "待我审查"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.authored"
-msgstr "我创建的"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.reviewed"
-msgstr "我审查过的"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.all"
-msgstr "全部"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.title"
-msgstr "拉取请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.subtitleAccount"
-msgstr "以 {0} 身份审查并跟踪 GitHub 上的工作。"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.subtitle"
-msgstr "审查并跟踪 GitHub 上的工作。"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.checking"
-msgstr "正在检查 GitHub 访问权限"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.setupTitle"
-msgstr "需要设置 GitHub CLI"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.setupBody"
-msgstr "请在运行 Cypheria Server 的电脑上安装并登录 GitHub CLI，然后再检查。"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.checkAgain"
-msgstr "再次检查"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.search"
-msgstr "搜索拉取请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.repository"
-msgstr "仓库"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.status"
-msgstr "状态"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.open"
-msgstr "打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.merged"
-msgstr "已合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.closed"
-msgstr "已关闭"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.allStates"
-msgstr "全部状态"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.filter"
-msgstr "筛选"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.retry"
-msgstr "重试"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.noMatches"
-msgstr "没有符合搜索条件的拉取请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.caughtUp"
-msgstr "全部处理完毕"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.askPrompt"
-msgstr "审查这个拉取请求：{url}"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.ask"
-msgstr "询问 Agent"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.openBrowser"
-msgstr "在浏览器中打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.loadMore"
-msgstr "加载更多"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "navigation.pullRequests"
-msgstr "拉取请求"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.needsTeamReview"
-msgstr "待我的团队审查"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.checksSummary"
-msgstr "{failing, plural, =0 {} other {# 个失败 · }}{pending, plural, =0 {} other {# 个进行中 · }}{passed} 个通过"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.fixFailingChecks"
-msgstr "修复失败的检查"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.openCheck"
-msgstr "打开检查详情"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.checksIncomplete"
-msgstr "部分检查详情无法加载。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.generateTitleAndBody"
-msgstr "用 Codex 生成"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.collapseFile"
-msgstr "折叠文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.expandFile"
-msgstr "展开文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.viewed"
-msgstr "已查看"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.jumpToFile"
-msgstr "跳转到文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.jumpToFile.placeholder"
-msgstr "跳转到文件…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.jumpToFile.empty"
-msgstr "没有匹配的文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.options"
-msgstr "差异选项"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout"
-msgstr "布局"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout.auto"
-msgstr "自动"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout.split"
-msgstr "并排"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout.unified"
-msgstr "统一"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/review-diff-display.tsx
@@ -3435,286 +3834,71 @@ msgid "git.diff.wrap"
 msgstr "自动换行"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.fullFiles"
-msgstr "加载完整文件"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.working"
+msgstr "正在处理…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.expandAll"
-msgstr "展开全部差异"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.directories"
+msgstr "工作区目录"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.collapseAll"
-msgstr "折叠全部差异"
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.workspace"
+msgstr "工作区导航"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.copyGitApply"
-msgstr "复制 git apply 命令"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.fileActions"
-msgstr "文件操作"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.copyPath"
-msgstr "复制路径"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.openInGitHub"
-msgstr "在 GitHub 中打开"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.hideImports"
-msgstr "隐藏导入"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.hideGenerated"
-msgstr "隐藏生成的文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.largeDiff"
-msgstr "此差异较大，每次只显示一个文件。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.previousFile"
-msgstr "上一个文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.nextFile"
-msgstr "下一个文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.title"
-msgstr "仅显示已跟踪的变更"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.description"
-msgstr "为保持响应，Review 跳过了 {count} 个未跟踪文件。如果它们是生成的文件，请忽略或清理后刷新。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.copyCleanup"
-msgstr "复制清理命令"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.refresh"
-msgstr "刷新"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.label"
+msgstr "工作树"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.openFile"
-msgstr "打开文件"
+msgid "chat.worktree.label"
+msgstr "Worktree"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.browser.heading"
-msgstr "打开文件"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.ariaLabel"
+msgstr "工作树根目录"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.browser.description"
-msgstr "从工作区文件树中选择一个文件"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.goToLine"
-msgstr "跳转到行"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.goToLine.invalid"
-msgstr "请输入有效的整数行号"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.goToLine.range"
-msgstr "1–{lineCount}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.show"
-msgstr "显示 git blame"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.hide"
-msgstr "隐藏 git blame"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.tooltip"
-msgstr "在行号栏显示作者、日期和提交信息"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.author"
-msgstr "作者"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.commit"
-msgstr "提交"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.date"
-msgstr "日期"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyMenu"
-msgstr "复制"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyAbsolutePath"
-msgstr "复制绝对路径"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyRepoPath"
-msgstr "复制相对于仓库的路径"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyRootPath"
-msgstr "复制相对于文件夹的路径"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyContents"
-msgstr "复制文件内容"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyGitHubLink"
-msgstr "复制 GitHub 链接"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.openInGitHub"
-msgstr "在 GitHub 中打开"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.label"
+msgstr "工作树根目录"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.openInTab"
-msgstr "在标签页中打开"
+msgid "git.review.worktreeStart"
+msgstr "工作树起点"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.section.worktrees"
+msgstr "工作树"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.worktrees"
+msgstr "工作树"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.openInTab.tooltip"
-msgstr "在标签页中打开文件"
+msgid "git.review.worktreesSection"
+msgstr "工作树"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.openExternally"
-msgstr "用默认应用打开"
+msgid "git.review.worktrees"
+msgstr "工作树"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair"
-msgstr "修复"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.checks"
-msgstr "失败的检查"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.comments"
-msgstr "评论"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.conflicts"
-msgstr "合并冲突"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.everything"
-msgstr "全部"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.closed"
-msgstr "请先重新打开此拉取请求再合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.draft"
-msgstr "请先将此拉取请求标记为可审查再合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.conflicts"
-msgstr "请先解决合并冲突再合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.failingChecks"
-msgstr "请先修复失败的检查再合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.pendingChecks"
-msgstr "请等待检查完成后再合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.blocked"
-msgstr "此拉取请求暂时无法合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.unknown"
-msgstr "GitHub 仍在检查能否合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeUnavailable"
-msgstr "无法合并：{reason}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeMethod.squash"
-msgstr "压缩并合并"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeMethod.merge"
-msgstr "创建合并提交"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.empty.body"
+msgstr "Cypheria 创建的工作树将显示在此处"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.reviewUncommitted"
-msgstr "代码审查：未提交的变更"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.reviewBranch"
-msgstr "对照 {branch} 进行代码审查"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.dismissAgentComment"
-msgstr "忽略"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.dismissAgentComment.tooltip"
-msgstr "从 diff 中隐藏此评论；它仍保留在对话中"
+msgid "chat.worktree.gitRequired"
+msgstr "Worktree 要求项目的第一个源文件夹是 Git 仓库。"

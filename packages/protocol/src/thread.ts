@@ -188,6 +188,10 @@ export const ThreadPullRequestAttachmentPayloadSchema = z
     provider: z.enum(["github", "gitlab"]),
     repository: z.string().trim().min(1).max(255),
     url: z.url().max(4096),
+    /** The Git root of the checkout the pull request's branch was created or pushed from. */
+    root: z.string().min(1).max(4096).optional(),
+    /** The local branch the pull request was opened from. */
+    headBranch: z.string().trim().min(1).max(1024).optional(),
   })
   .strict()
 export type ThreadPullRequestAttachmentPayload = z.infer<
@@ -253,17 +257,42 @@ const TimelineTextItemSchema = TimelineBaseItemSchema.extend({
 export const ThreadMessageBoundarySchema = z.enum(["turn-user", "steer-user", "assistant-final"])
 export type ThreadMessageBoundary = z.infer<typeof ThreadMessageBoundarySchema>
 
+/** A user message an MCP App sent with `ui/message`, rather than a person. */
+export const ThreadMessageOriginSchema = z
+  .object({
+    kind: z.literal("extension"),
+    pluginId: z.string().nullable(),
+    server: z.string().min(1),
+    title: z.string(),
+  })
+  .strict()
+export type ThreadMessageOrigin = z.infer<typeof ThreadMessageOriginSchema>
+
+/** The MCP App a tool call renders, from the tool's `_meta.ui.resourceUri`. */
+export const ThreadToolAppSchema = z
+  .object({
+    displayMode: z.enum(["inline", "fullscreen"]).nullable(),
+    pluginId: z.string().nullable(),
+    resourceUri: z.string().min(1),
+    server: z.string().min(1),
+    tool: z.string().min(1),
+  })
+  .strict()
+export type ThreadToolApp = z.infer<typeof ThreadToolAppSchema>
+
 export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
   TimelineTextItemSchema.extend({
     attachments: z.array(ThreadAttachmentSchema).optional(),
     boundary: ThreadMessageBoundarySchema.nullable(),
     clientMessageId: z.string().min(1).optional(),
     input: z.array(ThreadInputBlockSchema).optional(),
+    origin: ThreadMessageOriginSchema.optional(),
     role: z.enum(["user", "assistant"]),
     type: z.literal("message"),
   }),
   TimelineTextItemSchema.extend({ type: z.literal("reasoning") }),
   z.object({
+    app: ThreadToolAppSchema.optional(),
     error: z.string().nullable(),
     input: z.unknown().nullable(),
     itemId: z.string().min(1),
@@ -831,7 +860,12 @@ export const ThreadAttachmentAddRequestSchema = request(
   "thread.attachment.add.request",
   z.object({
     attachment: z.discriminatedUnion("attachmentType", [
-      z.object({ attachmentType: z.literal("pull_request"), url: z.url().max(4096) }),
+      z.object({
+        attachmentType: z.literal("pull_request"),
+        url: z.url().max(4096),
+        root: z.string().min(1).max(4096).optional(),
+        headBranch: z.string().trim().min(1).max(1024).optional(),
+      }),
       z.object({
         attachmentType: z.literal("worktree"),
         worktreeId: z.uuid(),
@@ -847,6 +881,26 @@ export const ThreadAttachmentRemoveRequestSchema = request(
     identityKey: z.string().trim().min(1).max(2048),
     threadId: ProjectThreadIdSchema,
   })
+)
+
+/**
+ * A page that shows a chat beside its App: `mcp-app:<entry point>` for a plugin's global page, and
+ * `code-review:<pull request identity>` for a pull request in Code Review.
+ */
+export const WorkspaceThreadKeySchema = z.string().trim().min(1).max(2048)
+export const WorkspaceThreadSchema = z.object({
+  threadId: ProjectThreadIdSchema.nullable(),
+  workspaceKey: WorkspaceThreadKeySchema,
+})
+export type WorkspaceThread = z.infer<typeof WorkspaceThreadSchema>
+
+export const ThreadWorkspaceThreadGetRequestSchema = request(
+  "thread.workspace-thread.get.request",
+  z.object({ workspaceKey: WorkspaceThreadKeySchema })
+)
+export const ThreadWorkspaceThreadSetRequestSchema = request(
+  "thread.workspace-thread.set.request",
+  WorkspaceThreadSchema
 )
 
 export const ThreadCreateResponseSchema = response("thread.create.response", threadReadySchema)
@@ -1091,6 +1145,18 @@ export const ThreadEventNotificationSchema = z.object({
   }),
   type: z.literal("thread.event.notification"),
 })
+export const ThreadWorkspaceThreadGetResponseSchema = response(
+  "thread.workspace-thread.get.response",
+  WorkspaceThreadSchema
+)
+export const ThreadWorkspaceThreadSetResponseSchema = response(
+  "thread.workspace-thread.set.response",
+  WorkspaceThreadSchema
+)
+export const ThreadWorkspaceThreadUpdatedNotificationSchema = z.object({
+  payload: WorkspaceThreadSchema,
+  type: z.literal("thread.workspace-thread.updated.notification"),
+})
 export const ThreadAttachmentUpsertedNotificationSchema = z.object({
   payload: ThreadAttachmentRecordSchema,
   type: z.literal("thread.attachment.upserted.notification"),
@@ -1165,6 +1231,8 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadAttachmentOwnersListRequestSchema,
   ThreadAttachmentAddRequestSchema,
   ThreadAttachmentRemoveRequestSchema,
+  ThreadWorkspaceThreadGetRequestSchema,
+  ThreadWorkspaceThreadSetRequestSchema,
 ] as const
 
 export const THREAD_SERVER_SCHEMAS = [
@@ -1214,6 +1282,8 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadAttachmentOwnersListResponseSchema,
   ThreadAttachmentAddResponseSchema,
   ThreadAttachmentRemoveResponseSchema,
+  ThreadWorkspaceThreadGetResponseSchema,
+  ThreadWorkspaceThreadSetResponseSchema,
   ThreadCreatedNotificationSchema,
   ThreadUpdatedNotificationSchema,
   ThreadDeletedNotificationSchema,
@@ -1225,6 +1295,7 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadEventNotificationSchema,
   ThreadAttachmentUpsertedNotificationSchema,
   ThreadAttachmentDeletedNotificationSchema,
+  ThreadWorkspaceThreadUpdatedNotificationSchema,
   ThreadFilesChangedNotificationSchema,
 ] as const
 

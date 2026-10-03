@@ -7,6 +7,8 @@ export const Route = createFileRoute("/")({
   ssr: false,
   validateSearch: z.object({
     agent: AgentIdSchema.optional().catch(undefined),
+    /** A plugin entry point to open in the conversation's side panel. */
+    app: z.string().min(1).optional().catch(undefined),
     prompt: z.string().optional().catch(undefined),
     project: z.string().min(1).optional().catch(undefined),
     section: z.string().min(1).optional().catch(undefined),

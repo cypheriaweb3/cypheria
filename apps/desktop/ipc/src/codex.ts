@@ -249,6 +249,11 @@ export const CodexPluginDetailViewSchema = z
         .strict()
     ),
     mcpServers: z.array(z.string()),
+    onboardingSkill: z
+      .object({ name: z.string(), path: z.string() })
+      .strict()
+      .nullable()
+      .optional(),
   })
   .strict()
 export type CodexPluginDetailView = z.infer<typeof CodexPluginDetailViewSchema>

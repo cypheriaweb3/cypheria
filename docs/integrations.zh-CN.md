@@ -26,6 +26,11 @@ MCP server 也是通用概念。Integration API 报告 tools、resources、authe
 
 传输凭证和 OAuth 状态留在 Server 或 harness runtime。MCP elicitation 进入通用 Thread interaction 生命周期。
 
+MCP 管理支持 Codex 与 Pi；其他 Agent 报告为不支持。
+
+- **Codex：** 通过 App Server 的 MCP 状态、配置与 OAuth 请求。
+- **Pi：** 通过受管 Pi CLI 的 `pi mcp list --json`、`add` 与 `login` 命令，以 Pi home 作为工作目录运行，因此不会读取项目的 `.pi/mcp.json`。Pi 没有修改启用状态的命令，所以 Server 像 Pi 的 `/mcp` 一样，修改 Pi 自身 `mcp.json` 中 server 的 `enabled` 字段；项目 server 只读。登录时返回授权页面供客户端打开，`pi mcp login` 则最多等待五分钟浏览器的 loopback 回调；除 Windows 外，Pi 自己打开浏览器的动作会被抑制。正在运行的 Pi session 在重启后才会采用变更。Desktop 在 Pi 的 Agent 设置中显示其 server。
+
 对于 Codex 的 `codex_apps` server，只有工具 metadata 中的 connector、账户 link 和动作 resource URI 相互一致时，发现结果才为该工具报告 `appScope`；其他工具返回 `null`。调用 connector 工具前，消费者仍需重新校验此作用域和当前账户；仅发现工具不代表已获得访问权限。
 
 ## 插件生态
@@ -43,7 +48,7 @@ Plugin view 保留 source type、marketplace identity、install policy、availab
 Codex 远程插件的目录 ID 与展示名称不同。Server 在远程详情和安装请求前，从最新的 `plugin/list` 结果解析该 ID，避免用展示名称调用 Codex 安装接口。
 
 为 Codex 或 Claude 启用插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在对应 Agent 管理的 home 中安装其中的插件 `cypheria-app-tools` 和 `code-review`，对应官方桌面端随附的 `codex-app-tools` 和 `code-review`。详见 [Cypheria app tools](#cypheria-app-tools)。它们不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
-内置 marketplace 是双格式 plugin root：同时包含 Codex 的 marketplace 与 manifest，以及 Claude 的 marketplace 与 manifest；各 Agent 的 MCP 声明放在各自文件中，与插件的 server 放在一起。
+内置 marketplace 是双格式的 `plugins/` 目录：同时包含 Codex 的 marketplace 与 manifest，以及 Claude 的 marketplace 与 manifest，并以 `./<plugin>` 列出每个插件；各 Agent 的 MCP 声明放在各自文件中，与插件的 server 放在一起。
 Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本地版本，并从随程序分发的 marketplace 更新插件，再返回列表。
 
 ### Cypheria app tools
@@ -51,7 +56,7 @@ Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本�
 内置插件是 Codex 和 Claude 访问 Cypheria 自有工具的途径。每个插件声明一个 MCP server，两者运行同一个中继程序，它本身不执行工具：它通过 `/api/v1/app-tools/*` 列出和调用所属 server 的工具，Server 以与客户端相同的代码为发起调用的 Thread 执行。Codex dynamic tools 只承载浏览器工具。
 
 - `cypheria-app-tools`，server 为 `cypheria_app_tools`：[Agent harnesses](agent-harnesses.zh-CN.md#codex) 列出的 Thread、项目、侧边栏、worktree、handoff 和 automation 工具。
-- `code-review`，server 为 `code-review`：`pull_requests.checks`，即官方 `code-review` 插件唯一向模型显示的工具。Cypheria 通过 Server 的 GitHub CLI 读取按 host、owner、仓库和编号指定的 GitHub 拉取请求的检查，不含 job 日志。官方插件的其他工具服务于其内嵌的拉取请求应用，Desktop 用自己的拉取请求面板取代它。
+- `code-review`，server 为 `code-review`：官方插件的 31 个 `pull_requests.*` 工具及其 MCP App `ui://pull-requests/app`。只有 `pull_requests.checks` 对模型可见；它通过 OpenAI 后端读取 GitHub 拉取请求的检查或 GitLab 合并请求的流水线，不含 job 日志。其他工具服务于该 App，Desktop 将其承载为代码审查页面和 Thread 拉取请求面板。App 资源和工具列表由 Server 自己提供；见[代码审查](code-review.zh-CN.md)。
 
 Agent 在自己的命令中用 `git` 和 `gh` 完成本地 Git 工作；Server Git 协议仍是客户端契约，不提供给模型，与官方桌面端一致。
 
@@ -77,7 +82,7 @@ Server 通过运行受管 Claude CLI 的 `claude plugin … --json` 命令管理
 - 变更后，Server 会在运行中的 Claude 会话里重新加载插件，除非这会使会话的 prompt cache 失效；被保留的会话在重启后生效。
 - 已安装的插件，以及位于其 marketplace 内部的插件，可以查看 skills、MCP server 等组件详情；其他未安装插件只显示 catalog 条目。
 
-Cypheria 原生插件使用独立契约。目标 manifest 声明 Server entry points、Desktop UI contributions、可选的未来 Expo contributions、permissions、兼容 Cypheria 版本和 contribution points。Server 代码必须运行在受控子进程中。Desktop contribution 必须沙箱化，并只获得受限 host API，而不是 Node.js、文件系统、数据库或密钥权限。完成该 runtime 与 UX 仍是计划工作。
+插件通过 MCP Apps 与 OpenAI MCP Extensions 提供 UI，见 [Plugin Extensions](plugin-extensions.zh-CN.md)。Cypheria 原生插件计划使用同一契约。不另设 Desktop contribution API。Server 代码运行在受控子进程中，UI 运行在沙箱 frame 中，只获得受限的 host 请求，而不是 Node.js、文件系统、数据库或密钥权限。
 
 ## Marketplace 来源
 
@@ -120,9 +125,30 @@ Marketplace 总是对所有能读取它的 Agent 开放。
 
 Apps 遵循 OpenAI App Server/connector 模型，只属于 Codex harness 扩展。它们通过 `client.harnesses.codex.apps` 暴露，包括 list、enablement、connect、callable/accessibility state、install URL 和 plugin association。
 
+代码审查使用用户在这里建立的 GitHub 和 GitLab 连接，并凭 ChatGPT 登录通过 OpenAI 后端读取；见[代码审查](code-review.zh-CN.md#前提条件)。
+
 Desktop 在系统浏览器中打开 App 安装页面。窗口重新获得焦点后，会刷新 App 和 MCP 的可用状态；外部页面不会向本地发送可信的完成回调。
 
 Apps 不会被改名为通用 Agent 功能。如果其他 harness 未来提供类似能力，应获得自己的 harness extension 与术语。
+
+## Hooks
+
+Hooks 为 Agent 提供了跨生命周期的自动化脚本执行与安全防护拦截。
+
+### 发现与来源
+
+- **用户级 Hooks：** 定义在 `~/.cypheria/hooks.json`，在所有会话中全局生效。
+- **项目级 Hooks：** 定义在 `<repo>/.cypheria/hooks.json`，作用于该仓库目录下的工作区。
+- **插件级 Hooks：** 声明在 `<plugin_dir>/hooks/hooks.json` 或 `plugin.json` 的 `hooks` 字段中。
+
+### 信任模型
+
+项目级 Hook 实行显式信任机制。Server 计算 `<repo>/.cypheria/hooks.json` 的 SHA-256 哈希值。当文件首次被发现或内容被篡改时，其信任状态变为 `untrusted` 或 `modified`，在用户于设置界面（`Settings -> Hooks`）或 API 显式确认 Trust 之前跳过执行。
+
+### 执行边界与去重策略
+
+- **Codex Harness：** 当底层 Agent 为 Codex 时，Cypheria 顶层不执行插件级 Hook，由 Codex 底层原生加载并执行该插件的 Hook。Codex 原生 Hook 的执行记录通过 `hook/completed` 统一归集。用户级与项目级 Cypheria Hook 始终由 Cypheria 执行。
+- **其他 Harness（Claude、Pi、OpenCode、ACP）：** Cypheria 原生 `HookEngine` 直接执行已启用的插件级 Hook，为非 Codex 智能体提供统一的 `UserPromptSubmit`、`SessionStart`、`SessionEnd` 和 `Stop` 等生命周期守护能力。
 
 ## 缓存与刷新
 

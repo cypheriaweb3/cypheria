@@ -1,0 +1,39 @@
+@import "@cypheria/ui/styles.css";
+
+@source "./**/*.{ts,tsx}";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  overflow: hidden;
+}
+
+/* The host's MCP Apps style variables, mapped onto Cypheria's tokens so the App matches Desktop. */
+html[data-host-styles] {
+  --background: var(--color-background-primary);
+  --card: var(--color-background-primary);
+  --popover: var(--color-background-primary);
+  --foreground: var(--color-text-primary);
+  --card-foreground: var(--color-text-primary);
+  --popover-foreground: var(--color-text-primary);
+  --secondary: var(--color-background-secondary);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-background-secondary);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-background-tertiary);
+  --accent-foreground: var(--color-text-primary);
+  --primary: var(--color-background-inverse);
+  --primary-foreground: var(--color-text-inverse);
+  --destructive: var(--color-text-danger);
+  --border: var(--color-border-primary);
+  --input: var(--color-border-primary);
+  --ring: var(--color-ring-primary);
+  font-family: var(--font-sans);
+}

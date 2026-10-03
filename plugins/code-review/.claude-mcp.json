@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "code-review": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/src/server/relay.mjs", "--server", "code-review"],
+      "env": {
+        "CYPHERIA_SERVER_URL": "${CYPHERIA_SERVER_URL:-http://127.0.0.1:6768}",
+        "CYPHERIA_APP_TOOLS_TOKEN": "${CYPHERIA_APP_TOOLS_TOKEN:-}"
+      }
+    }
+  }
+}

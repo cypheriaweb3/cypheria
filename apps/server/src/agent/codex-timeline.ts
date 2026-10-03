@@ -1,4 +1,9 @@
-import type { CodexTurnItemSnapshot, CodexTurnUpdate, ThreadTimelineItem } from "@cypheria/protocol"
+import type {
+  CodexTurnItemSnapshot,
+  CodexTurnUpdate,
+  ThreadTimelineItem,
+  ThreadToolApp,
+} from "@cypheria/protocol"
 import type { v2 } from "@cypheria/protocol/codex-types"
 
 const status = (value: unknown): "pending" | "running" | "completed" | "failed" | "cancelled" => {
@@ -78,6 +83,23 @@ const toolOutput = (item: v2.ThreadItem, snapshot?: CodexTurnItemSnapshot): unkn
       return item.output
     default:
       return snapshot?.progress ?? null
+  }
+}
+
+/** The MCP App a Codex MCP tool call renders, from the descriptor Codex captured. */
+const mcpToolApp = (
+  item: Extract<v2.ThreadItem, { type: "mcpToolCall" }>
+): { app?: ThreadToolApp } => {
+  const resourceUri = item.mcpAppUi?.resourceUri ?? item.mcpAppResourceUri
+  if (!resourceUri?.startsWith("ui://")) return {}
+  return {
+    app: {
+      displayMode: item.mcpAppUi?.preferredModelDisplayMode ?? null,
+      pluginId: item.pluginId,
+      resourceUri,
+      server: item.server,
+      tool: item.tool,
+    },
   }
 }
 
@@ -205,6 +227,7 @@ export const codexThreadItemToTimeline = (
     case "collabAgentToolCall":
     case "functionCallOutput":
       return {
+        ...(item.type === "mcpToolCall" ? mcpToolApp(item) : {}),
         error: item.type === "mcpToolCall" && item.error ? JSON.stringify(item.error) : null,
         harnessData: metadata,
         input: toolInput(item),

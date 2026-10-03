@@ -1,0 +1,18 @@
+{
+  "name": "code-review",
+  "version": "0.1.1",
+  "description": "Review GitHub and GitLab pull requests through ChatGPT connectors.",
+  "author": {
+    "name": "Cypheria"
+  },
+  "interface": {
+    "displayName": "Code Review",
+    "shortDescription": "Review pull requests and read CI checks.",
+    "longDescription": "Lists, reviews, and updates GitHub and GitLab pull requests through the ChatGPT GitHub and GitLab connectors, and reads their CI checks. Requires a ChatGPT sign-in.",
+    "developerName": "Cypheria",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": "Check the CI status of this pull request."
+  },
+  "mcpServers": "./.codex-mcp.json"
+}

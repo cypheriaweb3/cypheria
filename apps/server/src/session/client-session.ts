@@ -7,9 +7,13 @@ import {
   type ClientDescriptor,
   type ClientKind,
   type ClientMessage,
+  type CodeReviewClientMessage,
+  type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   type CypheriaBinaryFrame,
+  type ExtensionClientMessage,
+  type ExtensionServerMessage,
   encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
@@ -83,6 +87,15 @@ export type SessionHost = {
   handleScheduleMessage?(
     message: ScheduleClientMessage,
     send: (message: ScheduleServerMessage) => void
+  ): Promise<boolean>
+  handleExtensionMessage?(
+    message: ExtensionClientMessage,
+    session: { readonly id: string; notify(message: ServerMessage): void },
+    send: (message: ExtensionServerMessage) => void
+  ): Promise<boolean>
+  handleCodeReviewMessage?(
+    message: CodeReviewClientMessage,
+    send: (message: CodeReviewServerMessage) => void
   ): Promise<boolean>
   handleMagpieMessage?(
     message: MagpieClientMessage,
@@ -396,6 +409,27 @@ export class ClientSession {
           this.#host.handleScheduleMessage &&
           (await this.#host.handleScheduleMessage(message as ScheduleClientMessage, (response) =>
             this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("extension.") &&
+          this.#host.handleExtensionMessage &&
+          (await this.#host.handleExtensionMessage(
+            message as ExtensionClientMessage,
+            { id: this.id, notify: (notification) => this.send(notification) },
+            (response) => this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("codeReview.") &&
+          this.#host.handleCodeReviewMessage &&
+          (await this.#host.handleCodeReviewMessage(
+            message as CodeReviewClientMessage,
+            (response) => this.sendTo(source, response)
           ))
         ) {
           break

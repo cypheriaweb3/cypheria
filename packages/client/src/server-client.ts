@@ -8,6 +8,8 @@ import {
   ClientDescriptorSchema,
   type ClientKind,
   type ClientMessage,
+  type CodeReviewClientMessage,
+  type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   type ConnectionOfferV2,
@@ -18,6 +20,8 @@ import {
   createWebSocketProtocols,
   decodeCypheriaBinaryFrame,
   decodeWSOutboundMessage,
+  type ExtensionClientMessage,
+  type ExtensionServerMessage,
   encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
@@ -629,6 +633,34 @@ export class ServerClient {
       SERVER_CAPABILITIES.magpie
     )
     return message as MagpieServerMessage
+  }
+
+  async requestExtension(
+    type: ExtensionClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<ExtensionServerMessage> {
+    const message = await this.#request(
+      { payload, requestId: this.#nextRequestId("extension"), type } as ExtensionClientMessage,
+      type.replace(/\.request$/, ".response"),
+      options,
+      SERVER_CAPABILITIES.extensions
+    )
+    return message as ExtensionServerMessage
+  }
+
+  async requestCodeReview(
+    type: CodeReviewClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<CodeReviewServerMessage> {
+    const message = await this.#request(
+      { payload, requestId: this.#nextRequestId("code-review"), type } as CodeReviewClientMessage,
+      type.replace(/\.request$/, ".response"),
+      options,
+      SERVER_CAPABILITIES.codeReview
+    )
+    return message as CodeReviewServerMessage
   }
 
   async requestSchedule(

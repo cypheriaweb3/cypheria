@@ -50,7 +50,7 @@ export const NATIVE_AGENT_MANIFEST = {
   },
   pi: {
     cliPackage: "@earendil-works/pi-coding-agent",
-    cliVersion: "0.99.1",
+    cliVersion: "1.0.0",
     description: "Pi is a minimal agent harness that adapts to your workflows.",
     icon: null,
     launcher: "node",

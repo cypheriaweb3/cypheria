@@ -11,8 +11,25 @@ type ReferenceContext = {
   threadId: string
   workspaceRoots?: readonly string[]
 }
+/** Plugin mention providers, from the OpenAI MCP Extensions `mentions/search` tools. */
+export type ExtensionMentions = {
+  providers(): Promise<ReadonlyMap<string, string>>
+  search(query: string): Promise<
+    {
+      items: { description: string | null; name: string; title: string | null; uri: string }[]
+      providerId: string
+    }[]
+  >
+  resolve(input: {
+    label: string
+    providerId: string
+    threadId: string | null
+    uri: string
+  }): Promise<ThreadInputBlock>
+}
 type ComposerReferenceOptions = {
   integrations: IntegrationService
+  mentions?: ExtensionMentions
   listBrowserTabs?: (threadId: string) => Promise<BrowserTabInfo[]>
   listThreads?: () => Promise<Array<{ id: string; title: string | null }>>
   getThread?: (threadId: string) => Promise<{ id: string; title: string | null }>
@@ -33,12 +50,14 @@ export class ComposerReferenceService {
   readonly #listBrowserTabs: ComposerReferenceOptions["listBrowserTabs"]
   readonly #listThreads: ComposerReferenceOptions["listThreads"]
   readonly #getThread: ComposerReferenceOptions["getThread"]
+  readonly #mentions: ExtensionMentions | undefined
 
   constructor(options: ComposerReferenceOptions) {
     this.#integrations = options.integrations
     this.#listBrowserTabs = options.listBrowserTabs
     this.#listThreads = options.listThreads
     this.#getThread = options.getThread
+    this.#mentions = options.mentions
   }
 
   async suggest(
@@ -82,6 +101,23 @@ export class ComposerReferenceService {
             label: tab.title || tab.url,
             type: "reference",
           })
+        }
+      }
+      if (this.#mentions && query.trim()) {
+        const [titles, groups] = await Promise.all([
+          this.#mentions.providers().catch(() => new Map<string, string>()),
+          this.#mentions.search(query).catch(() => []),
+        ])
+        for (const group of groups) {
+          for (const item of group.items) {
+            items.push({
+              description: item.description ?? titles.get(group.providerId) ?? null,
+              id: JSON.stringify(["mention", group.providerId, item.uri]),
+              kind: "mcp-resource",
+              label: item.title ?? item.name,
+              type: "reference",
+            })
+          }
         }
       }
       if (context.agentId === "codex") {
@@ -199,6 +235,21 @@ export class ComposerReferenceService {
     }
     if (block.kind === "mcp-resource") {
       const value = JSON.parse(block.id) as unknown
+      if (
+        this.#mentions &&
+        Array.isArray(value) &&
+        value.length === 3 &&
+        value[0] === "mention" &&
+        typeof value[1] === "string" &&
+        typeof value[2] === "string"
+      ) {
+        return this.#mentions.resolve({
+          label: block.label,
+          providerId: value[1],
+          threadId: context.threadId || null,
+          uri: value[2],
+        })
+      }
       if (
         !Array.isArray(value) ||
         value.length !== 2 ||

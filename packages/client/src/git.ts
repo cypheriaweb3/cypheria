@@ -6,37 +6,14 @@ import type {
   GitBranchContext,
   GitBranchReview,
   GitBranchSearchResult,
+  GitClientMessage,
   GitCloneState,
   GitCommitSummary,
-  GitHubAppAvailability,
-  GitHubAppCreatedPullRequest,
-  GitHubAppPrChecks,
-  GitHubAppPrMedia,
-  GitHubAppPullRequest,
-  GitHubAppPullRequestSummary,
-  GitHubAvailability,
-  GitHubPrAttributesFile,
-  GitHubPrBoardEntry,
-  GitHubPrMetadata,
-  GitHubPrReviewStatus,
-  GitHubPrRevisionFile,
-  GitHubPrRevisionSnapshot,
-  GitHubPrStackEntry,
-  GitHubPullRequest,
-  GitHubPullRequestActivity,
-  GitHubPullRequestChecks,
-  GitHubPullRequestThreads,
-  GitHubUserCandidate,
   GitIndexEntry,
-  GitLabMergeRequest,
-  GitLabMergeRequestChecks,
-  GitLabMergeRequestDiscussion,
-  GitLabMergeRequestNote,
-  GitLabMrAvailability,
-  GitLabReviewer,
-  GitLabReviewerCandidate,
   GitOrigin,
   GitPatchResult,
+  GitPullRequestSource,
+  GitPullRequestTarget,
   GitRemoteIdentity,
   GitRepository,
   GitReviewFile,
@@ -264,7 +241,25 @@ export interface GitActions {
     input?: { remote?: string; branch?: string; setUpstream?: boolean; forceWithLease?: boolean },
     options?: RequestOptions
   ): Promise<string>
+  /** Where the checkout's pull request would go; null without a GitHub or GitLab origin. */
+  pullRequestTarget(cwd: string, options?: RequestOptions): Promise<GitPullRequestTarget | null>
+  /** Commits, pushes, creates the pull request, and attaches it to the Thread when given. */
+  createPullRequest(
+    input: Extract<GitClientMessage, { type: "git.pull-request-create.request" }>["payload"],
+    options?: RequestOptions
+  ): Promise<{
+    url: string
+    number: number | null
+    source: GitPullRequestSource
+    openedInBrowser: boolean
+    branch: string
+    commit: string | null
+  }>
   worktrees(cwd: string, options?: RequestOptions): Promise<GitWorktree[]>
+  /** Managed worktrees of every repository, grouped by repository. */
+  managedWorktrees(
+    options?: RequestOptions
+  ): Promise<{ repositories: { root: string; worktrees: GitWorktree[] }[] }>
   createWorktree(cwd: string, startPoint?: string, options?: RequestOptions): Promise<GitWorktree>
   startWorktreeJob(
     cwd: string,
@@ -310,344 +305,6 @@ export interface GitActions {
     options?: RequestOptions
   ): Promise<{ backupRef: string }>
   undoSync(cwd: string, path: string, options?: RequestOptions): Promise<void>
-  /** `null` checks only the CLI and its account, outside any repository. */
-  githubAvailability(cwd: string | null, options?: RequestOptions): Promise<GitHubAvailability>
-  githubPrBoard(
-    cwd: string | null,
-    input?: {
-      state?: "open" | "closed" | "merged" | "all"
-      scope?: "all" | "authored" | "reviewing" | "team-reviewing" | "reviewed"
-      repository?: string
-      query?: string
-      limit?: number
-    },
-    options?: RequestOptions
-  ): Promise<GitHubPrBoardEntry[]>
-  githubAppAvailability(
-    cwd: string,
-    threadId: string,
-    options?: RequestOptions
-  ): Promise<GitHubAppAvailability>
-  githubAppPrCreate(
-    cwd: string,
-    threadId: string,
-    input: { head: string; base: string; title: string; body: string; draft?: boolean },
-    options?: RequestOptions
-  ): Promise<GitHubAppCreatedPullRequest>
-  githubAppPrList(
-    cwd: string,
-    threadId: string,
-    input?: {
-      state?: "open" | "closed" | "merged" | "all"
-      scope?: "all" | "authored" | "reviewing"
-      query?: string
-      limit?: number
-    },
-    options?: RequestOptions
-  ): Promise<{ items: GitHubAppPullRequestSummary[]; truncated: boolean }>
-  githubAppPrRead(
-    cwd: string,
-    threadId: string,
-    number: number,
-    options?: RequestOptions
-  ): Promise<GitHubAppPullRequest>
-  githubAppPrDiff(
-    cwd: string,
-    threadId: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<string>
-  githubAppPrActivity(
-    cwd: string,
-    threadId: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubPullRequestActivity>
-  githubAppPrChecks(
-    cwd: string,
-    threadId: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubAppPrChecks>
-  githubAppPrThreads(
-    cwd: string,
-    threadId: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubPullRequestThreads>
-  githubAppPrMedia(
-    cwd: string,
-    threadId: string,
-    number: number,
-    expectedHead: string,
-    url: string,
-    options?: RequestOptions
-  ): Promise<GitHubAppPrMedia>
-  githubPrList(
-    cwd: string,
-    input?: { state?: "open" | "closed" | "merged" | "all"; limit?: number; query?: string },
-    options?: RequestOptions
-  ): Promise<GitHubPullRequest[]>
-  githubPrRead(cwd: string, number: number, options?: RequestOptions): Promise<GitHubPullRequest>
-  githubPrForBranch(
-    cwd: string,
-    branch: string,
-    options?: RequestOptions
-  ): Promise<GitHubPullRequest | null>
-  githubPrDiff(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<string>
-  githubPrRevisionSnapshot(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubPrRevisionSnapshot>
-  githubPrRevisionDiff(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    baseRevision: string,
-    headRevision: string,
-    options?: RequestOptions
-  ): Promise<string>
-  githubPrRevisionFile(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    baseRevision: string,
-    headRevision: string,
-    basePath: string | null,
-    headPath: string | null,
-    options?: RequestOptions
-  ): Promise<GitHubPrRevisionFile>
-  githubPrMetadata(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubPrMetadata>
-  githubPrReviewStatus(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubPrReviewStatus>
-  githubPrUserSearch(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    query: string,
-    scope: "collaborators" | "mentions",
-    options?: RequestOptions
-  ): Promise<GitHubUserCandidate[]>
-  githubPrStack(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubPrStackEntry[]>
-  githubPrAttributes(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    paths: string[],
-    options?: RequestOptions
-  ): Promise<GitHubPrAttributesFile[]>
-  githubPrAutoMergeStatus(cwd: string, number: number, options?: RequestOptions): Promise<boolean>
-  githubPrToggleAutoMerge(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    enabled: boolean,
-    method: "merge" | "squash",
-    options?: RequestOptions
-  ): Promise<void>
-  githubPrChecks(
-    cwd: string,
-    number: number,
-    options?: RequestOptions
-  ): Promise<GitHubPullRequestChecks>
-  githubPrActivity(
-    cwd: string,
-    number: number,
-    options?: RequestOptions
-  ): Promise<GitHubPullRequestActivity>
-  githubPrThreads(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    options?: RequestOptions
-  ): Promise<GitHubPullRequestThreads>
-  githubPrThreadAction(
-    cwd: string,
-    input: {
-      number: number
-      expectedHead: string
-      action: "reply" | "resolve" | "unresolve" | "inline"
-      threadId?: string
-      body?: string
-      path?: string
-      line?: number
-      side?: "LEFT" | "RIGHT"
-      startLine?: number
-    },
-    options?: RequestOptions
-  ): Promise<void>
-  githubPrComment(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    body: string,
-    options?: RequestOptions
-  ): Promise<void>
-  githubPrCommentAction(
-    cwd: string,
-    input: {
-      number: number
-      expectedHead: string
-      nodeId: string
-      commentType: "comment" | "review" | "review_comment"
-      action: "update" | "delete"
-      body?: string
-    },
-    options?: RequestOptions
-  ): Promise<void>
-  githubPrReview(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    decision: "approve" | "comment" | "request_changes",
-    body: string,
-    options?: RequestOptions
-  ): Promise<void>
-  githubPrSetState(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    action: "close" | "reopen" | "ready" | "draft",
-    options?: RequestOptions
-  ): Promise<void>
-  githubPrCreate(
-    cwd: string,
-    input: {
-      head: string
-      base: string
-      title: string
-      body: string
-      draft?: boolean
-      threadId?: string
-    },
-    options?: RequestOptions
-  ): Promise<GitHubPullRequest>
-  githubPrUpdate(
-    cwd: string,
-    number: number,
-    input: { expectedHead: string; title?: string; body?: string },
-    options?: RequestOptions
-  ): Promise<GitHubPullRequest>
-  githubPrReviewer(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    reviewer: string,
-    action: "add" | "remove",
-    options?: RequestOptions
-  ): Promise<void>
-  githubPrMerge(
-    cwd: string,
-    number: number,
-    expectedHead: string,
-    method: "merge" | "squash",
-    options?: RequestOptions
-  ): Promise<GitHubPullRequest>
-  gitlabMrRead(
-    cwd: string,
-    threadId: string,
-    iid: number,
-    options?: RequestOptions
-  ): Promise<GitLabMergeRequest>
-  gitlabMrAvailability(
-    cwd: string,
-    threadId: string,
-    options?: RequestOptions
-  ): Promise<GitLabMrAvailability>
-  gitlabMrForBranch(
-    cwd: string,
-    threadId: string,
-    branch: string,
-    options?: RequestOptions
-  ): Promise<GitLabMergeRequest | null>
-  gitlabMrChecks(
-    cwd: string,
-    threadId: string,
-    iid: number,
-    options?: RequestOptions
-  ): Promise<GitLabMergeRequestChecks>
-  gitlabMrDiscussions(
-    cwd: string,
-    threadId: string,
-    iid: number,
-    options?: RequestOptions
-  ): Promise<GitLabMergeRequestDiscussion[]>
-  gitlabMrReviewers(
-    cwd: string,
-    threadId: string,
-    iid: number,
-    options?: RequestOptions
-  ): Promise<GitLabReviewer[]>
-  gitlabMrReviewerSearch(
-    cwd: string,
-    threadId: string,
-    query: string,
-    options?: RequestOptions
-  ): Promise<GitLabReviewerCandidate[]>
-  gitlabMrReviewerAction(
-    cwd: string,
-    threadId: string,
-    iid: number,
-    userId: number,
-    action: "add" | "remove",
-    options?: RequestOptions
-  ): Promise<GitLabReviewer[]>
-  gitlabMrUpdateTitle(
-    cwd: string,
-    threadId: string,
-    iid: number,
-    title: string,
-    options?: RequestOptions
-  ): Promise<GitLabMergeRequest>
-  gitlabMrPostComment(
-    cwd: string,
-    threadId: string,
-    iid: number,
-    body: string,
-    options?: RequestOptions
-  ): Promise<GitLabMergeRequestNote>
-  gitlabMrCreate(
-    cwd: string,
-    threadId: string,
-    input: {
-      sourceBranch: string
-      targetBranch?: string
-      title: string
-      description: string
-      draft?: boolean
-    },
-    options?: RequestOptions
-  ): Promise<GitLabMergeRequest>
-  gitlabMrBrowserForm(
-    cwd: string,
-    input: { sourceBranch: string; title: string; description: string },
-    options?: RequestOptions
-  ): Promise<string>
 }
 
 export const createGitActions = (client: ServerClient): GitActions => ({
@@ -781,8 +438,21 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ output: string }>(
       await client.requestGit("git.push.request", { cwd, ...input }, options)
     ).output,
+  pullRequestTarget: async (cwd, options) =>
+    unwrap<{ target: GitPullRequestTarget | null }>(
+      await client.requestGit("git.pull-request-target.request", { cwd }, options)
+    ).target,
+  createPullRequest: async (input, options) =>
+    unwrap(
+      await client.requestGit("git.pull-request-create.request", input, {
+        timeoutMs: 600_000,
+        ...options,
+      })
+    ),
   worktrees: async (cwd, options) =>
     unwrap(await client.requestGit("git.worktrees.request", { cwd }, options)),
+  managedWorktrees: async (options) =>
+    unwrap(await client.requestGit("git.managed-worktrees.request", {}, options)),
   createWorktree: async (cwd, startPoint, options) =>
     unwrap(await client.requestGit("git.worktree-create.request", { cwd, startPoint }, options)),
   startWorktreeJob: async (cwd, input = {}, options) =>
@@ -822,308 +492,4 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   undoSync: async (cwd, path, options) => {
     unwrap(await client.requestGit("git.synced-branch-undo.request", { cwd, path }, options))
   },
-  githubAvailability: async (cwd, options) =>
-    unwrap(await client.requestGit("git.github-availability.request", cwd ? { cwd } : {}, options)),
-  githubPrBoard: async (cwd, input = {}, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-board.request",
-        { ...(cwd ? { cwd } : {}), ...input },
-        options
-      )
-    ),
-  githubAppAvailability: async (cwd, threadId, options) =>
-    unwrap(
-      await client.requestGit("git.github-app-availability.request", { cwd, threadId }, options)
-    ),
-  githubAppPrCreate: async (cwd, threadId, input, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-app-pr-create.request",
-        { cwd, threadId, ...input },
-        options
-      )
-    ),
-  githubAppPrList: async (cwd, threadId, input = {}, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-app-pr-list.request",
-        { cwd, threadId, ...input },
-        options
-      )
-    ),
-  githubAppPrRead: async (cwd, threadId, number, options) =>
-    unwrap(
-      await client.requestGit("git.github-app-pr-read.request", { cwd, threadId, number }, options)
-    ),
-  githubAppPrDiff: async (cwd, threadId, number, expectedHead, options) =>
-    unwrap<{ diff: string }>(
-      await client.requestGit(
-        "git.github-app-pr-diff.request",
-        { cwd, threadId, number, expectedHead },
-        options
-      )
-    ).diff,
-  githubAppPrActivity: async (cwd, threadId, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-app-pr-activity.request",
-        { cwd, threadId, number, expectedHead },
-        options
-      )
-    ),
-  githubAppPrChecks: async (cwd, threadId, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-app-pr-checks.request",
-        { cwd, threadId, number, expectedHead },
-        options
-      )
-    ),
-  githubAppPrThreads: async (cwd, threadId, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-app-pr-threads.request",
-        { cwd, threadId, number, expectedHead },
-        options
-      )
-    ),
-  githubAppPrMedia: async (cwd, threadId, number, expectedHead, url, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-app-pr-media.request",
-        { cwd, threadId, number, expectedHead, url },
-        options
-      )
-    ),
-  githubPrList: async (cwd, input = {}, options) =>
-    unwrap(await client.requestGit("git.github-pr-list.request", { cwd, ...input }, options)),
-  githubPrRead: async (cwd, number, options) =>
-    unwrap(await client.requestGit("git.github-pr-read.request", { cwd, number }, options)),
-  githubPrForBranch: async (cwd, branch, options) =>
-    unwrap(await client.requestGit("git.github-pr-for-branch.request", { cwd, branch }, options)),
-  githubPrDiff: async (cwd, number, expectedHead, options) =>
-    unwrap<{ diff: string }>(
-      await client.requestGit("git.github-pr-diff.request", { cwd, number, expectedHead }, options)
-    ).diff,
-  githubPrRevisionSnapshot: async (cwd, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-revision-snapshot.request",
-        { cwd, number, expectedHead },
-        options
-      )
-    ),
-  githubPrRevisionDiff: async (cwd, number, expectedHead, baseRevision, headRevision, options) =>
-    unwrap<{ diff: string }>(
-      await client.requestGit(
-        "git.github-pr-revision-diff.request",
-        { cwd, number, expectedHead, baseRevision, headRevision },
-        options
-      )
-    ).diff,
-  githubPrRevisionFile: async (
-    cwd,
-    number,
-    expectedHead,
-    baseRevision,
-    headRevision,
-    basePath,
-    headPath,
-    options
-  ) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-revision-file.request",
-        { cwd, number, expectedHead, baseRevision, headRevision, basePath, headPath },
-        options
-      )
-    ),
-  githubPrMetadata: async (cwd, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-metadata.request",
-        { cwd, number, expectedHead },
-        options
-      )
-    ),
-  githubPrReviewStatus: async (cwd, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-review-status.request",
-        { cwd, number, expectedHead },
-        options
-      )
-    ),
-  githubPrUserSearch: async (cwd, number, expectedHead, query, scope, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-user-search.request",
-        { cwd, number, expectedHead, query, scope },
-        options
-      )
-    ),
-  githubPrStack: async (cwd, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit("git.github-pr-stack.request", { cwd, number, expectedHead }, options)
-    ),
-  githubPrAttributes: async (cwd, number, expectedHead, paths, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-attributes.request",
-        { cwd, number, expectedHead, paths },
-        options
-      )
-    ),
-  githubPrAutoMergeStatus: async (cwd, number, options) =>
-    unwrap<{ enabled: boolean }>(
-      await client.requestGit("git.github-pr-auto-merge-status.request", { cwd, number }, options)
-    ).enabled,
-  githubPrToggleAutoMerge: async (cwd, number, expectedHead, enabled, method, options) => {
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-toggle-auto-merge.request",
-        { cwd, number, expectedHead, enabled, method },
-        options
-      )
-    )
-  },
-  githubPrChecks: async (cwd, number, options) =>
-    unwrap(await client.requestGit("git.github-pr-checks.request", { cwd, number }, options)),
-  githubPrActivity: async (cwd, number, options) =>
-    unwrap(await client.requestGit("git.github-pr-activity.request", { cwd, number }, options)),
-  githubPrThreads: async (cwd, number, expectedHead, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-threads.request",
-        { cwd, number, expectedHead },
-        options
-      )
-    ),
-  githubPrThreadAction: async (cwd, input, options) => {
-    unwrap(
-      await client.requestGit("git.github-pr-thread-action.request", { cwd, ...input }, options)
-    )
-  },
-  githubPrComment: async (cwd, number, expectedHead, body, options) => {
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-comment.request",
-        { cwd, number, expectedHead, body },
-        options
-      )
-    )
-  },
-  githubPrCommentAction: async (cwd, input, options) => {
-    unwrap(
-      await client.requestGit("git.github-pr-comment-action.request", { cwd, ...input }, options)
-    )
-  },
-  githubPrReview: async (cwd, number, expectedHead, decision, body, options) => {
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-review.request",
-        { cwd, number, expectedHead, decision, body },
-        options
-      )
-    )
-  },
-  githubPrSetState: async (cwd, number, expectedHead, action, options) => {
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-set-state.request",
-        { cwd, number, expectedHead, action },
-        options
-      )
-    )
-  },
-  githubPrCreate: async (cwd, input, options) =>
-    unwrap(await client.requestGit("git.github-pr-create.request", { cwd, ...input }, options)),
-  githubPrUpdate: async (cwd, number, input, options) =>
-    unwrap(
-      await client.requestGit("git.github-pr-update.request", { cwd, number, ...input }, options)
-    ),
-  githubPrReviewer: async (cwd, number, expectedHead, reviewer, action, options) => {
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-reviewer.request",
-        { cwd, number, expectedHead, reviewer, action },
-        options
-      )
-    )
-  },
-  githubPrMerge: async (cwd, number, expectedHead, method, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.github-pr-merge.request",
-        { cwd, number, expectedHead, method },
-        options
-      )
-    ),
-  gitlabMrRead: async (cwd, threadId, iid, options) =>
-    unwrap(await client.requestGit("git.gitlab-mr-read.request", { cwd, threadId, iid }, options)),
-  gitlabMrForBranch: async (cwd, threadId, branch, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.gitlab-mr-for-branch.request",
-        { cwd, threadId, branch },
-        options
-      )
-    ),
-  gitlabMrAvailability: async (cwd, threadId, options) =>
-    unwrap(
-      await client.requestGit("git.gitlab-mr-availability.request", { cwd, threadId }, options)
-    ),
-  gitlabMrChecks: async (cwd, threadId, iid, options) =>
-    unwrap(
-      await client.requestGit("git.gitlab-mr-checks.request", { cwd, threadId, iid }, options)
-    ),
-  gitlabMrDiscussions: async (cwd, threadId, iid, options) =>
-    unwrap(
-      await client.requestGit("git.gitlab-mr-discussions.request", { cwd, threadId, iid }, options)
-    ),
-  gitlabMrReviewers: async (cwd, threadId, iid, options) =>
-    unwrap(
-      await client.requestGit("git.gitlab-mr-reviewers.request", { cwd, threadId, iid }, options)
-    ),
-  gitlabMrReviewerSearch: async (cwd, threadId, query, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.gitlab-mr-reviewer-search.request",
-        { cwd, threadId, query },
-        options
-      )
-    ),
-  gitlabMrReviewerAction: async (cwd, threadId, iid, userId, action, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.gitlab-mr-reviewer-action.request",
-        { cwd, threadId, iid, userId, action },
-        options
-      )
-    ),
-  gitlabMrUpdateTitle: async (cwd, threadId, iid, title, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.gitlab-mr-update-title.request",
-        { cwd, threadId, iid, title },
-        options
-      )
-    ),
-  gitlabMrPostComment: async (cwd, threadId, iid, body, options) =>
-    unwrap(
-      await client.requestGit(
-        "git.gitlab-mr-post-comment.request",
-        { cwd, threadId, iid, body },
-        options
-      )
-    ),
-  gitlabMrCreate: async (cwd, threadId, input, options) =>
-    unwrap(
-      await client.requestGit("git.gitlab-mr-create.request", { cwd, threadId, ...input }, options)
-    ),
-  gitlabMrBrowserForm: async (cwd, input, options) =>
-    unwrap<{ url: string }>(
-      await client.requestGit("git.gitlab-mr-browser-form.request", { cwd, ...input }, options)
-    ).url,
 })

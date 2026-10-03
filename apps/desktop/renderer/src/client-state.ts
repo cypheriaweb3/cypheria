@@ -252,3 +252,8 @@ export const dismissedAgentCommentsAtom = (threadId: string): ClientStateAtom<st
   dismissedAgentCommentAtoms.set(threadId, created)
   return created
 }
+
+/** Code Review sidebar sections this client shows collapsed. */
+export const codeReviewSidebarCollapsedAtom = atomFor(
+  clientSettingDefinitions.codeReviewSidebarCollapsed
+)

@@ -42,6 +42,7 @@ import type {
   ThreadHarnessSteerInput,
   ThreadHarnessTurnInput,
   ThreadInteractionResponse,
+  UntrustedAppInput,
 } from "../thread/harness-adapter.js"
 import { ACP_V1_FALLBACK_REQUIRED_CODE, acpInitializeParams } from "./acp-negotiation.js"
 import type { AgentManager, AgentRuntimeServerMessage } from "./agent-manager.js"
@@ -272,6 +273,28 @@ const createOpenCodeMessageId = (): string => {
   ).join("")
   return `msg_${ascending}${random}`
 }
+
+/**
+ * App content as the Responses API items ChatGPT Desktop injects before a turn: an
+ * `untrusted_input` call and its output, one text part per App item and its images after it.
+ */
+export const untrustedInputItems = (
+  callId: string,
+  entries: readonly UntrustedAppInput[]
+): Record<string, unknown>[] => [
+  { arguments: "{}", call_id: callId, name: "untrusted_input", type: "function_call" },
+  {
+    call_id: callId,
+    output: entries.flatMap(({ images, ...entry }) => [
+      { text: JSON.stringify(entry), type: "input_text" },
+      ...images.map((image) => ({
+        image_url: `data:${image.mimeType};base64,${image.data}`,
+        type: "input_image",
+      })),
+    ]),
+    type: "function_call_output",
+  },
+]
 
 export const mapCodexInput = (content: readonly ThreadInputBlock[]): v2.UserInput[] =>
   content.map((block) => {
@@ -1539,6 +1562,17 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       const config = input.config ?? this.#config
       const permissions = await this.#codexPermissions(config, input, "update")
       const workspace = codexTurnWorkspace(input)
+      if (input.untrustedAppInput?.length) {
+        await this.#request(input.threadId, {
+          items: untrustedInputItems(
+            `untrusted_input_${input.clientMessageId}`,
+            input.untrustedAppInput
+          ),
+          requestId: randomUUID(),
+          threadId: input.agentSessionId,
+          type: "agent.codex.thread.inject_items.request",
+        })
+      }
       const response = await this.#request(input.threadId, {
         ...(config.model ? { model: config.model } : {}),
         ...(config.thinking ? { effort: config.thinking } : {}),

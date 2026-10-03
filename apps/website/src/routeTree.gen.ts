@@ -9,45 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as SecurityRouteImport } from './routes/security'
-import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
-import { Route as ProductRouteImport } from './routes/product'
-import { Route as DevelopersRouteImport } from './routes/developers'
-import { Route as R404RouteImport } from './routes/404'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ZhCNIndexRouteImport } from './routes/zh-CN/index'
-import { Route as ZhCNSecurityRouteImport } from './routes/zh-CN/security'
-import { Route as ZhCNProductRouteImport } from './routes/zh-CN/product'
-import { Route as ZhCNDevelopersRouteImport } from './routes/zh-CN/developers'
-import { Route as ZhCN404RouteImport } from './routes/zh-CN/404'
-import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as R404RouteImport } from './routes/404'
+import { Route as DevelopersRouteImport } from './routes/developers'
+import { Route as ProductRouteImport } from './routes/product'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as SecurityRouteImport } from './routes/security'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as ZhCNIndexRouteImport } from './routes/zh-CN/index'
+import { Route as ZhCN404RouteImport } from './routes/zh-CN/404'
+import { Route as ZhCNDevelopersRouteImport } from './routes/zh-CN/developers'
+import { Route as ZhCNProductRouteImport } from './routes/zh-CN/product'
+import { Route as ZhCNSecurityRouteImport } from './routes/zh-CN/security'
 import { Route as ZhCNDocsSplatRouteImport } from './routes/zh-CN/docs/$'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SecurityRoute = SecurityRouteImport.update({
-  id: '/security',
-  path: '/security',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
-  id: '/robots.txt',
-  path: '/robots.txt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProductRoute = ProductRouteImport.update({
-  id: '/product',
-  path: '/product',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevelopersRoute = DevelopersRouteImport.update({
-  id: '/developers',
-  path: '/developers',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const R404Route = R404RouteImport.update({
@@ -55,34 +35,34 @@ const R404Route = R404RouteImport.update({
   path: '/404',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DevelopersRoute = DevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ZhCNIndexRoute = ZhCNIndexRouteImport.update({
-  id: '/zh-CN/',
-  path: '/zh-CN/',
+const ProductRoute = ProductRouteImport.update({
+  id: '/product',
+  path: '/product',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ZhCNSecurityRoute = ZhCNSecurityRouteImport.update({
-  id: '/zh-CN/security',
-  path: '/zh-CN/security',
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ZhCNProductRoute = ZhCNProductRouteImport.update({
-  id: '/zh-CN/product',
-  path: '/zh-CN/product',
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ZhCNDevelopersRoute = ZhCNDevelopersRouteImport.update({
-  id: '/zh-CN/developers',
-  path: '/zh-CN/developers',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ZhCN404Route = ZhCN404RouteImport.update({
-  id: '/zh-CN/404',
-  path: '/zh-CN/404',
+const ApiSearchRoute = ApiSearchRouteImport.update({
+  id: '/api/search',
+  path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
@@ -90,9 +70,29 @@ const DocsSplatRoute = DocsSplatRouteImport.update({
   path: '/docs/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSearchRoute = ApiSearchRouteImport.update({
-  id: '/api/search',
-  path: '/api/search',
+const ZhCNIndexRoute = ZhCNIndexRouteImport.update({
+  id: '/zh-CN/',
+  path: '/zh-CN/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ZhCN404Route = ZhCN404RouteImport.update({
+  id: '/zh-CN/404',
+  path: '/zh-CN/404',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ZhCNDevelopersRoute = ZhCNDevelopersRouteImport.update({
+  id: '/zh-CN/developers',
+  path: '/zh-CN/developers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ZhCNProductRoute = ZhCNProductRouteImport.update({
+  id: '/zh-CN/product',
+  path: '/zh-CN/product',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ZhCNSecurityRoute = ZhCNSecurityRouteImport.update({
+  id: '/zh-CN/security',
+  path: '/zh-CN/security',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ZhCNDocsSplatRoute = ZhCNDocsSplatRouteImport.update({
@@ -227,39 +227,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/security': {
-      id: '/security'
-      path: '/security'
-      fullPath: '/security'
-      preLoaderRoute: typeof SecurityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/robots.txt': {
-      id: '/robots.txt'
-      path: '/robots.txt'
-      fullPath: '/robots.txt'
-      preLoaderRoute: typeof RobotsDottxtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/product': {
-      id: '/product'
-      path: '/product'
-      fullPath: '/product'
-      preLoaderRoute: typeof ProductRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/developers': {
-      id: '/developers'
-      path: '/developers'
-      fullPath: '/developers'
-      preLoaderRoute: typeof DevelopersRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/404': {
@@ -269,46 +241,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof R404RouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/developers': {
+      id: '/developers'
+      path: '/developers'
+      fullPath: '/developers'
+      preLoaderRoute: typeof DevelopersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/zh-CN/': {
-      id: '/zh-CN/'
-      path: '/zh-CN'
-      fullPath: '/zh-CN/'
-      preLoaderRoute: typeof ZhCNIndexRouteImport
+    '/product': {
+      id: '/product'
+      path: '/product'
+      fullPath: '/product'
+      preLoaderRoute: typeof ProductRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/zh-CN/security': {
-      id: '/zh-CN/security'
-      path: '/zh-CN/security'
-      fullPath: '/zh-CN/security'
-      preLoaderRoute: typeof ZhCNSecurityRouteImport
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/zh-CN/product': {
-      id: '/zh-CN/product'
-      path: '/zh-CN/product'
-      fullPath: '/zh-CN/product'
-      preLoaderRoute: typeof ZhCNProductRouteImport
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/zh-CN/developers': {
-      id: '/zh-CN/developers'
-      path: '/zh-CN/developers'
-      fullPath: '/zh-CN/developers'
-      preLoaderRoute: typeof ZhCNDevelopersRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/zh-CN/404': {
-      id: '/zh-CN/404'
-      path: '/zh-CN/404'
-      fullPath: '/zh-CN/404'
-      preLoaderRoute: typeof ZhCN404RouteImport
+    '/api/search': {
+      id: '/api/search'
+      path: '/api/search'
+      fullPath: '/api/search'
+      preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/$': {
@@ -318,11 +290,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/search': {
-      id: '/api/search'
-      path: '/api/search'
-      fullPath: '/api/search'
-      preLoaderRoute: typeof ApiSearchRouteImport
+    '/zh-CN/': {
+      id: '/zh-CN/'
+      path: '/zh-CN'
+      fullPath: '/zh-CN/'
+      preLoaderRoute: typeof ZhCNIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh-CN/404': {
+      id: '/zh-CN/404'
+      path: '/zh-CN/404'
+      fullPath: '/zh-CN/404'
+      preLoaderRoute: typeof ZhCN404RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh-CN/developers': {
+      id: '/zh-CN/developers'
+      path: '/zh-CN/developers'
+      fullPath: '/zh-CN/developers'
+      preLoaderRoute: typeof ZhCNDevelopersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh-CN/product': {
+      id: '/zh-CN/product'
+      path: '/zh-CN/product'
+      fullPath: '/zh-CN/product'
+      preLoaderRoute: typeof ZhCNProductRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh-CN/security': {
+      id: '/zh-CN/security'
+      path: '/zh-CN/security'
+      fullPath: '/zh-CN/security'
+      preLoaderRoute: typeof ZhCNSecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/zh-CN/docs/$': {

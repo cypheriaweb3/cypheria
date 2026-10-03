@@ -79,6 +79,23 @@ export class GitWorktreeService {
     )
   }
 
+  /** Source checkouts that have managed worktrees, from the worktree metadata. */
+  async managedSources(): Promise<string[]> {
+    const metadata = join(this.#root, ".metadata")
+    const sources = new Set<string>()
+    for (const file of await readdir(metadata).catch(() => [])) {
+      if (!/^[a-f0-9-]{36}\.json$/u.test(file)) continue
+      try {
+        const record = JSON.parse(await readFile(join(metadata, file), "utf8")) as Partial<Record>
+        if (record.version === 1 && typeof record.sourceRoot === "string")
+          sources.add(record.sourceRoot)
+      } catch {
+        // Unreadable metadata names no repository.
+      }
+    }
+    return [...sources].sort()
+  }
+
   async list(repository: Repository): Promise<GitWorktree[]> {
     const { stdout } = await this.#executor.run(
       repository.root,

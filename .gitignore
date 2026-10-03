@@ -8,9 +8,6 @@ build/
 .turbo/
 .vite/
 coverage/
-apps/desktop/renderer/src/locales/*/messages.js
-apps/website/src/locales/*/messages.js
-apps/desktop/.dev-app/
 .source/
 .wrangler/
 playwright-report/

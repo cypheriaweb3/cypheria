@@ -22,7 +22,19 @@ export type ThreadAttachmentServiceOptions = {
   readonly projects: ProjectThreadPersistenceService
   readonly publish?: (message: ServerMessage) => void
   readonly worktreeExists?: (worktreeId: string) => Promise<boolean>
+  /** The Git root and current branch of a Thread's working directory, when it is in a repository. */
+  readonly threadCheckout?: (
+    threadId: string
+  ) => Promise<{ root: string; headBranch: string | null } | null>
 }
+
+/**
+ * Where a pull request's branch lives: given by the caller, read from the Thread's working
+ * directory for an Agent that attaches what it just pushed, or unknown.
+ */
+export type PullRequestCheckout =
+  | { readonly root?: string; readonly headBranch?: string }
+  | "thread"
 
 export class ThreadAttachmentServiceError extends Error {
   readonly code: string
@@ -147,21 +159,52 @@ export class ThreadAttachmentService {
   readonly #projects: ProjectThreadPersistenceService
   readonly #publish: (message: ServerMessage) => void
   readonly #worktreeExists: ((worktreeId: string) => Promise<boolean>) | undefined
+  readonly #threadCheckout: ThreadAttachmentServiceOptions["threadCheckout"]
 
   constructor(options: ThreadAttachmentServiceOptions) {
     this.#persistence = options.persistence
     this.#projects = options.projects
     this.#publish = options.publish ?? (() => undefined)
     this.#worktreeExists = options.worktreeExists
+    this.#threadCheckout = options.threadCheckout
   }
 
-  async attachPullRequest(threadId: string, url: string): Promise<ThreadAttachmentRecord> {
+  async attachPullRequest(
+    threadId: string,
+    url: string,
+    checkout: PullRequestCheckout = {}
+  ): Promise<ThreadAttachmentRecord> {
     await this.#assertThread(threadId)
-    const payload = parsePullRequestUrl(url)
+    const parsed = parsePullRequestUrl(url)
+    const identityKey = pullRequestIdentityKey(parsed)
+    const read =
+      checkout === "thread" ? await this.#threadCheckout?.(threadId).catch(() => null) : null
+    const given: { root?: string; headBranch?: string } | null =
+      checkout === "thread"
+        ? read
+          ? { root: read.root, ...(read.headBranch ? { headBranch: read.headBranch } : {}) }
+          : null
+        : checkout
+    // Attaching again without a checkout keeps the one an earlier attachment recorded.
+    const previous = given?.root
+      ? null
+      : (
+          await this.#persistence.list({ attachmentType: "pull_request", limit: 200, threadId })
+        ).data.find((entry) => entry.identityKey === identityKey)?.payload
+    const kept = (previous ?? {}) as { root?: unknown; headBranch?: unknown }
+    const root = given?.root ?? (typeof kept.root === "string" ? kept.root : undefined)
+    const headBranch = given?.root
+      ? given.headBranch
+      : (given?.headBranch ?? (typeof kept.headBranch === "string" ? kept.headBranch : undefined))
+    const payload: ThreadPullRequestAttachmentPayload = {
+      ...parsed,
+      ...(root ? { root } : {}),
+      ...(root && headBranch ? { headBranch } : {}),
+    }
     const attachment = record(
       await this.#persistence.upsert({
         attachmentType: "pull_request",
-        identityKey: pullRequestIdentityKey(payload),
+        identityKey,
         payload,
         threadId,
       })
@@ -269,20 +312,19 @@ export class ThreadAttachmentService {
             )
             break
           }
+          const { headBranch, root, url } = message.payload.attachment
           respond(
-            await this.attachPullRequest(message.payload.threadId, message.payload.attachment.url)
+            await this.attachPullRequest(message.payload.threadId, url, {
+              ...(root ? { root } : {}),
+              ...(headBranch ? { headBranch } : {}),
+            })
           )
           break
         }
         case "thread.attachment.remove.request": {
-          await this.#assertThread(message.payload.threadId)
-          respond({
-            removed: await this.#remove(
-              message.payload.threadId,
-              message.payload.attachmentType,
-              message.payload.identityKey
-            ),
-          })
+          const { attachmentType, identityKey, threadId } = message.payload
+          await this.#assertThread(threadId)
+          respond({ removed: await this.#remove(threadId, attachmentType, identityKey) })
           break
         }
       }

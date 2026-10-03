@@ -86,14 +86,14 @@ describe("ServerConfigStore", () => {
     const reopened = await ServerConfigStore.open(configDir, {})
     expect(reopened.getSnapshot().config.git.branchPrefix).toBe("feature/")
     expect(reopened.getSnapshot().config.git.worktreeRoot).toBe(join(configDir, "trees"))
-    const { githubConnectorEnabled: _connector, ...oldGit } = reopened.getSnapshot().config.git
+    const { reviewDelivery: _delivery, ...oldGit } = reopened.getSnapshot().config.git
     await writeFile(
       resolveServerConfigPath(configDir),
       JSON.stringify({ ...DEFAULT_PERSISTED_SERVER_CONFIG, git: oldGit })
     )
     expect(
-      (await ServerConfigStore.open(configDir, {})).getSnapshot().config.git.githubConnectorEnabled
-    ).toBe(true)
+      (await ServerConfigStore.open(configDir, {})).getSnapshot().config.git.reviewDelivery
+    ).toBe("inline")
   })
 
   it("validates the complete desired configuration before writing", async () => {

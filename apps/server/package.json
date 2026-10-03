@@ -29,7 +29,7 @@
     "@cypheria/protocol": "workspace:*",
     "@cypheria/relay": "workspace:*",
     "@cypheria/web3": "workspace:*",
-    "@earendil-works/pi-coding-agent": "0.99.1",
+    "@earendil-works/pi-coding-agent": "1.0.0",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
     "@libsql/client": "^0.17.4",
@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@cypheria/client": "workspace:*",
+    "@cypheria/code-review": "workspace:*",
     "@cypheria/expo": "workspace:*",
     "@types/unbzip2-stream": "1.4.3",
     "@types/ws": "^8.18.1",

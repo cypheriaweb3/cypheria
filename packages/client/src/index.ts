@@ -16,6 +16,16 @@ import {
 } from "./agent-manager.js"
 import { type ArtifactActions, createArtifactActions } from "./artifact.js"
 import { type BrowserActions, createBrowserActions } from "./browser.js"
+import {
+  type CodeReviewActions,
+  CodeReviewRequestError,
+  createCodeReviewActions,
+} from "./code-review.js"
+import {
+  createExtensionActions,
+  type ExtensionActions,
+  type ExtensionSettingsView,
+} from "./extension.js"
 import { createGitActions, type GitActions } from "./git.js"
 import { createHarnessActions, type HarnessActions } from "./harness.js"
 import { type CodexHarnessActions, createCodexHarnessActions } from "./harness-codex.js"
@@ -116,6 +126,10 @@ export interface CypheriaApi {
   readonly sections: SectionActions
   readonly schedules: ScheduleActions
   readonly magpie: MagpieActions
+  /** Plugin Extensions: the catalog, MCP App instances, model context, settings, and mentions. */
+  readonly extensions: ExtensionActions
+  /** Code Review's host operations: provider connections and host-run provider requests. */
+  readonly codeReview: CodeReviewActions
   readonly settings: SettingsActions
   readonly thread: ThreadActions
   /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
@@ -179,6 +193,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
   const magpie = createMagpieActions(serverClient)
+  const extensions = createExtensionActions(serverClient)
+  const codeReview = createCodeReviewActions(serverClient)
   const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
   const artifacts = createArtifactActions(threads.timeline)
@@ -196,6 +212,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     integrations,
     git,
     magpie,
+    extensions,
+    codeReview,
     projectThread,
     projects: projectThread.projects,
     harnesses: {
@@ -258,7 +276,10 @@ export type {
   AgentManagementActions,
   ArtifactActions,
   BrowserActions,
+  CodeReviewActions,
   CodexHarnessActions,
+  ExtensionActions,
+  ExtensionSettingsView,
   HarnessActions,
   IntegrationActions,
   MagpieActions,
@@ -276,4 +297,4 @@ export type {
   TimelineActions,
   Web3Actions,
 }
-export { createMagpieActions, isAgentUpdateAvailable }
+export { CodeReviewRequestError, createMagpieActions, isAgentUpdateAvailable }

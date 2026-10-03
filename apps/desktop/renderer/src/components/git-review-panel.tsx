@@ -50,8 +50,6 @@ import {
 } from "../client-state.js"
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { commitChanges, hasCommittableChanges, parseCoAuthors } from "./git-commit-actions.js"
-import { GitHubPrPanel } from "./github-pr-panel.js"
-import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 import { formatReviewComments, hunkAnchor } from "./review-comments.js"
 import {
   ReviewDiffControls,
@@ -209,13 +207,6 @@ export function GitReviewPanel({
     queryKey: ["git", cwd, "review-base-search", reviewBaseSearch],
     queryFn: async () =>
       (await ensureCypheriaClient()).git.searchBranches(cwd, reviewBaseSearch, 100),
-    retry: false,
-  })
-  const origin = useQuery({
-    enabled: Boolean(status.data),
-    queryKey: ["git", cwd, "origin"],
-    queryFn: async () => (await ensureCypheriaClient()).git.origin(cwd),
-    staleTime: 30_000,
     retry: false,
   })
   const worktrees = useQuery({
@@ -1847,32 +1838,6 @@ export function GitReviewPanel({
                 </div>
               ))}
           </div>
-        </ReviewSection>
-      ) : null}
-      {origin.data?.provider === "gitlab" ? (
-        <ReviewSection
-          defaultOpen
-          title={i18n._(msg({ id: "git.review.mergeRequestSection", message: "Merge request" }))}
-        >
-          <GitLabMrPanel
-            branch={status.data?.branch ?? null}
-            cwd={cwd}
-            key={cwd}
-            threadId={threadId}
-          />
-        </ReviewSection>
-      ) : null}
-      {origin.data?.provider === "github" ? (
-        <ReviewSection
-          defaultOpen
-          title={i18n._(msg({ id: "git.review.pullRequestSection", message: "Pull request" }))}
-        >
-          <GitHubPrPanel
-            branch={status.data?.branch ?? null}
-            cwd={cwd}
-            key={cwd}
-            threadId={threadId}
-          />
         </ReviewSection>
       ) : null}
       {actionError ? <p className="p-2 text-sm text-destructive">{actionError}</p> : null}

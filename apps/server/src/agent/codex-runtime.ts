@@ -54,6 +54,28 @@ type InternalPending = {
 type Pending = ClientPending | InternalPending
 type ReversePending = { rawId: RequestId; sessionId: string }
 
+/** `threadSource` of the hidden Threads that carry extension MCP calls. */
+export const MCP_EXTENSION_HOST_THREAD_SOURCE = "mcp_extension_host"
+
+/**
+ * The MCP extensions Cypheria declares to Codex, which advertises them to MCP servers: MCP Apps,
+ * so servers send App metadata, and OpenAI's extended forms.
+ */
+export const CODEX_CLIENT_MCP_EXTENSIONS = {
+  "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
+  "openai/elicitation": { form: {} },
+} as const
+
+/** Receives what Codex sends for a hidden Thread: its reverse requests, such as elicitation. */
+export type HiddenThreadHandler = {
+  request(method: string, params: unknown): Promise<unknown>
+}
+
+const isHiddenThreadStart = (params: unknown): boolean => {
+  const thread = (params as { thread?: { threadSource?: unknown } } | undefined)?.thread
+  return thread?.threadSource === MCP_EXTENSION_HOST_THREAD_SOURCE
+}
+
 const paramsOf = (message: { type: string } & Record<string, unknown>): unknown => {
   const { requestId: _requestId, type: _type, ...params } = message
   return Object.keys(params).length === 0 ? undefined : params
@@ -97,6 +119,7 @@ export class CodexRuntime {
     }>
   >()
   readonly #threadOwners = new Map<string, string>()
+  readonly #hiddenThreads = new Map<string, HiddenThreadHandler>()
   readonly #toolchains: ToolchainManager
   readonly #logger: Logger | undefined
   #activeSession: string | undefined
@@ -170,7 +193,11 @@ export class CodexRuntime {
     })
     try {
       await this.#requestStarted("initialize", {
-        capabilities: { experimentalApi: true, requestAttestation: false },
+        capabilities: {
+          experimentalApi: true,
+          extensions: CODEX_CLIENT_MCP_EXTENSIONS,
+          requestAttestation: false,
+        },
         clientInfo: { name: "cypheria", title: "Cypheria", version: "1" },
       })
       child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "initialized" })}\n`)
@@ -243,13 +270,14 @@ export class CodexRuntime {
 
   async request(
     method: keyof typeof AGENT_CODEX_CLIENT_RPC,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    options: { timeoutMs?: number } = {}
   ): Promise<Record<string, unknown>> {
     await this.start()
     let lastError: unknown
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        return await this.#requestStarted(method, params)
+        return await this.#requestStarted(method, params, options.timeoutMs)
       } catch (error) {
         lastError = error
         const message = error instanceof Error ? `${error.name} ${error.message}` : String(error)
@@ -311,9 +339,22 @@ export class CodexRuntime {
     })
   }
 
+  /**
+   * Hides a Thread from every session: its notifications are dropped and its reverse requests go
+   * to `handler`. Hidden Threads carry extension MCP calls that belong to no conversation.
+   */
+  hideThread(threadId: string, handler: HiddenThreadHandler): void {
+    this.#hiddenThreads.set(threadId, handler)
+  }
+
+  unhideThread(threadId: string): void {
+    this.#hiddenThreads.delete(threadId)
+  }
+
   #requestStarted(
     method: keyof typeof AGENT_CODEX_CLIENT_RPC,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    timeoutMs = 30_000
   ): Promise<Record<string, unknown>> {
     const child = this.#process
     if (!child) throw new Error("Codex App Server is not running")
@@ -325,7 +366,7 @@ export class CodexRuntime {
         error.name = "AGENT_TIMEOUT"
         this.#logger?.warn({ method }, "Codex App Server request timed out")
         reject(error)
-      }, 30_000).unref()
+      }, timeoutMs).unref()
       this.#pending.set(internalId, { kind: "internal", reject, resolve, timeout })
       child.stdin.write(`${JSON.stringify({ id: internalId, jsonrpc: "2.0", method, params })}\n`)
     })
@@ -351,6 +392,7 @@ export class CodexRuntime {
     this.#pending.clear()
     this.#reversePending.clear()
     this.#threadOwners.clear()
+    this.#hiddenThreads.clear()
     for (const waiters of this.#loginWaiters.values()) {
       for (const waiter of waiters) {
         waiter.reject(new Error("Codex App Server stopped before authentication completed"))
@@ -369,6 +411,25 @@ export class CodexRuntime {
       })
       child.kill("SIGTERM")
     })
+  }
+
+  #answerHidden(
+    handler: HiddenThreadHandler,
+    id: RequestId,
+    method: string,
+    params: unknown
+  ): void {
+    handler.request(method, params).then(
+      (result) => {
+        this.#process?.stdin.write(`${JSON.stringify({ id, jsonrpc: "2.0", result })}\n`)
+      },
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        this.#process?.stdin.write(
+          `${JSON.stringify({ error: { code: -32603, message }, id, jsonrpc: "2.0" })}\n`
+        )
+      }
+    )
   }
 
   #receive(raw: RawRpc): void {
@@ -396,6 +457,7 @@ export class CodexRuntime {
           }
         }
         const owner = threadIdOf(raw.params)
+        if ((owner && this.#hiddenThreads.has(owner)) || isHiddenThreadStart(raw.params)) return
         const ownedSend = owner
           ? this.#sessions.get(this.#threadOwners.get(owner) ?? "")
           : undefined
@@ -406,6 +468,11 @@ export class CodexRuntime {
       const requestDefinition =
         AGENT_CODEX_SERVER_RPC[raw.method as keyof typeof AGENT_CODEX_SERVER_RPC]
       const threadId = threadIdOf(raw.params)
+      const hidden = threadId ? this.#hiddenThreads.get(threadId) : undefined
+      if (hidden && raw.id !== undefined) {
+        this.#answerHidden(hidden, raw.id, raw.method, raw.params)
+        return
+      }
       const sessionId = (threadId && this.#threadOwners.get(threadId)) || this.#activeSession
       const send = sessionId ? this.#sessions.get(sessionId) : undefined
       if (!requestDefinition || !send || raw.id === undefined) {

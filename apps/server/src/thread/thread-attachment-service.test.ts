@@ -116,4 +116,46 @@ describe("ThreadAttachmentService", () => {
       service.attachPullRequest("thread", "https://token@example.com/a/b/pull/1")
     ).rejects.toMatchObject({ name: "THREAD_ATTACHMENT_URL_INVALID" })
   })
+
+  it("records the checkout a pull request was opened from, and keeps it on a later attachment", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "cypheria-thread-attachment-checkout-test-"))
+    const database = openCypheriaDatabase({ cypheriaHome: directory })
+    try {
+      await applyDatabaseMigrations(database.client)
+      await createAgentRegistryPersistenceService(database.db).reconcile([
+        { id: "codex", native: true },
+      ])
+      const projects = createProjectThreadPersistenceService(database.db)
+      const thread = await projects.createThread({ agentId: "codex", roots: ["/repo"] }, 1)
+      let branch: string | null = "feature/x"
+      const service = new ThreadAttachmentService({
+        persistence: createThreadAttachmentPersistenceService(database.db),
+        projects,
+        threadCheckout: async () => ({ headBranch: branch, root: "/repo" }),
+      })
+      const url = "https://github.com/cypheria/cypheria/pull/7"
+
+      expect((await service.attachPullRequest(thread.id, url, "thread")).payload).toMatchObject({
+        headBranch: "feature/x",
+        root: "/repo",
+      })
+      // A manual attachment without a checkout keeps the recorded one.
+      expect((await service.attachPullRequest(thread.id, url)).payload).toMatchObject({
+        headBranch: "feature/x",
+        root: "/repo",
+      })
+      expect(
+        (await service.attachPullRequest(thread.id, url, { headBranch: "main", root: "/other" }))
+          .payload
+      ).toMatchObject({ headBranch: "main", root: "/other" })
+      // A detached checkout records the root without a branch.
+      branch = null
+      const detached = (await service.attachPullRequest(thread.id, url, "thread")).payload
+      expect(detached).toMatchObject({ root: "/repo" })
+      expect(detached).not.toHaveProperty("headBranch")
+    } finally {
+      database.close()
+      rmSync(directory, { force: true, recursive: true })
+    }
+  })
 })

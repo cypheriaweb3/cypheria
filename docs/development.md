@@ -40,6 +40,16 @@ Implemented packages:
 | `packages/relay` | Pairing, E2EE, and relay transport helpers |
 | `packages/ui` | Shared UI and conversation presentation primitives |
 
+Bundled plugins:
+
+| Workspace | Responsibility |
+| --- | --- |
+| `plugins` | The bundled `cypheria-bundled` marketplace: Codex and Claude marketplace files beside the plugins they list |
+| `plugins/cypheria-app-tools` | The app tools plugin: manifests and the MCP relay, with no build |
+| `plugins/code-review` | The `code-review` plugin and its package: manifests, the MCP relay in `src/server`, and the Code Review MCP App in `src/app`, built into `dist/app.html` |
+
+Agents install bundled plugins from `plugins/` in a checkout. A Server build assembles the marketplace in `apps/server/dist/marketplace` and packages `code-review` the way `node plugins/code-review/scripts/build.mjs --plugin-dir <dir>` does, so the installed plugin carries only its manifests, relay, and built App.
+
 Future Marketplace routes belong to `apps/website`; the current application has no Marketplace route, account system, API, schema, or Cloudflare storage binding.
 
 ## Install and verify

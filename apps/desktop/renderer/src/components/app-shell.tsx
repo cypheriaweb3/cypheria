@@ -67,7 +67,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FolderTree,
   GitBranch,
+  GitPullRequest,
   LoaderCircle,
   MoreHorizontal,
   Network,
@@ -77,6 +79,7 @@ import {
   Settings,
   SquarePen,
   Trash2,
+  Webhook,
 } from "lucide-react"
 import {
   type ComponentProps,
@@ -109,6 +112,7 @@ import { web3Api } from "../web3-api.js"
 import { NewChatLink } from "./chat-navigation"
 import { ChatSearch } from "./chat-search"
 import { ChatSidebar } from "./chat-sidebar"
+import { CodeReviewSidebar } from "./code-review/sidebar"
 import {
   DESKTOP_SIDEBAR_DEFAULT_WIDTH,
   DesktopCollapsedToolbar,
@@ -116,6 +120,7 @@ import {
   DesktopSidebarProvider as SidebarProvider,
   DesktopSidebarTrigger as SidebarTrigger,
 } from "./desktop-sidebar"
+import { ExtensionElicitations } from "./extensions/extension-elicitations.js"
 import { HarnessIcon } from "./harness-icon"
 import { createInMemorySearch, resolveAvailableHarnessId } from "./harness-selection"
 import { buildSettingsNavigationRows } from "./settings-navigation-model"
@@ -155,10 +160,28 @@ const settingsItems = [
     label: msg({ id: "settings.git", message: "Git" }),
   },
   {
+    group: "personal",
+    href: "/settings/worktrees",
+    icon: <FolderTree className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.worktrees", message: "Worktrees" }),
+  },
+  {
+    group: "integrations",
+    href: "/settings/code-review",
+    icon: <GitPullRequest className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.codeReview", message: "Code Review" }),
+  },
+  {
     group: "integrations",
     href: "/settings/plugins",
     icon: <Boxes className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.plugins", message: "Plugins" }),
+  },
+  {
+    group: "integrations",
+    href: "/settings/hooks",
+    icon: <Webhook className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.hooks", message: "Hooks" }),
   },
   {
     group: "archived",
@@ -324,6 +347,13 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   deepLinkThreadRef.current = activeThreadId
   const deepLinkActions = useMemo(
     () => ({
+      openPluginApp: (pluginId: string, tool: string, path: string) => {
+        void appNavigate({
+          params: { pluginId, tool },
+          search: path === "/" ? {} : { path },
+          to: "/plugins/$pluginId/app/$tool",
+        })
+      },
       openReview: (request: ReviewFocusRequest) => {
         const threadId = request.threadId ?? deepLinkThreadRef.current ?? null
         clientStateStore.set(reviewFocusAtom, { ...request, threadId })
@@ -340,6 +370,9 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   )
   useDeepLinkListener(deepLinkActions)
   const isSettings = pathname.startsWith("/settings")
+  const isCodeReview = pathname === "/code-review"
+  const codeReviewSelection =
+    isCodeReview && typeof location.search.pr === "string" ? location.search.pr : null
   const approvalsQuery = useQuery({
     queryFn: () => web3Api.approval.list("pending") ?? [],
     queryKey: ["approval", "pending"],
@@ -356,6 +389,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <TooltipProvider>
+      <ExtensionElicitations />
       <SidebarProvider
         className="h-screen w-screen overflow-hidden bg-background"
         data-settings={isSettings ? "true" : undefined}
@@ -368,7 +402,19 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         }
         suppressHydrationWarning
       >
-        {isSettings ? (
+        {isCodeReview ? (
+          <CodeReviewSidebar
+            header={
+              <DesktopSidebarHeader
+                className={windowControlRowClassName}
+                isWindows={isWindows}
+                triggerClassName={chromeIconButtonClassName}
+              />
+            }
+            selectedUrl={codeReviewSelection}
+            onSelect={(url) => void appNavigate({ search: { pr: url }, to: "/code-review" })}
+          />
+        ) : isSettings ? (
           <SettingsNavigation
             headerClassName={windowControlRowClassName}
             isWindows={isWindows}

@@ -149,7 +149,7 @@ export type AppToolAttachment = {
 }
 
 export type AppToolAttachments = {
-  attachPullRequest(threadId: string, url: string): Promise<AppToolAttachment>
+  attachPullRequest(threadId: string, url: string, checkout?: "thread"): Promise<AppToolAttachment>
   detachPullRequest(threadId: string, url: string): Promise<boolean>
   list(threadId: string): Promise<AppToolAttachment[]>
 }
@@ -197,9 +197,12 @@ export type AppToolCallContext = {
 /** A tool as a bundled plugin's MCP server lists it. */
 export type AppToolMcpTool = {
   readonly name: string
+  readonly title?: string
   readonly description: string
   readonly inputSchema: unknown
   readonly annotations?: { readonly readOnlyHint?: boolean; readonly openWorldHint?: boolean }
+  /** MCP tool metadata, such as the MCP App resource and visibility under `ui`. */
+  readonly _meta?: Record<string, unknown>
 }
 
 export type AppToolMcpResult = {
@@ -208,6 +211,8 @@ export type AppToolMcpResult = {
     | { readonly type: "image" | "audio"; readonly data: string; readonly mimeType: string }
   >
   readonly isError: boolean
+  /** Machine-readable result an MCP App reads; models read `content`. */
+  readonly structuredContent?: Record<string, unknown>
 }
 
 /** An app tool result in MCP form. Media arrive as data URLs; any other URL stays text. */
@@ -506,9 +511,12 @@ export class AppToolService {
       case "list_artifacts":
         return ok(await this.#listArtifacts(context))
       case "attach_artifact": {
+        // The Agent attaches what it pushed from its working directory, so that checkout is the
+        // pull request's.
         const attachment = await this.#options.attachments.attachPullRequest(
           this.#caller(context),
-          this.#pullRequestUrl(args)
+          this.#pullRequestUrl(args),
+          "thread"
         )
         return ok({ artifact_type: "pull_request", identityKey: attachment.identityKey })
       }

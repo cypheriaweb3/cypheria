@@ -67,7 +67,7 @@ describe("pull request helpers", () => {
 
 describe("routeDeepLink", () => {
   it("opens a thread with its view, or a review request for the thread on screen", () => {
-    const actions = { openReview: vi.fn(), openThread: vi.fn() }
+    const actions = { openPluginApp: vi.fn(), openReview: vi.fn(), openThread: vi.fn() }
     expect(routeDeepLink(`cypheria://threads/${THREAD}?view=review`, actions)).toBe(true)
     expect(actions.openThread).toHaveBeenCalledWith(THREAD, "review")
     expect(
@@ -87,8 +87,27 @@ describe("routeDeepLink", () => {
     )
   })
 
+  it("opens a plugin's global entry point at an App-relative path", () => {
+    const actions = { openPluginApp: vi.fn(), openReview: vi.fn(), openThread: vi.fn() }
+    expect(
+      routeDeepLink(
+        "cypheria://plugins/bits-and-bolts%40openai/app/cad.library?path=%2Fparts%3Ftag%3Dbolt",
+        actions
+      )
+    ).toBe(true)
+    expect(actions.openPluginApp).toHaveBeenCalledWith(
+      "bits-and-bolts@openai",
+      "cad.library",
+      "/parts?tag=bolt"
+    )
+    expect(routeDeepLink("cypheria://plugins/bits/app/cad.library", actions)).toBe(true)
+    expect(actions.openPluginApp).toHaveBeenLastCalledWith("bits", "cad.library", "/")
+    expect(routeDeepLink("cypheria://plugins/bits/app/x?path=parts", actions)).toBe(false)
+    expect(routeDeepLink("cypheria://plugins/bits/app/x?path=%2Fa%23b", actions)).toBe(false)
+  })
+
   it("ignores text that is not a deep link", () => {
-    const actions = { openReview: vi.fn(), openThread: vi.fn() }
+    const actions = { openPluginApp: vi.fn(), openReview: vi.fn(), openThread: vi.fn() }
     expect(routeDeepLink("https://example.com", actions)).toBe(false)
     expect(actions.openReview).not.toHaveBeenCalled()
   })

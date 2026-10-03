@@ -20,8 +20,9 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata、key/value settings、追加型 audit、workspace records |
 | Agents | `agent_registry` | 用户选择的 Agent 成员关系、创建时间、安装、启用、版本和状态；原生 harness 会预置 |
-| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments` | 持久组织、排序、membership、archive、harness linkage 与跨客户端 Git 附件 |
+| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments`, `workspace_threads` | 持久组织、排序、membership、archive、harness linkage、跨客户端 Git 附件，以及每个工作区页面显示的聊天 |
 | Thread 执行 | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | 生命周期恢复、消息幂等 receipt 和只追加 Canonical Timeline |
+| 代码审查 | `code_review_runs`, `code_review_prs` | 按账户和拉取请求保存的私密审查运行：状态、租约、发现项和关联聊天；见[代码审查](code-review.zh-CN.md#私密审查)。按提供方账户保存的已固定和最近打开的拉取请求，以及侧边栏显示的内容 |
 | Schedules | `schedules`, `schedule_runs` | Definitions、next occurrence、leases 和 run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions、有序 endpoints、health 和 origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | 公开 wallet metadata 和 active selection |
@@ -42,7 +43,11 @@ Project、Thread 与 Section 采用分阶段删除。Server 先提交 `deleted_a
 
 排序列在所属 scope 中非负且唯一。Membership move 和 compaction 在事务中执行，客户端不会观察到重复 position。
 
-`thread_attachments` 保存 Thread 与外部 pull request 或托管 worktree 之间由 Server 掌握的权威关系。Pull request 使用规范化的 provider、host、repository 与 number 身份，可关联多个 Threads；一个托管 worktree UUID 只能属于一个 Thread。两个查询方向都使用 cursor 分页，删除遵循 Thread foreign key，修改会发布类型化通知，使 Desktop、Expo、Web 与 CLI 无需浏览器本地关联状态也能收敛。该模型与 `agent_id` 无关。
+`thread_attachments` 保存 Thread 与外部 pull request 或托管 worktree 之间由 Server 掌握的权威关系。Pull request 使用规范化的 provider、host、repository 与 number 身份，可关联多个 Threads；一个托管 worktree UUID 只能属于一个 Thread。Pull request payload 可以记录它来自的检出：Git `root` 和打开它时的 `headBranch`。两个查询方向都使用 cursor 分页，删除遵循 Thread foreign key，修改会发布类型化通知，使 Desktop、Expo、Web 与 CLI 无需浏览器本地关联状态也能收敛。该模型与 `agent_id` 无关。
+
+`workspace_threads` 把工作区页面键（例如插件全局页面或代码审查中的 pull request）映射到它显示的 Thread；删除 Thread 会删除该行。
+
+`code_review_prs` 保存提供方账户已固定的 pull request（最多 1,200 个）和最近打开的 pull request（最多 100 个），以列表、账户和小写 URL 为键。保存时会移到最前，超出上限的最旧条目会被丢弃。
 
 ## Canonical Timeline
 

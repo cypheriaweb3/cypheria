@@ -20,8 +20,9 @@ Every connection enables foreign keys. Server services define transaction bounda
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata, key/value settings, append-oriented audit, workspace records |
 | Agents | `agent_registry` | User-selected Agent membership, creation time, installation, enablement, versions, and state; native harnesses are seeded |
-| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments` | Durable organization, ordering, membership, archive, harness linkage, and cross-client Git attachments |
+| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments`, `workspace_threads` | Durable organization, ordering, membership, archive, harness linkage, cross-client Git attachments, and the chat each workspace page shows |
 | Thread execution | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | Lifecycle recovery, message idempotency receipts, and append-only Canonical Timeline |
+| Code Review | `code_review_runs`, `code_review_prs` | Private review runs per account and pull request: status, lease, findings, and linked chat; see [Code Review](code-review.md#private-reviews). Pinned and recently opened pull requests per provider account, with what the sidebar shows of each |
 | Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | Public wallet metadata and active selection |
@@ -42,7 +43,11 @@ Project, Thread, and Section deletion is staged. The Server first commits `delet
 
 Ordering columns are non-negative and unique in their scope. Membership moves and compaction execute transactionally so clients never observe duplicate positions.
 
-`thread_attachments` stores Server-authoritative relationships between a Thread and an external pull request or managed worktree. Pull requests use a canonical provider, host, repository, and number identity and may belong to multiple Threads. A managed worktree UUID can belong to only one Thread. Queries are cursor-paginated in both directions, deletion follows the Thread foreign key, and mutations publish typed notifications so Desktop, Expo, Web, and CLI clients can converge without browser-local association state. The model is independent of `agent_id`.
+`thread_attachments` stores Server-authoritative relationships between a Thread and an external pull request or managed worktree. Pull requests use a canonical provider, host, repository, and number identity and may belong to multiple Threads. A managed worktree UUID can belong to only one Thread. A pull request payload may record the checkout it came from: the Git `root` and the `headBranch` it was opened from. Queries are cursor-paginated in both directions, deletion follows the Thread foreign key, and mutations publish typed notifications so Desktop, Expo, Web, and CLI clients can converge without browser-local association state. The model is independent of `agent_id`.
+
+`workspace_threads` maps a workspace page key, such as a plugin global page or a pull request in Code Review, to the Thread it shows; deleting the Thread removes the row.
+
+`code_review_prs` keeps a provider account's pinned pull requests, up to 1,200, and its recently opened ones, up to 100, keyed by list, account, and lowercased URL. Saving one moves it to the top, and the oldest beyond the limit is dropped.
 
 ## Canonical Timeline
 

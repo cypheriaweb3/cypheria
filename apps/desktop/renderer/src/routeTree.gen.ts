@@ -13,19 +13,23 @@ import { Route as IndexRouteImport } from "./routes/index"
 import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as AuditRouteImport } from "./routes/audit"
 import { Route as ChatDemoRouteImport } from "./routes/chat-demo"
+import { Route as CodeReviewRouteImport } from "./routes/code-review"
 import { Route as DebugRouteImport } from "./routes/debug"
 import { Route as NetworksRouteImport } from "./routes/networks"
 import { Route as PluginsRouteImport } from "./routes/plugins"
 import { Route as PoliciesRouteImport } from "./routes/policies"
-import { Route as PullRequestsRouteImport } from "./routes/pull-requests"
 import { Route as SchedulesRouteImport } from "./routes/schedules"
 import { Route as WalletsRouteImport } from "./routes/wallets"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
 import { Route as SettingsArchivedRouteImport } from "./routes/settings.archived"
+import { Route as SettingsCodeReviewRouteImport } from "./routes/settings.code-review"
 import { Route as SettingsGeneralRouteImport } from "./routes/settings.general"
 import { Route as SettingsGitRouteImport } from "./routes/settings.git"
+import { Route as SettingsHooksRouteImport } from "./routes/settings.hooks"
 import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
+import { Route as SettingsWorktreesRouteImport } from "./routes/settings.worktrees"
 import { Route as SettingsGatewaySectionIdRouteImport } from "./routes/settings.gateway.$sectionId"
+import { Route as PluginsPluginIdAppToolRouteImport } from "./routes/plugins_.$pluginId.app.$tool"
 import { Route as SettingsAgentHarnessesAgentIdSectionIdRouteImport } from "./routes/settings.agent-harnesses.$agentId.$sectionId"
 
 const IndexRoute = IndexRouteImport.update({
@@ -48,6 +52,11 @@ const ChatDemoRoute = ChatDemoRouteImport.update({
   path: "/chat-demo",
   getParentRoute: () => rootRouteImport,
 } as any)
+const CodeReviewRoute = CodeReviewRouteImport.update({
+  id: "/code-review",
+  path: "/code-review",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DebugRoute = DebugRouteImport.update({
   id: "/debug",
   path: "/debug",
@@ -66,11 +75,6 @@ const PluginsRoute = PluginsRouteImport.update({
 const PoliciesRoute = PoliciesRouteImport.update({
   id: "/policies",
   path: "/policies",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PullRequestsRoute = PullRequestsRouteImport.update({
-  id: "/pull-requests",
-  path: "/pull-requests",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SchedulesRoute = SchedulesRouteImport.update({
@@ -93,6 +97,11 @@ const SettingsArchivedRoute = SettingsArchivedRouteImport.update({
   path: "/settings/archived",
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsCodeReviewRoute = SettingsCodeReviewRouteImport.update({
+  id: "/settings/code-review",
+  path: "/settings/code-review",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
   id: "/settings/general",
   path: "/settings/general",
@@ -103,9 +112,19 @@ const SettingsGitRoute = SettingsGitRouteImport.update({
   path: "/settings/git",
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsHooksRoute = SettingsHooksRouteImport.update({
+  id: "/settings/hooks",
+  path: "/settings/hooks",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
   id: "/settings/plugins",
   path: "/settings/plugins",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsWorktreesRoute = SettingsWorktreesRouteImport.update({
+  id: "/settings/worktrees",
+  path: "/settings/worktrees",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsGatewaySectionIdRoute =
@@ -114,6 +133,11 @@ const SettingsGatewaySectionIdRoute =
     path: "/settings/gateway/$sectionId",
     getParentRoute: () => rootRouteImport,
   } as any)
+const PluginsPluginIdAppToolRoute = PluginsPluginIdAppToolRouteImport.update({
+  id: "/plugins_/$pluginId/app/$tool",
+  path: "/plugins/$pluginId/app/$tool",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsAgentHarnessesAgentIdSectionIdRoute =
   SettingsAgentHarnessesAgentIdSectionIdRouteImport.update({
     id: "/settings/agent-harnesses/$agentId/$sectionId",
@@ -126,19 +150,23 @@ export interface FileRoutesByFullPath {
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
   "/chat-demo": typeof ChatDemoRoute
+  "/code-review": typeof CodeReviewRoute
   "/debug": typeof DebugRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
-  "/pull-requests": typeof PullRequestsRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
+  "/settings/code-review": typeof SettingsCodeReviewRoute
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/git": typeof SettingsGitRoute
+  "/settings/hooks": typeof SettingsHooksRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/worktrees": typeof SettingsWorktreesRoute
   "/settings/gateway/$sectionId": typeof SettingsGatewaySectionIdRoute
+  "/plugins/$pluginId/app/$tool": typeof PluginsPluginIdAppToolRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRoutesByTo {
@@ -146,19 +174,23 @@ export interface FileRoutesByTo {
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
   "/chat-demo": typeof ChatDemoRoute
+  "/code-review": typeof CodeReviewRoute
   "/debug": typeof DebugRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
-  "/pull-requests": typeof PullRequestsRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
+  "/settings/code-review": typeof SettingsCodeReviewRoute
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/git": typeof SettingsGitRoute
+  "/settings/hooks": typeof SettingsHooksRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/worktrees": typeof SettingsWorktreesRoute
   "/settings/gateway/$sectionId": typeof SettingsGatewaySectionIdRoute
+  "/plugins/$pluginId/app/$tool": typeof PluginsPluginIdAppToolRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRoutesById {
@@ -167,19 +199,23 @@ export interface FileRoutesById {
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
   "/chat-demo": typeof ChatDemoRoute
+  "/code-review": typeof CodeReviewRoute
   "/debug": typeof DebugRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
-  "/pull-requests": typeof PullRequestsRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
+  "/settings/code-review": typeof SettingsCodeReviewRoute
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/git": typeof SettingsGitRoute
+  "/settings/hooks": typeof SettingsHooksRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/worktrees": typeof SettingsWorktreesRoute
   "/settings/gateway/$sectionId": typeof SettingsGatewaySectionIdRoute
+  "/plugins_/$pluginId/app/$tool": typeof PluginsPluginIdAppToolRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRouteTypes {
@@ -189,19 +225,23 @@ export interface FileRouteTypes {
     | "/approvals"
     | "/audit"
     | "/chat-demo"
+    | "/code-review"
     | "/debug"
     | "/networks"
     | "/plugins"
     | "/policies"
-    | "/pull-requests"
     | "/schedules"
     | "/wallets"
     | "/settings/appearance"
     | "/settings/archived"
+    | "/settings/code-review"
     | "/settings/general"
     | "/settings/git"
+    | "/settings/hooks"
     | "/settings/plugins"
+    | "/settings/worktrees"
     | "/settings/gateway/$sectionId"
+    | "/plugins/$pluginId/app/$tool"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -209,19 +249,23 @@ export interface FileRouteTypes {
     | "/approvals"
     | "/audit"
     | "/chat-demo"
+    | "/code-review"
     | "/debug"
     | "/networks"
     | "/plugins"
     | "/policies"
-    | "/pull-requests"
     | "/schedules"
     | "/wallets"
     | "/settings/appearance"
     | "/settings/archived"
+    | "/settings/code-review"
     | "/settings/general"
     | "/settings/git"
+    | "/settings/hooks"
     | "/settings/plugins"
+    | "/settings/worktrees"
     | "/settings/gateway/$sectionId"
+    | "/plugins/$pluginId/app/$tool"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   id:
     | "__root__"
@@ -229,19 +273,23 @@ export interface FileRouteTypes {
     | "/approvals"
     | "/audit"
     | "/chat-demo"
+    | "/code-review"
     | "/debug"
     | "/networks"
     | "/plugins"
     | "/policies"
-    | "/pull-requests"
     | "/schedules"
     | "/wallets"
     | "/settings/appearance"
     | "/settings/archived"
+    | "/settings/code-review"
     | "/settings/general"
     | "/settings/git"
+    | "/settings/hooks"
     | "/settings/plugins"
+    | "/settings/worktrees"
     | "/settings/gateway/$sectionId"
+    | "/plugins_/$pluginId/app/$tool"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesById: FileRoutesById
 }
@@ -250,19 +298,23 @@ export interface RootRouteChildren {
   ApprovalsRoute: typeof ApprovalsRoute
   AuditRoute: typeof AuditRoute
   ChatDemoRoute: typeof ChatDemoRoute
+  CodeReviewRoute: typeof CodeReviewRoute
   DebugRoute: typeof DebugRoute
   NetworksRoute: typeof NetworksRoute
   PluginsRoute: typeof PluginsRoute
   PoliciesRoute: typeof PoliciesRoute
-  PullRequestsRoute: typeof PullRequestsRoute
   SchedulesRoute: typeof SchedulesRoute
   WalletsRoute: typeof WalletsRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsArchivedRoute: typeof SettingsArchivedRoute
+  SettingsCodeReviewRoute: typeof SettingsCodeReviewRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsGitRoute: typeof SettingsGitRoute
+  SettingsHooksRoute: typeof SettingsHooksRoute
   SettingsPluginsRoute: typeof SettingsPluginsRoute
+  SettingsWorktreesRoute: typeof SettingsWorktreesRoute
   SettingsGatewaySectionIdRoute: typeof SettingsGatewaySectionIdRoute
+  PluginsPluginIdAppToolRoute: typeof PluginsPluginIdAppToolRoute
   SettingsAgentHarnessesAgentIdSectionIdRoute: typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 
@@ -296,6 +348,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ChatDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/code-review": {
+      id: "/code-review"
+      path: "/code-review"
+      fullPath: "/code-review"
+      preLoaderRoute: typeof CodeReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/debug": {
       id: "/debug"
       path: "/debug"
@@ -322,13 +381,6 @@ declare module "@tanstack/react-router" {
       path: "/policies"
       fullPath: "/policies"
       preLoaderRoute: typeof PoliciesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/pull-requests": {
-      id: "/pull-requests"
-      path: "/pull-requests"
-      fullPath: "/pull-requests"
-      preLoaderRoute: typeof PullRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/schedules": {
@@ -359,6 +411,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsArchivedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/settings/code-review": {
+      id: "/settings/code-review"
+      path: "/settings/code-review"
+      fullPath: "/settings/code-review"
+      preLoaderRoute: typeof SettingsCodeReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/settings/general": {
       id: "/settings/general"
       path: "/settings/general"
@@ -373,6 +432,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsGitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/settings/hooks": {
+      id: "/settings/hooks"
+      path: "/settings/hooks"
+      fullPath: "/settings/hooks"
+      preLoaderRoute: typeof SettingsHooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/settings/plugins": {
       id: "/settings/plugins"
       path: "/settings/plugins"
@@ -380,11 +446,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsPluginsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/settings/worktrees": {
+      id: "/settings/worktrees"
+      path: "/settings/worktrees"
+      fullPath: "/settings/worktrees"
+      preLoaderRoute: typeof SettingsWorktreesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/settings/gateway/$sectionId": {
       id: "/settings/gateway/$sectionId"
       path: "/settings/gateway/$sectionId"
       fullPath: "/settings/gateway/$sectionId"
       preLoaderRoute: typeof SettingsGatewaySectionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/plugins_/$pluginId/app/$tool": {
+      id: "/plugins_/$pluginId/app/$tool"
+      path: "/plugins/$pluginId/app/$tool"
+      fullPath: "/plugins/$pluginId/app/$tool"
+      preLoaderRoute: typeof PluginsPluginIdAppToolRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/settings/agent-harnesses/$agentId/$sectionId": {
@@ -402,19 +482,23 @@ const rootRouteChildren: RootRouteChildren = {
   ApprovalsRoute: ApprovalsRoute,
   AuditRoute: AuditRoute,
   ChatDemoRoute: ChatDemoRoute,
+  CodeReviewRoute: CodeReviewRoute,
   DebugRoute: DebugRoute,
   NetworksRoute: NetworksRoute,
   PluginsRoute: PluginsRoute,
   PoliciesRoute: PoliciesRoute,
-  PullRequestsRoute: PullRequestsRoute,
   SchedulesRoute: SchedulesRoute,
   WalletsRoute: WalletsRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsArchivedRoute: SettingsArchivedRoute,
+  SettingsCodeReviewRoute: SettingsCodeReviewRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsGitRoute: SettingsGitRoute,
+  SettingsHooksRoute: SettingsHooksRoute,
   SettingsPluginsRoute: SettingsPluginsRoute,
+  SettingsWorktreesRoute: SettingsWorktreesRoute,
   SettingsGatewaySectionIdRoute: SettingsGatewaySectionIdRoute,
+  PluginsPluginIdAppToolRoute: PluginsPluginIdAppToolRoute,
   SettingsAgentHarnessesAgentIdSectionIdRoute:
     SettingsAgentHarnessesAgentIdSectionIdRoute,
 }

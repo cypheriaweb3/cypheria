@@ -40,6 +40,16 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `packages/relay` | 配对、E2EE 和 relay 传输工具 |
 | `packages/ui` | 共享 UI 与会话展示原语 |
 
+内置插件：
+
+| Workspace | 职责 |
+| --- | --- |
+| `plugins` | 内置的 `cypheria-bundled` marketplace：Codex 与 Claude 的 marketplace 文件，与其列出的插件放在一起 |
+| `plugins/cypheria-app-tools` | App tools 插件：manifest 与 MCP relay，无需构建 |
+| `plugins/code-review` | `code-review` 插件及其包：manifest、`src/server` 中的 MCP relay，以及 `src/app` 中的代码审查 MCP App，构建为 `dist/app.html` |
+
+在源码 checkout 中，Agent 从 `plugins/` 安装内置插件。Server 构建会在 `apps/server/dist/marketplace` 中组装 marketplace，并以与 `node plugins/code-review/scripts/build.mjs --plugin-dir <dir>` 相同的方式打包 `code-review`，因此安装后的插件只包含 manifest、relay 与构建后的 App。
+
 未来 Marketplace 路由属于 `apps/website`；当前应用没有 Marketplace 路由、账户系统、API、schema 或 Cloudflare 存储 binding。
 
 ## 安装与验证

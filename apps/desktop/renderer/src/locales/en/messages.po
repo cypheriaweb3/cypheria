@@ -13,65 +13,25 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/composer-model-selector.tsx
-msgid "chat.agent"
-msgstr "Agent"
+#. placeholder {0}: provider.exposedModels
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "{0} models"
+msgstr "{0} models"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.derived"
-msgstr "Derived"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.fileCount"
+msgstr "{count, plural, one {# file changed} other {# files changed}}"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.estimated"
-msgstr "Estimated"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.pendingComments"
+msgstr "{count, plural, one {# review comment} other {# review comments}}"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.queried"
-msgstr "Live query"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/context-usage.tsx
-msgid "chat.context.reported"
-msgstr "Agent reported"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/composer-model-selector.tsx
-msgid "chat.speed"
-msgstr "Speed"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.group.tools"
-msgstr "Tool activity"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.group.subagents"
-msgstr "Subagent activity"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.turnDiffAvailable"
-msgstr "Turn diff available"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.computerUse.elevatedRisk"
-msgstr "Elevated risk"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.computerUse.disclosure"
-msgstr "Computer Use can interact with apps on your computer and may capture screenshots. You can stop it at any time."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.computerUse.firstUse"
-msgstr "Computer access request"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.rowSummary"
+msgstr "{path}, added lines: {additions}, deleted lines: {deletions}, comments: {comments}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -89,6 +49,15 @@ msgid "settings.general.cmdIfMultiline"
 msgstr "⌘ Enter for multiline prompts"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.range"
+msgstr "1–{lineCount}"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
+msgstr "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.revertDescription"
 msgstr "A recoverable copy will be saved before the changes are reverted."
@@ -99,9 +68,19 @@ msgid "chat.interaction.actionRequired"
 msgstr "Action required"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.activity"
-msgstr "Activity"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prActions"
+msgstr "Actions for pull request #{number}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.addComment"
+msgstr "Add comment"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions.placeholder"
+msgstr "Add commit message guidance…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -109,9 +88,74 @@ msgid "chat.prompt.addFiles"
 msgstr "Add files"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.addFolder"
+msgstr "Add folder"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.project.addFolders"
 msgstr "Add folders Codex can read and edit"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions.placeholder"
+msgstr "Add pull request guidance…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.addToChat"
+msgstr "Add to chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.addPrToChat"
+msgstr "Add to chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.addedWorkspaceDirectories"
+msgstr "Added"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.added"
+msgstr "Added"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions.description"
+msgstr "Added to commit message generation prompts"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions.description"
+msgstr "Added to PR title/description generation prompts"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address"
+msgstr "Address"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.fixComments.prompt"
+msgstr "Address the attached review comments for {url}. Verify that the repository and checked-out branch match this pull request before editing. Make the smallest safe changes for actionable feedback, and explain anything that needs clarification or is already addressed."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/composer-model-selector.tsx
+msgid "chat.agent"
+msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentTools"
+msgstr "Agent browser tools"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig"
+msgstr "Agent defaults"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -119,14 +163,21 @@ msgid "settings.agentHarnesses"
 msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.instructions"
-msgstr "Agent instructions"
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.reported"
+msgstr "Agent reported"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateAll"
-msgstr "All"
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Agents"
+msgstr "Agents"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "AI gateway"
+msgstr "AI gateway"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "All time"
+msgstr "All time"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -144,6 +195,49 @@ msgid "chat.interaction.alwaysAllow"
 msgstr "Always allow"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask.description"
+msgstr "Always ask to edit external files and use the internet"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.upstreamRefresh.ariaLabel"
+msgstr "Always fetch upstream before creating worktrees"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.upstreamRefresh.label"
+msgstr "Always fetch upstream before creating worktrees"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.forcePush.ariaLabel"
+msgstr "Always force push"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.forcePush.label"
+msgstr "Always force push"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "An Agent set to a routing group has each request served by one of its members, by the group's routing."
+msgstr "An Agent set to a routing group has each request served by one of its members, by the group's routing."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.answer"
+msgstr "Answer"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "API port"
+msgstr "API port"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/model-context.tsx
+msgid "extension.context.label"
+msgstr "App context"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "Appearance"
@@ -159,9 +253,19 @@ msgid "chat.approval"
 msgstr "Approval"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.approve"
-msgstr "Approve"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve"
+msgstr "Approve for me"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.approved"
+msgstr "Approved"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.approvedBadge"
+msgstr "Approved"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -184,6 +288,11 @@ msgid "navigation.archiveProjectChats"
 msgstr "Archive chats"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.archived"
+msgstr "Archived"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.group.archived"
 msgstr "Archived"
@@ -204,9 +313,40 @@ msgid "chat.panel.artifacts"
 msgstr "Artifacts"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: entrypoint.title
+#: renderer/src/components/extensions/global-app-page.tsx
+msgid "extension.global.placeholder"
+msgstr "Ask about {0}"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/code-review.tsx
+msgid "codeReview.chat.placeholder"
+msgstr "Ask about this pull request"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.placeholderShort"
 msgstr "Ask anything…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask"
+msgstr "Ask for approval"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrSubmit"
+msgstr "Attach"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPr"
+msgstr "Attach existing pull request…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrTitle"
+msgstr "Attach pull request"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -214,9 +354,44 @@ msgid "navigation.auditLog"
 msgstr "Audit log"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.author"
+msgstr "Author"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.authored"
+msgstr "Authored by me"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.auto"
+msgstr "Auto"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.ariaLabel"
+msgstr "Auto-delete limit"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.label"
+msgstr "Auto-delete limit"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.watchAutoMerge"
-msgstr "Auto merge watched PRs"
+msgid "settings.git.pullRequestWatch.autoMerge.ariaLabel"
+msgstr "Auto-merge when ready"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.autoMerge.label"
+msgstr "Auto-merge when ready"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.disabled"
+msgstr "Automatic deletion is disabled. Cypheria will not prune old worktrees automatically. Re-enable it to use this saved limit again."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -224,24 +399,35 @@ msgid "settings.language.automatic"
 msgstr "Automatic detection"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.autoCleanup"
-msgstr "Automatic worktree cleanup"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.ariaLabel"
+msgstr "Automatically delete old worktrees"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.label"
+msgstr "Automatically delete old worktrees"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.back"
+msgstr "Back"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
+#: renderer/src/components/code-review/sidebar.tsx
 msgid "settings.backToWorkspace"
 msgstr "Back to workspace"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.base"
-msgstr "Base branch"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.processes"
+msgstr "Background processes"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.bestEffort"
-msgstr "Best effort"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.baseBranch"
+msgstr "Base branch"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -252,6 +438,11 @@ msgstr "Bottom"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.bottomPanelControl.title"
 msgstr "Bottom panel control"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.label"
+msgstr "Branch"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -265,28 +456,34 @@ msgstr "Branch"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.branchPrefix"
+msgid "settings.git.branchPrefix.ariaLabel"
 msgstr "Branch prefix"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.branches"
-msgstr "Branches and Review"
+msgid "settings.git.branchPrefix.label"
+msgstr "Branch prefix"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchesSection"
+msgstr "Branches"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.browser"
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.section"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.browser"
-msgstr "Browser"
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tabs"
+msgstr "Browser tabs"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -295,6 +492,7 @@ msgstr "By project"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/create-pull-request-dialog.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "common.cancel"
 msgstr "Cancel"
@@ -302,7 +500,13 @@ msgstr "Cancel"
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/components/project-create-dialog.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -311,14 +515,39 @@ msgid "git.review.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.cancel"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.cancelWorktree"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.cancelled"
 msgstr "Cancelled"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.mediaUnavailable"
+msgstr "Cannot be shown"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.syncConfirm"
+msgstr "Change this thread's workspace directories?"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.changeThreadWorkspace"
+msgstr "Change workspace directories?"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.changedFiles"
+msgstr "Changed files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.changesRequestedBadge"
+msgstr "Changes requested"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -336,9 +565,24 @@ msgid "navigation.deleteSectionDescription"
 msgstr "Chats in this section will return to Recents."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.checks"
-msgstr "Checks"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksFailing"
+msgstr "Checks failing"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksPending"
+msgstr "Checks pending"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.checksSuccessful"
+msgstr "Checks successful"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.choose"
+msgstr "Choose a chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -346,9 +590,24 @@ msgid "chat.project.validation"
 msgstr "Choose a folder and enter a project name."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.choose"
+msgstr "Choose branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.chooseCustomSound"
 msgstr "Choose custom sound…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.description"
+msgstr "Choose how Cypheria merges pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.choose"
+msgstr "Choose project"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -366,13 +625,38 @@ msgid "settings.general.chooseFolder"
 msgstr "Choose…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "common.close"
-msgstr "Close"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.clearComments"
+msgstr "Clear"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.close"
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clear"
+msgstr "Clear"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.clear"
+msgstr "Clear prompt"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.clearSite"
+msgstr "Clear site data"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDappDescription"
+msgstr "Clears cookies, storage, and cache used by dApp tabs. Wallet permissions are kept."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWebDescription"
+msgstr "Clears cookies, storage, and cache used by web tabs."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "common.close"
 msgstr "Close"
 
 #. js-lingui-explicit-id
@@ -381,9 +665,14 @@ msgid "chat.workspace.closeBottomPanel"
 msgstr "Close"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.closeTitle"
-msgstr "Close pull request?"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.close"
+msgstr "Close summary"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.close"
+msgstr "Close tab"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -391,19 +680,74 @@ msgid "chat.workspace.closeTerminal"
 msgstr "Close terminal"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateClosed"
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.closeSharedTerminalConfirm"
+msgstr "Close this shared terminal for every connected client?"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prClosed"
 msgstr "Closed"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.codeChanges"
-msgstr "Code changes"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.closedBadge"
+msgstr "Closed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.coAuthors"
+msgstr "Co-authors, separated by semicolons"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.codeReview"
+msgstr "Code Review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.codeReview"
+msgstr "Code Review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.title"
+msgstr "Code Review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewBranch"
+msgstr "Code review against {branch}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.reviewUncommitted"
+msgstr "Code review: uncommitted changes"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.subagent.codexCollaboration"
 msgstr "Codex collaboration"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.upstreamRefresh.description"
+msgstr "Codex normally picks up branch updates during regular Git activity. This also fetches before each new worktree."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix.placeholder"
+msgstr "codex/"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseAll"
+msgstr "Collapse all diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.collapseFile"
+msgstr "Collapse file"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -416,19 +760,72 @@ msgid "git.review.commitSource"
 msgstr "Commit"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitSection"
+msgstr "Commit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
+msgid "git.review.commit"
+msgstr "Commit staged"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.commit"
+msgstr "Commit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.includeLocalChanges"
+msgstr "Commit and include local changes"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
+msgid "git.review.commitAndPush"
+msgstr "Commit and push"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.commitInstructions"
+msgid "settings.git.commitInstructions.ariaLabel"
+msgstr "Commit instructions"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions.label"
 msgstr "Commit instructions"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
 msgid "git.review.commitMessage"
 msgstr "Commit message"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commit"
-msgstr "Commit staged"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.messagePlaceholder"
+msgstr "Commit message (leave blank to generate)…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitOrPush"
+msgstr "Commit or push"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.commitTo"
+msgstr "Commit to"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.compact"
+msgstr "Compact"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.compact"
+msgstr "Compact context"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -441,19 +838,40 @@ msgid "settings.general.composerSection"
 msgstr "Composer"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.connectedApp"
-msgstr "Connected GitHub App"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.firstUse"
+msgstr "Computer access request"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.disclosure"
+msgstr "Computer Use can interact with apps on your computer and may capture screenshots. You can stop it at any time."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.confirm"
+msgstr "Confirm"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/elicitation-form.tsx
 msgid "common.continue"
 msgstr "Continue"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.conversation"
-msgstr "Conversation"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.continueGitHub"
+msgstr "Continue in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.continueGitLab"
+msgstr "Continue in GitLab"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.autoMerge.description"
+msgstr "Continue watching until the pull request is merged"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -461,14 +879,24 @@ msgid "chat.error.conversation"
 msgstr "Conversation error"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.markDraft"
-msgstr "Convert to draft"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.conversations.title"
+msgstr "Conversations"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.copy"
 msgstr "Copy"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyMenu"
+msgstr "Copy"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyAbsolutePath"
+msgstr "Copy absolute path"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -481,14 +909,73 @@ msgid "navigation.copyMarkdown"
 msgstr "Copy chat as Markdown"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.copyCleanup"
+msgstr "Copy cleanup command"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyContents"
+msgstr "Copy file contents"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.copyGitApply"
+msgstr "Copy git apply command"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyGitHubLink"
+msgstr "Copy GitHub link"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.copyPrLink"
+msgstr "Copy link"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.copy"
+msgstr "Copy link"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.copyChangesOnMove"
+msgstr "Copy local changes when moving thread"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.copyPath"
+msgstr "Copy path"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRootPath"
+msgstr "Copy path relative to folder"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.copyRepoPath"
+msgstr "Copy path relative to repository"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.copyWorkingDirectory"
 msgstr "Copy working directory"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Cost"
+msgstr "Cost"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.error"
 msgstr "Could not search chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.retry"
+msgstr "Couldn’t load. Try again"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -501,39 +988,59 @@ msgid "git.review.createBranch"
 msgstr "Create"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.createDraft"
-msgstr "Create draft"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.description"
+msgstr "Create an isolated copy of {projectName} so this chat can work in parallel. Other project source folders are accessed directly. The selected branch is used as the starting point."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.createHint"
-msgstr "Create from the pushed current branch"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.draft"
+msgstr "Create as draft"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.createHint"
-msgstr "Create from the pushed current branch"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createDraft"
+msgstr "Create draft PR"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.create"
-msgstr "Create MR"
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.createDraftPullRequest.ariaLabel"
+msgstr "Create draft pull requests"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.create"
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.createDraftPullRequest.label"
+msgstr "Create draft pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.gitlabTitle"
+msgstr "Create merge request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createMergeRequest"
+msgstr "Create merge request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.title"
+msgstr "Create PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.create"
+msgstr "Create PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.createPr"
 msgstr "Create PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.project.create"
 msgstr "Create project"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.prDraft"
-msgstr "Create PRs as drafts by default"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -551,12 +1058,65 @@ msgid "navigation.sort.created"
 msgstr "Date created"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createdMergeRequest"
+msgstr "Created merge request for {branch}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.created"
+msgstr "Created PR for {branch}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.githubAccount"
+msgstr "Creates it with the GitHub account linked in ChatGPT."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.cli"
+msgstr "Creates it with the GitHub CLI."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.gitlabAccount"
+msgstr "Creates it with the GitLab account linked in ChatGPT."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.usage.credits"
 msgstr "credits"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+#: renderer/src/components/thread-files-panel.tsx
+msgid "chat.summary.workspace.cwd"
+msgstr "Current working directory"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.projectlessDirectoryCreationWarning"
+msgstr "The current working directory will change to a new managed projectless directory containing work/ and outputs/."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDapp"
+msgstr "dApp browsing data"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp.hint"
+msgstr "dApp tabs share a separate profile and can use your wallet."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.date"
+msgstr "Date"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/elicitation-form.tsx
+#: renderer/src/components/extensions/extension-elicitations.tsx
 msgid "chat.interaction.decline"
 msgstr "Decline"
 
@@ -576,11 +1136,6 @@ msgid "settings.workspace.terminalLocation.label"
 msgstr "Default terminal location"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.forcePush"
-msgstr "Default to force push with lease"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.standaloneChat"
 msgstr "Default to standalone chat"
@@ -588,6 +1143,11 @@ msgstr "Default to standalone chat"
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.delete"
+msgstr "Delete"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.delete"
 msgstr "Delete"
 
 #. js-lingui-explicit-id
@@ -616,14 +1176,74 @@ msgid "chat.interaction.deny"
 msgstr "Deny"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.disableAutoMerge"
-msgstr "Disable auto merge"
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.derived"
+msgstr "Derived"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.activity"
-msgstr "Discussion and reviews"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.bodyField"
+msgstr "Description"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.detachPr"
+msgstr "Detach from chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.general.reviewDelivery.detached"
+msgstr "Detached"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prDetached"
+msgstr "Detached #{number} from this chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.detached"
+msgstr "Detached HEAD"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.detailed"
+msgstr "Detailed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.options"
+msgstr "Diff options"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.description"
+msgstr "Directory where Cypheria creates managed worktrees. Leave blank to use the default location"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.disable"
+msgstr "Disable automatic deletion"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.title"
+msgstr "Disable automatic worktree deletion?"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode.ariaLabel"
+msgstr "Disable Git-based diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode.label"
+msgstr "Disable Git-based diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment"
+msgstr "Dismiss"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -632,14 +1252,29 @@ msgid "settings.language.label"
 msgstr "Display language"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.clear"
+msgstr "Don't work in a project"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "chat.done"
 msgstr "Done"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.draft"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prDraft"
 msgstr "Draft"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.draftBadge"
+msgstr "Draft"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.drafts"
+msgstr "Drafts"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -658,6 +1293,7 @@ msgstr "Edit"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "navigation.editProject"
 msgstr "Edit project"
 
@@ -667,9 +1303,9 @@ msgid "navigation.editSection"
 msgstr "Edit section"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.enableAutoMerge"
-msgstr "Enable auto merge"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.elevatedRisk"
+msgstr "Elevated risk"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -681,10 +1317,29 @@ msgstr "Enable permission notifications"
 msgid "settings.general.questionNotifications"
 msgstr "Enable question notifications"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Enable the AI gateway"
+msgstr "Enable the AI gateway"
+
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.enterOption"
 msgstr "Enter"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.placeholder"
+msgstr "Enter a URL"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.empty"
+msgstr "Enter a URL to open a page."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine.invalid"
+msgstr "Enter a valid whole line number"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -692,9 +1347,23 @@ msgid "chat.workspace.enterFullscreen"
 msgstr "Enter full screen"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.threadError"
+msgstr "Error"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.error"
 msgstr "Error"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Errors"
+msgstr "Errors"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.estimated"
+msgstr "Estimated"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -717,9 +1386,33 @@ msgid "chat.workspace.exitFullscreen"
 msgstr "Exit full screen"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandAll"
+msgstr "Expand all diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.expandFile"
+msgstr "Expand file"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.failed"
 msgstr "Failed"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Failed"
+msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-settings.tsx
+msgid "settings.git.instructions.autoSave.error"
+msgstr "Failed to save instructions"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.loading.body"
+msgstr "Fetching worktree details…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -737,9 +1430,39 @@ msgid "chat.files"
 msgstr "files"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.active"
+msgstr "Finish the current turn before changing directories."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.finishTurnBeforeWorkspaceMove"
+msgstr "Finish the current turn before changing the workspace."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.githubBrowser"
+msgstr "Finishes in GitHub in your browser."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.gitlabBrowser"
+msgstr "Finishes in GitLab in your browser."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.fixChecks.prompt"
+msgstr "Fix the failing checks for {url}. Verify that the repository and checked-out branch match this pull request before editing. Read the check output, make the smallest safe change, run the relevant checks, then commit and push the fix."
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.followUp"
 msgstr "Follow-up behavior"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.instructions.placeholder"
+msgstr "For example: Comment /merge after checks pass and approve unrelated Chromatic changes…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -747,9 +1470,38 @@ msgid "navigation.forkChat"
 msgstr "Fork chat"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.reviewFull"
-msgstr "Full"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.fork"
+msgstr "Fork in new chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.forward"
+msgstr "Forward"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess"
+msgstr "Full access"
+
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "Gateway"
+msgstr "Gateway"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.gateway"
+msgstr "Gateway"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Gateway port"
+msgstr "Gateway port"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.general"
+msgstr "General"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -767,8 +1519,13 @@ msgid "settings.general"
 msgstr "General"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.generateMessage"
+msgstr "Generate"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.title"
+msgid "settings.section.git-settings"
 msgstr "Git"
 
 #. js-lingui-explicit-id
@@ -777,14 +1534,9 @@ msgid "settings.git"
 msgstr "Git"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.heading"
-msgstr "GitHub pull requests"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.heading"
-msgstr "GitLab merge requests"
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.goToLine"
+msgstr "Go to line"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -807,14 +1559,54 @@ msgid "chat.workspace.hideBottomPanel"
 msgstr "Hide bottom panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.minimize"
+msgstr "Hide chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideGenerated"
+msgstr "Hide generated files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.hide"
+msgstr "Hide git blame"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.hideImports"
+msgstr "Hide imports"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.hideTerminalPanel"
 msgstr "Hide terminal panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.dismissAgentComment.tooltip"
+msgstr "Hide this comment from the diff; it stays in the conversation"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrPlaceholder"
+msgstr "https://github.com/owner/repository/pull/1"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.ignoreWhitespace"
+msgstr "Ignore whitespace changes"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.images"
 msgstr "Images"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.cwdWarning"
+msgstr "Important: the current working directory will change. Future commands and Agent turns will run from the new first directory."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -823,28 +1615,75 @@ msgstr "In one list"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.includeLocalChanges"
+msgstr "Include local changes"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
+msgid "git.review.includeUnstaged"
+msgstr "Include unstaged changes"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.init"
 msgstr "Initialize repository"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.general.reviewDelivery.inline"
+msgstr "Inline"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.input"
 msgstr "Input"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Installing…"
+msgstr "Installing…"
+
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.group.integrations"
 msgstr "Integrations"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "It was used without reaching the gateway."
+msgstr "It was used without reaching the gateway."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its model was changed outside the gateway."
+msgstr "Its model was changed outside the gateway."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Its settings no longer send it through the gateway."
+msgstr "Its settings no longer send it through the gateway."
+
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.menuBarDescription"
-msgstr "Keep Cypheria in the macOS menu bar when the main window is closed"
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile"
+msgstr "Jump to file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.placeholder"
+msgstr "Jump to file…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.keep"
+msgstr "Keep automatic deletion"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.plainTextDescription"
 msgstr "Keep code, Markdown, and links as literal text while writing messages"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.menuBarDescription"
+msgstr "Keep Cypheria in the macOS menu bar when the main window is closed"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -856,6 +1695,10 @@ msgstr "Keep the title short and recognizable."
 msgid "settings.general.preventSleepDescription"
 msgstr "Keep your computer awake while Cypheria is running a task"
 
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Key"
+msgstr "Key"
+
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.languageLabel"
@@ -866,20 +1709,58 @@ msgstr "Language"
 msgid "settings.language.description"
 msgstr "Language for the app UI"
 
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 30 days"
+msgstr "Last 30 days"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Last 7 days"
+msgstr "Last 7 days"
+
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.lastTurn"
 msgstr "Last turn"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.reviewLastTurn"
-msgstr "Last turn only"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.updated"
 msgstr "Last updated"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout"
+msgstr "Layout"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.layout"
+msgstr "Layout"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.titlePlaceholder"
+msgstr "Leave empty to generate"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.bodyPlaceholder"
+msgstr "Leave empty to generate"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentToolsDescription"
+msgstr "Lets Agents open and control browser tabs in their own conversation, including signed-in pages and dApp tabs. Wallet signing still follows your policies and approvals."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.queried"
+msgstr "Live query"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.fullFiles"
+msgstr "Load full files"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/plugins-page.tsx
@@ -909,19 +1790,9 @@ msgid "git.review.diffLoading"
 msgstr "Loading diff…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.diffLoading"
-msgstr "Loading diff…"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.loadingEarlier"
 msgstr "Loading earlier messages…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.loading"
-msgstr "Loading merge request…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -929,9 +1800,33 @@ msgid "git.review.loading"
 msgstr "Loading repository changes…"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.description"
-msgstr "Local Codex Git and pull request preferences"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.loading"
+msgstr "Loading…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.loading"
+msgstr "Loading…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.local"
+msgstr "Local branches"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.environmentConfig"
+msgstr "Local environment config path"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/thread-panel.tsx
+msgid "chat.panel.pullRequest.loading"
+msgstr "Looking for this chat’s pull request…"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
+msgstr "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -954,59 +1849,34 @@ msgid "navigation.markAsUnread"
 msgstr "Mark as unread"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.markReady"
-msgstr "Mark ready"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp"
 msgstr "MCP App"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.merge"
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.merge"
 msgstr "Merge"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.mergeCommit"
-msgstr "Merge commit"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.mergeMethod"
-msgstr "Merge method"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeTitle"
-msgstr "Merge pull request?"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.comment"
-msgstr "Merge request comment"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.description"
-msgstr "Merge request description"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.number"
-msgstr "Merge request number"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.title"
-msgstr "Merge request title"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateMerged"
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prMerged"
 msgstr "Merged"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.mergedBadge"
+msgstr "Merged"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "extension.global.composer"
+msgstr "Message"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.actions"
+msgstr "Message actions"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1014,9 +1884,23 @@ msgid "chat.prompt.label"
 msgstr "Message Cypheria"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/composer-model-selector.tsx
 msgid "chat.model"
 msgstr "Model"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Model"
+msgstr "Model"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prMore"
+msgstr "More pull request actions"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.moveChat"
+msgstr "Move chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -1027,6 +1911,11 @@ msgstr "Move terminal right"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.moveTerminalBottom"
 msgstr "Move terminal to bottom"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.ownerHint"
+msgstr "Move the chat in this worktree elsewhere before deleting it"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1040,13 +1929,33 @@ msgstr "Move thread to checkout"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.changeThreadWorkspaceDescription"
+msgstr "Moving this chat also updates the working directory and workspace directories used by future Agent turns."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.manualReview.personalInstructionsHeading"
+msgstr "My custom review instructions:"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.needsMyReview"
+msgstr "Needs my review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.needsMyTeamsReview"
+msgstr "Needs my team's review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "Networks"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.never"
-msgstr "Never"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.newBranch"
+msgstr "New branch"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1060,29 +1969,44 @@ msgid "navigation.newChat"
 msgstr "New chat"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.newChat"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.untitled"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.newChat"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.newChatInNamedProject"
 msgstr "New chat in {projectName}"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.newTitle"
-msgstr "New merge request title"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.newChat"
+msgstr "New chat in this worktree"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.editBody"
-msgstr "New pull request body"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.editTitle"
-msgstr "New pull request title"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.new"
+msgstr "New project"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.newSection"
 msgstr "New section"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.new"
+msgstr "New tab"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1105,6 +2029,11 @@ msgid "chat.panel.browser.empty"
 msgstr "No browser session is open"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChanges"
+msgstr "No changes"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.empty"
 msgstr "No changes in this source"
@@ -1115,9 +2044,19 @@ msgid "navigation.noChats"
 msgstr "No chats yet"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.noChecks"
-msgstr "No checks"
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.noRecent"
+msgstr "No chats yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.noChecks"
+msgstr "No CI checks"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.conversations.empty"
+msgstr "No conversations linked to this worktree."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1131,11 +2070,6 @@ msgstr "No files match this search"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.files.empty"
-msgstr "No files were produced"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.goal.empty"
 msgstr "No goal is set for this task"
 
@@ -1143,6 +2077,10 @@ msgstr "No goal is set for this task"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.images.empty"
 msgstr "No images in this conversation"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "No installed Agent is enabled."
+msgstr "No installed Agent is enabled."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1155,6 +2093,11 @@ msgid "settings.language.empty"
 msgstr "No languages found"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.noEnvironment"
+msgstr "No local environment"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.noMatches"
 msgstr "No matching archived chats"
@@ -1163,6 +2106,11 @@ msgstr "No matching archived chats"
 #: renderer/src/components/chat-search.tsx
 msgid "search.noMatches"
 msgstr "No matching chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.jumpToFile.empty"
+msgstr "No matching files"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1175,11 +2123,6 @@ msgid "navigation.noPinnedChats"
 msgstr "No pinned chats"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.noChecks"
-msgstr "No pipeline checks"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.plan.empty"
 msgstr "No plan is available"
@@ -1190,14 +2133,18 @@ msgid "settings.archived.noProject"
 msgstr "No project"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.empty"
+msgstr "No projects found"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noProjects"
 msgstr "No projects yet"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.noPullRequests"
-msgstr "No open pull requests"
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "No provider yet."
+msgstr "No provider yet."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1208,6 +2155,10 @@ msgstr "No recent chats yet."
 #: renderer/src/components/app-shell.tsx
 msgid "settings.search.empty"
 msgstr "No results found"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "No routing group yet."
+msgstr "No routing group yet."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1225,6 +2176,30 @@ msgid "git.review.noTextDiff"
 msgstr "No text diff available"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.empty.title"
+msgstr "No worktrees yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.noWorkspaceDirectories"
+msgstr "None"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Not installed"
+msgstr "Not installed"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Not ready"
+msgstr "Not ready"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.empty"
+msgstr "Nothing to summarize yet"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.notificationSound"
 msgstr "Notification sound"
@@ -1235,13 +2210,47 @@ msgid "settings.general.notificationsSection"
 msgstr "Notifications"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.keepCount.description"
+msgstr "Number of managed worktrees to keep before older ones are pruned automatically. Cypheria snapshots worktrees before deleting, so pruned worktrees should always be restorable."
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.offOption"
 msgstr "Off"
 
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Off"
+msgstr "Off"
+
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.stateOpen"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve.description"
+msgstr "Only ask for actions detected as potentially unsafe"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.unsupported"
+msgstr "Only http and https pages can be opened."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode.description"
+msgstr "Only show \"Last Turn\" in the Changes panel and disable Unstaged/Staged/Branch to avoid git operations"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.open"
+msgstr "Open"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prOpen"
+msgstr "Open"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/extension-elicitations.tsx
+msgid "extension.form.openLink"
 msgstr "Open"
 
 #. js-lingui-explicit-id
@@ -1250,14 +2259,99 @@ msgid "chat.panel.empty"
 msgstr "Open a panel tab to inspect task context"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp"
+msgstr "Open as dApp"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web"
+msgstr "Open as web page"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.openBottomPanelTab"
 msgstr "Open bottom panel tab"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.openForm"
-msgstr "Open form in browser"
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.openDapp"
+msgstr "Open dApp tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.devtools"
+msgstr "Open developer tools"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.openFile"
+msgstr "Open file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.heading"
+msgstr "Open file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab.tooltip"
+msgstr "Open file in a tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openExternally"
+msgstr "Open in default app"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.openFile"
+msgstr "Open in Files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.openFull"
+msgstr "Open in full chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.openGitHub"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.openInGitHub"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openPrInGitHub"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.github"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.openGitLab"
+msgstr "Open in GitLab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openPrInGitLab"
+msgstr "Open in GitLab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.gitlab"
+msgstr "Open in GitLab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.openInTab"
+msgstr "Open in tab"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1265,9 +2359,29 @@ msgid "navigation.openProjectFolder"
 msgstr "Open project folder"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.openReview"
+msgstr "Open Review"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.openSidePanelTab"
 msgstr "Open side panel tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.open"
+msgstr "Open tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.createdThread"
+msgstr "Open the new chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.openingTerminal"
+msgstr "Opening terminal…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1278,6 +2392,22 @@ msgstr "Organize sidebar"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.output"
 msgstr "Output"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.outputs"
+msgstr "Outputs"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileOutside"
+msgstr "Outside this chat's folders"
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+#: renderer/src/components/git-review-panel.tsx
+msgid "chat.markdown.priority"
+msgstr "P{priority}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1305,14 +2435,24 @@ msgid "navigation.pin"
 msgstr "Pin"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.pin"
+msgstr "Pin pull request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.pin"
+msgstr "Pin summary"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pinned"
 msgstr "Pinned"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.checks"
-msgstr "Pipeline checks"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.pinned"
+msgstr "Pinned"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1320,9 +2460,15 @@ msgid "settings.general.plainText"
 msgstr "Plain text composer"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.plan"
 msgstr "Plan"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.manualReview.prompt"
+msgstr "Please run a private review of {url}. Look for actionable bugs and assess the overall impact. Use a fresh reviewer subagent without prior chat context. Don’t change code or send or post anything on my behalf."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1345,29 +2491,14 @@ msgid "settings.general.popoutHotkey"
 msgstr "Popout Window hotkey"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.postComment"
-msgstr "Post comment"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.postComment"
-msgstr "Post comment"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.prInstructions"
-msgstr "PR instructions"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.watchInstructions"
-msgstr "PR watch instructions"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "Preferences"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix.description"
+msgstr "Prefix used when Cypheria creates new branches"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1378,6 +2509,11 @@ msgstr "Press shortcut…"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.preventSleep"
 msgstr "Prevent sleep while running"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.primary"
+msgstr "Primary"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1391,6 +2527,7 @@ msgstr "Project"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "navigation.projectName"
 msgstr "Project name"
 
@@ -1415,37 +2552,68 @@ msgid "navigation.projects"
 msgstr "Projects"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.body"
-msgstr "Pull request body"
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.providers"
+msgstr "Providers"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Providers"
+msgstr "Providers"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.commentBody"
-msgstr "Pull request comment"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.pullRequest"
+msgstr "Pull request"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewBody"
-msgstr "Pull request review"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.listState"
-msgstr "Pull request state"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.title"
-msgstr "Pull request title"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.actions"
+msgstr "Pull request actions"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.pullRequests"
+msgid "settings.git.prInstructions.ariaLabel"
+msgstr "Pull request instructions"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions.label"
+msgstr "Pull request instructions"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.ariaLabel"
+msgstr "Pull request merge method"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestMergeMethod.label"
+msgstr "Pull request merge method"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrUrl"
+msgstr "Pull request or merge request URL"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.instructions.ariaLabel"
+msgstr "Pull request watch instructions"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.pullRequests"
 msgstr "Pull requests"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.unsupported"
+msgstr "Pull requests need an origin remote on github.com or gitlab.com."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+#: renderer/src/components/thread-git-actions.tsx
 msgid "git.review.push"
 msgstr "Push"
 
@@ -1475,19 +2643,19 @@ msgid "chat.state.ready"
 msgstr "Ready"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.ready"
-msgstr "Ready"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.reasoning"
 msgstr "Reasoning"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/composer-model-selector.tsx
 msgid "chat.reasoningEffort"
 msgstr "Reasoning effort"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.recents"
+msgstr "Recent"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1495,9 +2663,39 @@ msgid "navigation.recentChats"
 msgstr "Recent chats"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.recent"
+msgstr "Recent chats"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.merged"
+msgstr "Recently merged"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.recents"
 msgstr "Recents"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.description"
+msgstr "Recommended for most users. Turn this off only if you want to manage old worktrees and disk usage yourself."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.refresh"
+msgstr "Refresh"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.refresh"
+msgstr "Refresh"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.reload"
+msgstr "Reload"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1506,8 +2704,19 @@ msgstr "remote"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/model-context.tsx
 msgid "common.remove"
 msgstr "Remove"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.removeComment"
+msgstr "Remove"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeFolder"
+msgstr "Remove folder"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1520,14 +2729,24 @@ msgid "navigation.removeFromSection"
 msgstr "Remove from section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeLocalProject"
+msgstr "Remove local project"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProject"
 msgstr "Remove project"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.removeReviewer"
-msgstr "Remove reviewer"
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removedWorkspaceDirectories"
+msgstr "Removed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.removed"
+msgstr "Removed"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1539,20 +2758,9 @@ msgstr "Rename"
 msgid "navigation.renameChat"
 msgstr "Rename chat"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reopen"
-msgstr "Reopen"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.requestChanges"
-msgstr "Request changes"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.requestReviewer"
-msgstr "Request reviewer"
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Requests"
+msgstr "Requests"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1565,9 +2773,18 @@ msgid "chat.workspace.resizeSidePanel"
 msgstr "Resize side panel"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.restartRoot"
-msgstr "Restart Server to use the new worktree root."
+#: renderer/src/components/code-review/host.ts
+msgid "codeReviewPlugin.fixConflicts.prompt"
+msgstr "Resolve the merge conflicts for {url}. Verify that the repository and checked-out branch match this pull request; never modify an unrelated checkout. Fetch the latest target branch, merge or rebase as appropriate for this repository, resolve the conflicts, and run the relevant checks. Then commit and push the resolution."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Restart"
+msgstr "Restart"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.restart"
+msgstr "Restart the Server to use the new root."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -1588,6 +2805,16 @@ msgstr "Restore chat"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.description"
 msgstr "Restore chats to the sidebar or permanently delete ones you no longer need."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.results"
+msgstr "Results"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.retryWorktree"
+msgstr "Retry"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1615,19 +2842,29 @@ msgid "chat.panel.review"
 msgstr "Review"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewComment"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentBody"
 msgstr "Review comment"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.reviewMode"
-msgstr "Review mode"
+msgid "settings.general.reviewDelivery.label"
+msgstr "Review delivery"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewer"
-msgstr "Reviewer login or team"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.description"
+msgstr "Review skipped {count} untracked files to stay responsive. If they are generated, ignore or clean them up, then refresh."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewind"
+msgstr "Rewind to here"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewindReplaceDraft"
+msgstr "Rewind will replace the current composer draft. Continue?"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1635,24 +2872,53 @@ msgid "settings.workspace.terminalLocation.right"
 msgstr "Right"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.routing"
+msgstr "Routing"
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Routing groups"
+msgstr "Routing groups"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.threadRunning"
+msgstr "Running"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.running"
+msgstr "Running"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.running"
 msgstr "Running"
 
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running"
+msgstr "Running"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Running since"
+msgstr "Running since"
+
+#. placeholder {0}: view.version
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
+msgstr "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
+
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "navigation.save"
 msgstr "Save"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.save"
-msgstr "Save changes"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.save"
-msgstr "Save Git settings"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.saveAs"
+msgstr "Save as…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1660,9 +2926,14 @@ msgid "navigation.saveSection"
 msgstr "Save section"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.saveTitle"
-msgstr "Save title"
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.saveThreadForTerminal"
+msgstr "Save this conversation as a thread to use terminals."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-settings.tsx
+msgid "settings.git.instructions.autoSave.saved"
+msgstr "Saved"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1672,6 +2943,11 @@ msgstr "Saved reverts"
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.schedules"
+msgstr "Schedules"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.schedules"
 msgstr "Schedules"
 
 #. js-lingui-explicit-id
@@ -1686,14 +2962,14 @@ msgid "navigation.search"
 msgstr "Search"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.searchAction"
-msgstr "Search"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.search"
 msgstr "Search archived chats"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.searchBaseBranches"
+msgstr "Search base branches"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1721,8 +2997,18 @@ msgid "settings.language.search"
 msgstr "Search languages"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.search"
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.searchPlaceholder"
+msgstr "Search or paste a PR link"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.search"
+msgstr "Search projects"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.search"
 msgstr "Search pull requests"
 
 #. js-lingui-explicit-id
@@ -1751,6 +3037,21 @@ msgid "navigation.section"
 msgstr "Section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options.sections"
+msgstr "Sections"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.browser.description"
+msgstr "Select a file from the workspace tree"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.selectBaseBranch"
+msgstr "Select base branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.selectBranch"
 msgstr "Select branch"
@@ -1766,14 +3067,35 @@ msgid "chat.prompt.send"
 msgstr "Send"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "extension.global.send"
+msgstr "Send"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.sendShortcut"
 msgstr "Send shortcut"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.sendComments"
+msgstr "Send to Agent"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: item.origin.title
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.fromApp"
+msgstr "Sent by {0}"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.popoutHotkeyDescription"
 msgstr "Set a global shortcut for Popout Window. Leave unset to keep it off."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.setPrimary"
+msgstr "Set as primary"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1783,6 +3105,11 @@ msgstr "Set when Cypheria alerts you that it's finished"
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.title"
+msgstr "Settings"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/plugin-extension-settings.tsx
+msgid "extension.settings.title"
 msgstr "Settings"
 
 #. js-lingui-explicit-id
@@ -1801,9 +3128,19 @@ msgid "settings.general.permissionNotificationsDescription"
 msgstr "Show alerts when notification permissions are required"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.tooltip"
+msgstr "Show author, date, and commit details in the line gutter"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.bottomPanelControl.toggle"
 msgstr "Show bottom panel control in the app title bar"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.expand"
+msgstr "Show chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1811,14 +3148,44 @@ msgid "settings.general.contextUsage"
 msgstr "Show context window usage"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/tool-call-app.tsx
+msgid "extension.app.expand"
+msgstr "Show fullscreen"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.blame.show"
+msgstr "Show git blame"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.menuBar"
 msgstr "Show in menu bar"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/tool-call-app.tsx
+msgid "extension.app.collapse"
+msgstr "Show inline"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.showLess"
+msgstr "Show less"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "navigation.showMore"
+msgstr "Show more"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.showMore"
+msgstr "Show more"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "sidebarElectron.showMore"
 msgstr "Show more"
 
 #. js-lingui-explicit-id
@@ -1832,9 +3199,9 @@ msgid "settings.general.contextUsageDescription"
 msgstr "Show token usage in the composer"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.listTruncated"
-msgstr "Showing the most recent pull requests"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.untrackedOmitted.title"
+msgstr "Showing tracked changes only"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1842,14 +3209,24 @@ msgid "chat.workspace.sidePanelTabs"
 msgstr "Side panel tabs"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.options"
+msgstr "Sidebar display options"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "Signing policies"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.checksPartial"
-msgstr "Some pipeline checks could not be loaded."
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.skipSetup"
+msgstr "Skip setup"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.error.body"
+msgstr "Something went wrong while loading worktrees."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1862,18 +3239,35 @@ msgid "settings.general.notificationSoundDescription"
 msgstr "Sound for task completion, permission requests, and questions"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/file-viewers.tsx
+msgid "extension.fileViewer.builtin"
+msgstr "Source"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
+#: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.project.sourceFolders"
 msgstr "Source folders"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.sources"
 msgstr "Sources"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/composer-model-selector.tsx
+msgid "chat.speed"
+msgstr "Speed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.split"
+msgstr "Split"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.squash"
+msgid "settings.git.pullRequestMergeMethod.squash"
 msgstr "Squash"
 
 #. js-lingui-explicit-id
@@ -1892,6 +3286,11 @@ msgid "git.review.staged"
 msgstr "Staged"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.general.reviewDelivery.description"
+msgstr "Start /review in the current chat when possible or launch a separate review chat"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "Start a conversation"
@@ -1902,9 +3301,34 @@ msgid "settings.general.standaloneChatDescription"
 msgstr "Start new chats outside of any project"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: entrypoint.title
+#: renderer/src/components/extensions/extension-app-panel.tsx
+msgid "chat.panel.extension.noThread"
+msgstr "Start the chat to open {0}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.files.empty"
+msgstr "No files were produced"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Starting…"
+msgstr "Starting…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.newChatHint"
+msgstr "Starts a fresh chat using the same files and branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.stashChanges"
 msgstr "Stash local changes before switching"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.status"
+msgstr "Status"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1917,9 +3341,34 @@ msgid "chat.prompt.steerPlaceholder"
 msgstr "Steer the current task…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.stop"
+msgstr "Stop"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/workspace-chat.tsx
 msgid "chat.prompt.stop"
 msgstr "Stop"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.stop"
+msgstr "Stop"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.stopConfirm"
+msgstr "Stop background process?"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.threadStopped"
+msgstr "Stopped"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Stopped"
+msgstr "Stopped"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1928,11 +3377,21 @@ msgstr "Subagent"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.subagents"
+msgstr "Subagent activity"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.subagents"
 msgstr "Subagents"
 
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Subscription"
+msgstr "Subscription"
+
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/codex-summary.tsx
 msgid "chat.panel.summary"
 msgstr "Summary"
 
@@ -1942,14 +3401,63 @@ msgid "git.review.switch"
 msgstr "Switch"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.syncAction"
+msgstr "Sync"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.sync"
+msgstr "Sync to project workspace directories"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncBranch"
+msgstr "Sync worktree to branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncedBranch"
+msgstr "Synced branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commentPlaceholder"
+msgstr "Tell the Agent what to change here…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.terminal"
 msgstr "Terminal"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.terminalReady"
+msgstr "Terminal is ready to open."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.terminalTabs"
 msgstr "Terminal tabs"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The Agent could not be changed"
+msgstr "The Agent could not be changed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncedBranchChanged"
+msgstr "The branch changed outside this worktree. Refresh before syncing."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncConfirmDescription"
+msgstr "The branch checkout must be clean. Cypheria includes uncommitted worktree files in a snapshot commit and saves the previous branch commit for Undo."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.unavailable"
+msgstr "The browser is available in the main Desktop window."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1957,9 +3465,18 @@ msgid "navigation.archiveChatDescription"
 msgstr "The chat will move to Archived chats."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeDescription"
-msgstr "The displayed head commit must still match the pull request."
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.newBranchHint"
+msgstr "The checkout is on its base branch, so the pull request needs its own branch."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.currentDirectoryWillChange"
+msgstr "The current working directory will change. This affects future commands and Agent actions."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "The gateway could not be changed"
+msgstr "The gateway could not be changed"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1967,9 +3484,17 @@ msgid "settings.general.projectlessFolderDescription"
 msgstr "The location where tasks started outside of projects store their data by default."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.closeDescription"
-msgstr "The pull request can be reopened later."
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.projectlessDirectoryCleanupWarning"
+msgstr "The old projectless workspace directory will be deleted when no other chat references it."
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "The requests the gateway served, their tokens and their cost."
+msgstr "The requests the gateway served, their tokens and their cost."
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
+msgstr "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -1977,14 +3502,63 @@ msgid "settings.theme.title"
 msgstr "Theme"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.unsupported"
+msgstr "This Agent cannot change workspace directories after creation."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.agentCannotChangeWorkspace"
+msgstr "This Agent cannot make the required workspace changes after the chat is created."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/thread-panel.tsx
+msgid "chat.panel.pullRequest.empty"
+msgstr "This chat has no pull request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.waiting"
+msgstr "This chat is waiting for your answer."
+
+#. js-lingui-explicit-id
+#: renderer/src/chat-markdown-host.tsx
+msgid "chat.markdown.fileUnavailable"
+msgstr "This file is not available"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/elicitation-form.tsx
+msgid "extension.form.unsupported"
+msgstr "This form asks for input Cypheria cannot collect yet."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.loadFailed"
+msgstr "This page could not be loaded: {loadError}"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.deleteConfirm.description"
 msgstr "This permanently deletes the chat and cannot be undone."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/global-app-page.tsx
+msgid "extension.global.unavailable"
+msgstr "This plugin page is unavailable. Check that the plugin is installed and enabled."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProjectDescription"
 msgstr "This removes the project from Cypheria without deleting its files or chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.titleField"
+msgstr "Title"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Today"
+msgstr "Today"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1997,6 +3571,20 @@ msgid "chat.workspace.toggleSidePanel"
 msgstr "Toggle side panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.summary.toggle"
+msgstr "Toggle summary"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Tokens"
+msgstr "Tokens"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.tools"
+msgstr "Tool activity"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.tryAgain"
 msgstr "Try again"
@@ -2007,14 +3595,60 @@ msgid "settings.general.turnNotifications"
 msgstr "Turn completion notifications"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.turnDiffAvailable"
+msgstr "Turn diff available"
+
+#: renderer/src/components/gateway/gateway-providers-section.tsx
+msgid "Turn the gateway on to see its providers."
+msgstr "Turn the gateway on to see its providers."
+
+#: renderer/src/components/gateway/gateway-routing-section.tsx
+msgid "Turn the gateway on to see its routing groups."
+msgstr "Turn the gateway on to see its routing groups."
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Turn the gateway on to see its usage."
+msgstr "Turn the gateway on to see its usage."
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Turn the gateway on to set up the Agents."
+msgstr "Turn the gateway on to set up the Agents."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.error.title"
+msgstr "Unable to load worktrees"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.uncommitted"
 msgstr "Uncommitted"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.undo"
+msgstr "Undo"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-files-panel.tsx
+msgid "files.undoDelete"
+msgstr "Undo delete"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.undoSync"
+msgstr "Undo last sync"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.undoRevert"
 msgstr "Undo last revert"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.layout.unified"
+msgstr "Unified"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2027,9 +3661,24 @@ msgid "navigation.unpin"
 msgstr "Unpin"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.menu.unpin"
+msgstr "Unpin pull request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.unpin"
+msgstr "Unpin summary"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.unread"
 msgstr "Unread"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess.description"
+msgstr "Unrestricted access to the internet and any file on your computer"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -2057,14 +3706,48 @@ msgid "search.untitled"
 msgstr "Untitled chat"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.conversations.untitled"
+msgstr "Untitled conversation"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editProjectDescription"
 msgstr "Update the project name shown in the sidebar."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.syncConfirmTitle"
+msgstr "Update the synced branch?"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/routes/settings.gateway.$sectionId.tsx
+msgid "settings.gateway.usage"
+msgstr "Usage"
+
+#: renderer/src/components/gateway/gateway-usage-section.tsx
+msgid "Usage"
+msgstr "Usage"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
-msgid "settings.git.upstreamRefresh"
-msgstr "Upstream refresh"
+msgid "settings.git.forcePush.description"
+msgstr "Use --force-with-lease when pushing from Cypheria"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.createDraftPullRequest.description"
+msgstr "Use draft pull requests by default when creating PRs from Cypheria"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig.description"
+msgstr "Use the permissions configured for the Codex agent"
+
+#: renderer/src/components/gateway/gateway-general-section.tsx
+msgid "Version"
+msgstr "Version"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -2072,14 +3755,54 @@ msgid "menu.view"
 msgstr "View"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.open"
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.view"
 msgstr "View"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.viewPr"
+msgstr "View PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/review-diff-display.tsx
+msgid "git.diff.viewed"
+msgstr "Viewed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.waitingBadge"
+msgstr "Waiting for review"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.origin"
+msgstr "Wallet requests are scoped to {dappOrigin}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.wallets"
 msgstr "Wallets & assets"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequestWatch.title"
+msgstr "Watch and fix pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.autoCleanup.confirm.description"
+msgstr "We highly recommend keeping automatic deletion on so old worktrees do not build up and use unnecessary disk space. If you prefer to manage old worktrees yourself, you can turn this off and Cypheria will stop deleting them automatically."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWeb"
+msgstr "Web browsing data"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web.hint"
+msgstr "Web tabs never receive a wallet."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -2096,1333 +3819,9 @@ msgstr "Where files and folders open by default"
 msgid "menu.window"
 msgstr "Window"
 
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.state.working"
-msgstr "Working…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.workspace"
-msgstr "Workspace navigation"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.worktreeRoot"
-msgstr "Worktree root"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.worktrees"
-msgstr "Worktrees"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.worktrees"
-msgstr "Worktrees"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.keepCount"
-msgstr "Worktrees to keep"
-
-#. js-lingui-explicit-id
-msgid "git.github.allRepositories"
-msgstr "All repositories"
-
-#. js-lingui-explicit-id
-msgid "git.github.commitChanges"
-msgstr "Commit local changes before creating"
-
-#. js-lingui-explicit-id
-msgid "git.github.commitMessage"
-msgstr "Commit message (leave blank to generate)"
-
-#. js-lingui-explicit-id
-msgid "git.review.generateMessage"
-msgstr "Generate"
-
-#. js-lingui-explicit-id
-msgid "git.github.generateDescription"
-msgstr "Generate"
-
-#. js-lingui-explicit-id
-msgid "git.github.linkedChats"
-msgstr "Linked chats:"
-
-#. js-lingui-explicit-id
-msgid "git.github.newBranch"
-msgstr "New branch (optional)"
-
-#. js-lingui-explicit-id
-msgid "git.github.board"
-msgstr "Pull requests across repositories"
-
-#. js-lingui-explicit-id
-msgid "git.github.repositoryFilter"
-msgstr "Repository filter"
-
-#. js-lingui-explicit-id
-msgid "settings.git.githubConnector"
-msgstr "Use connected GitHub App tools when the CLI cannot serve an operation"
-
-#. js-lingui-explicit-id
-msgid "git.github.boardRepositorySearch"
-msgstr "Repository (owner/name)"
-
-#. js-lingui-explicit-id
-msgid "settings.general.permissionsSection"
-msgstr "Permissions"
-
-#. js-lingui-explicit-id
-msgid "settings.general.defaultPermissions"
-msgstr "Default permissions"
-
-#. js-lingui-explicit-id
-msgid "settings.general.defaultPermissionsDescription"
-msgstr "By default, Cypheria can read and edit files in its workspace. It can ask for additional access when needed"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccess"
-msgstr "Full access"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessDescription"
-msgstr "When Cypheria runs with full access, it can edit any file on your computer and run commands with network, without your approval. This significantly increases the risk of data loss, leaks, or unexpected behavior."
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessConfirmTitle"
-msgstr "Make Full Access available?"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessConfirmDescription"
-msgstr "When selected, Cypheria can access the internet and read and edit files without asking for approval — including potentially destructive commands"
-
-#. js-lingui-explicit-id
-msgid "settings.general.fullAccessConfirmNote"
-msgstr "Turning this on adds Full Access to the composer's permissions menu. It does not turn Full Access on."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.addFolder"
-msgstr "Add folder"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.primary"
-msgstr "Primary"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.removeFolder"
-msgstr "Remove folder"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.removeLocalProject"
-msgstr "Remove local project"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/project-edit-dialog.tsx
-msgid "chat.project.setPrimary"
-msgstr "Set as primary"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.actions"
-msgstr "Message actions"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.fork"
-msgstr "Fork in new chat"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.rewind"
-msgstr "Rewind to here"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.message.rewindReplaceDraft"
-msgstr "Rewind will replace the current composer draft. Continue?"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.address"
-msgstr "Address"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.address.placeholder"
-msgstr "Enter a URL"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.address.unsupported"
-msgstr "Only http and https pages can be opened."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.back"
-msgstr "Back"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.dapp.clearSite"
-msgstr "Clear site data"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.dapp.origin"
-msgstr "Wallet requests are scoped to {dappOrigin}"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.devtools"
-msgstr "Open developer tools"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.empty"
-msgstr "Enter a URL to open a page."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.forward"
-msgstr "Forward"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.loadFailed"
-msgstr "This page could not be loaded: {loadError}"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.dapp"
-msgstr "Open as dApp"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.dapp.hint"
-msgstr "dApp tabs share a separate profile and can use your wallet."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.web"
-msgstr "Open as web page"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.mode.web.hint"
-msgstr "Web tabs never receive a wallet."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.reload"
-msgstr "Reload"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.stop"
-msgstr "Stop"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.close"
-msgstr "Close tab"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.new"
-msgstr "New tab"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.open"
-msgstr "Open tab"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tabs"
-msgstr "Browser tabs"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.unavailable"
-msgstr "The browser is available in the main Desktop window."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.section"
-msgstr "Browser"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.agentTools"
-msgstr "Agent browser tools"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.agentToolsDescription"
-msgstr "Lets Agents open and control browser tabs in their own conversation, including signed-in pages and dApp tabs. Wallet signing still follows your policies and approvals."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearWeb"
-msgstr "Web browsing data"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearWebDescription"
-msgstr "Clears cookies, storage, and cache used by web tabs."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearDapp"
-msgstr "dApp browsing data"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clearDappDescription"
-msgstr "Clears cookies, storage, and cache used by dApp tabs. Wallet permissions are kept."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.clear"
-msgstr "Clear"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.closeSharedTerminalConfirm"
-msgstr "Close this shared terminal for every connected client?"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.saveThreadForTerminal"
-msgstr "Save this conversation as a thread to use terminals."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.openingTerminal"
-msgstr "Opening terminal…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/workspace-terminal.tsx
-msgid "chat.workspace.terminalReady"
-msgstr "Terminal is ready to open."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.clear"
-msgstr "Clear prompt"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.newChat"
-msgstr "New chat"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.status"
-msgstr "Status"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.compact"
-msgstr "Compact context"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.toggle"
-msgstr "Toggle summary"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.pin"
-msgstr "Pin summary"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.unpin"
-msgstr "Unpin summary"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.close"
-msgstr "Close summary"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.loading"
-msgstr "Loading…"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.empty"
-msgstr "Nothing to summarize yet"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.outputs"
-msgstr "Outputs"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.processes"
-msgstr "Background processes"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.pullRequests"
-msgstr "Pull requests"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.schedules"
-msgstr "Schedules"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.running"
-msgstr "Running"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.showLess"
-msgstr "Show less"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.showMore"
-msgstr "Show more"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.stop"
-msgstr "Stop"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.stopConfirm"
-msgstr "Stop background process?"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.cancel"
-msgstr "Cancel"
-
-#. js-lingui-explicit-id
-msgid "navigation.changeThreadWorkspace"
-msgstr "Change workspace directories?"
-
-#. js-lingui-explicit-id
-msgid "navigation.changeThreadWorkspaceDescription"
-msgstr "Moving this chat also updates the working directory and workspace directories used by future Agent turns."
-
-#. js-lingui-explicit-id
-msgid "navigation.currentDirectoryWillChange"
-msgstr "The current working directory will change. This affects future commands and Agent actions."
-
-#. js-lingui-explicit-id
-msgid "navigation.projectlessDirectoryCleanupWarning"
-msgstr "The old projectless workspace directory will be deleted when no other chat references it."
-
-#. js-lingui-explicit-id
-msgid "navigation.projectlessDirectoryCreationWarning"
-msgstr "The current working directory will change to a new managed projectless directory containing work/ and outputs/."
-
-#. js-lingui-explicit-id
-msgid "navigation.noWorkspaceDirectories"
-msgstr "None"
-
-#. js-lingui-explicit-id
-msgid "navigation.addedWorkspaceDirectories"
-msgstr "Added"
-
-#. js-lingui-explicit-id
-msgid "navigation.removedWorkspaceDirectories"
-msgstr "Removed"
-
-#. js-lingui-explicit-id
-msgid "navigation.finishTurnBeforeWorkspaceMove"
-msgstr "Finish the current turn before changing the workspace."
-
-#. js-lingui-explicit-id
-msgid "navigation.agentCannotChangeWorkspace"
-msgstr "This Agent cannot make the required workspace changes after the chat is created."
-
-#. js-lingui-explicit-id
-msgid "navigation.moveChat"
-msgstr "Move chat"
-
-#. js-lingui-explicit-id
-msgid "files.undoDelete"
-msgstr "Undo delete"
-
-#. js-lingui-explicit-id
-msgid "files.open"
-msgstr "Open"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.sync"
-msgstr "Sync to project workspace directories"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.syncConfirm"
-msgstr "Change this thread's workspace directories?"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.cwdWarning"
-msgstr "Important: the current working directory will change. Future commands and Agent turns will run from the new first directory."
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.syncAction"
-msgstr "Sync"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.active"
-msgstr "Finish the current turn before changing directories."
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.unsupported"
-msgstr "This Agent cannot change workspace directories after creation."
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.directories"
-msgstr "Workspace directories"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.cwd"
-msgstr "Current working directory"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.added"
-msgstr "Added"
-
-#. js-lingui-explicit-id
-msgid "chat.summary.workspace.removed"
-msgstr "Removed"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-pane.tsx
-msgid "browser.tab.openDapp"
-msgstr "Open dApp tab"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.agentConfig"
-msgstr "Agent defaults"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.agentConfig.description"
-msgstr "Use the permissions configured for the Codex agent"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.approve"
-msgstr "Approve for me"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.approve.description"
-msgstr "Only ask for actions detected as potentially unsafe"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.ask"
-msgstr "Ask for approval"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.ask.description"
-msgstr "Always ask to edit external files and use the internet"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.fullAccess"
-msgstr "Full access"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.permissions.fullAccess.description"
-msgstr "Unrestricted access to the internet and any file on your computer"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.choose"
-msgstr "Choose project"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.clear"
-msgstr "Don't work in a project"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.label"
-msgstr "Project"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.branch.choose"
-msgstr "Choose branch"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.branch.label"
-msgstr "Branch"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.branch.local"
-msgstr "Local branches"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.worktree.description"
-msgstr "Create an isolated copy of {projectName} so this chat can work in parallel. Other project source folders are accessed directly. The selected branch is used as the starting point."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.worktree.gitRequired"
-msgstr "Worktrees require the project's first source folder to be a Git repository."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.worktree.label"
-msgstr "Worktree"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.search"
-msgstr "Search projects"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.empty"
-msgstr "No projects found"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.project.new"
-msgstr "New project"
-
-#. placeholder {0}: provider.exposedModels
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "{0} models"
-msgstr "{0} models"
-
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
-msgstr "A local gateway, run by magpie, that serves every model and subscription to the Agents Cypheria manages."
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Agents"
-msgstr "Agents"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "AI gateway"
-msgstr "AI gateway"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "All time"
-msgstr "All time"
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "An Agent set to a routing group has each request served by one of its members, by the group's routing."
-msgstr "An Agent set to a routing group has each request served by one of its members, by the group's routing."
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "API port"
-msgstr "API port"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Cost"
-msgstr "Cost"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Enable the AI gateway"
-msgstr "Enable the AI gateway"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Errors"
-msgstr "Errors"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Failed"
-msgstr "Failed"
-
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "Gateway"
-msgstr "Gateway"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "settings.gateway"
-msgstr "Gateway"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Gateway port"
-msgstr "Gateway port"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.general"
-msgstr "General"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Installing…"
-msgstr "Installing…"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "It was used without reaching the gateway."
-msgstr "It was used without reaching the gateway."
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Its model was changed outside the gateway."
-msgstr "Its model was changed outside the gateway."
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Its settings no longer send it through the gateway."
-msgstr "Its settings no longer send it through the gateway."
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Key"
-msgstr "Key"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Last 30 days"
-msgstr "Last 30 days"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Last 7 days"
-msgstr "Last 7 days"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
-msgstr "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Model"
-msgstr "Model"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "No installed Agent is enabled."
-msgstr "No installed Agent is enabled."
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "No provider yet."
-msgstr "No provider yet."
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "No routing group yet."
-msgstr "No routing group yet."
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Not installed"
-msgstr "Not installed"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "Not ready"
-msgstr "Not ready"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Off"
-msgstr "Off"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.providers"
-msgstr "Providers"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Providers"
-msgstr "Providers"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Requests"
-msgstr "Requests"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Restart"
-msgstr "Restart"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.routing"
-msgstr "Routing"
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "Routing groups"
-msgstr "Routing groups"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Running"
-msgstr "Running"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Running since"
-msgstr "Running since"
-
-#. placeholder {0}: view.version
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
-msgstr "Runs magpie for Cypheria's Agents: one local endpoint for every model and subscription, with routing groups and usage. Turning it on installs magpie {0} the first time."
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Starting…"
-msgstr "Starting…"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Stopped"
-msgstr "Stopped"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Subscription"
-msgstr "Subscription"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "The Agent could not be changed"
-msgstr "The Agent could not be changed"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "The gateway could not be changed"
-msgstr "The gateway could not be changed"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "The requests the gateway served, their tokens and their cost."
-msgstr "The requests the gateway served, their tokens and their cost."
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
-msgstr "The subscriptions of the Agents Cypheria manages, signed in where those Agents keep their sign-in, and the providers added with a key."
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Today"
-msgstr "Today"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Tokens"
-msgstr "Tokens"
-
-#: renderer/src/components/gateway/gateway-providers-section.tsx
-msgid "Turn the gateway on to see its providers."
-msgstr "Turn the gateway on to see its providers."
-
-#: renderer/src/components/gateway/gateway-routing-section.tsx
-msgid "Turn the gateway on to see its routing groups."
-msgstr "Turn the gateway on to see its routing groups."
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Turn the gateway on to see its usage."
-msgstr "Turn the gateway on to see its usage."
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Turn the gateway on to set up the Agents."
-msgstr "Turn the gateway on to set up the Agents."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/routes/settings.gateway.$sectionId.tsx
-msgid "settings.gateway.usage"
-msgstr "Usage"
-
-#: renderer/src/components/gateway/gateway-usage-section.tsx
-msgid "Usage"
-msgstr "Usage"
-
-#: renderer/src/components/gateway/gateway-general-section.tsx
-msgid "Version"
-msgstr "Version"
-
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Wire again"
 msgstr "Wire again"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.priority"
-msgstr "P{priority}"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.createdThread"
-msgstr "Open the new chat"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.fileOutside"
-msgstr "Outside this chat's folders"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.fileUnavailable"
-msgstr "This file is not available"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.mediaUnavailable"
-msgstr "Cannot be shown"
-
-#. js-lingui-explicit-id
-#: renderer/src/chat-markdown-host.tsx
-msgid "chat.markdown.openFile"
-msgstr "Open in Files"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.focusUnsupported"
-msgstr "This link does not point to a GitHub pull request."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.focusOtherRepository"
-msgstr "This pull request belongs to another repository than this working directory."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.commitOrPush"
-msgstr "Commit or push"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.detached"
-msgstr "Detached HEAD"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.commitTo"
-msgstr "Commit to"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.messagePlaceholder"
-msgstr "Commit message (leave blank to generate)…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.noChanges"
-msgstr "No changes"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.openReview"
-msgstr "Open Review"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.viewPr"
-msgstr "View PR"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prActions"
-msgstr "Actions for pull request #{number}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prDraft"
-msgstr "Draft"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prMerged"
-msgstr "Merged"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prClosed"
-msgstr "Closed"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.prOpen"
-msgstr "Open"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.noChecks"
-msgstr "No CI checks"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.checksFailing"
-msgstr "Checks failing"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.checksPending"
-msgstr "Checks pending"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.checksSuccessful"
-msgstr "Checks successful"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.openPrInGitHub"
-msgstr "Open in GitHub"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.copyPrLink"
-msgstr "Copy link"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.addPrToChat"
-msgstr "Add to chat"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions"
-msgstr "Mention a GitHub user"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions.loading"
-msgstr "Searching GitHub users…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions.error"
-msgstr "Couldn’t search GitHub users"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/mention-textarea.tsx
-msgid "git.github.mentions.empty"
-msgstr "No GitHub users found"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.createPr"
-msgstr "Create PR"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.rowSummary"
-msgstr "{path}, added lines: {additions}, deleted lines: {deletions}, comments: {comments}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.changedFiles"
-msgstr "Changed files"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.pendingComments"
-msgstr "{count, plural, one {# review comment} other {# review comments}}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.sendComments"
-msgstr "Send to Agent"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.clearComments"
-msgstr "Clear"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.removeComment"
-msgstr "Remove"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commentBody"
-msgstr "Review comment"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commentPlaceholder"
-msgstr "Tell the Agent what to change here…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.addComment"
-msgstr "Add comment"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.fileCount"
-msgstr "{count, plural, one {# file changed} other {# files changed}}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.commitSection"
-msgstr "Commit"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.branchesSection"
-msgstr "Branches"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.worktreesSection"
-msgstr "Worktrees"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.allPullRequests"
-msgstr "All pull requests"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.tabSummary"
-msgstr "Summary"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.tabCode"
-msgstr "Code"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.tabActivity"
-msgstr "Activity"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.submitReview"
-msgstr "Submit review"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewDecision"
-msgstr "Review decision"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.reviewDecisionHint"
-msgstr "Choose a review decision and optionally add a comment. The review applies only if the displayed head commit still matches."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.optionalComment"
-msgstr "Optional comment"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.pullRequestSection"
-msgstr "Pull request"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.mergeRequestSection"
-msgstr "Merge request"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.needsReview"
-msgstr "Needs my review"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.authored"
-msgstr "Authored"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.reviewed"
-msgstr "Previously reviewed"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.all"
-msgstr "All"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.title"
-msgstr "Pull requests"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.subtitleAccount"
-msgstr "Review and track work across GitHub as {0}."
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.subtitle"
-msgstr "Review and track work across GitHub."
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.checking"
-msgstr "Checking GitHub access"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.setupTitle"
-msgstr "GitHub CLI setup required"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.setupBody"
-msgstr "Install and sign in with the GitHub CLI on the computer that runs the Cypheria Server, then check again."
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.checkAgain"
-msgstr "Check again"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.search"
-msgstr "Search pull requests"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.repository"
-msgstr "Repository"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.status"
-msgstr "Status"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.open"
-msgstr "Open"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.merged"
-msgstr "Merged"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.closed"
-msgstr "Closed"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.allStates"
-msgstr "All states"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.filter"
-msgstr "Filter"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.retry"
-msgstr "Retry"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.noMatches"
-msgstr "No pull requests match this search"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.caughtUp"
-msgstr "You’re all caught up"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.askPrompt"
-msgstr "Review this pull request: {url}"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.ask"
-msgstr "Ask Agent"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.openBrowser"
-msgstr "Open in browser"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.loadMore"
-msgstr "Load more"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "navigation.pullRequests"
-msgstr "Pull requests"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/pull-requests.tsx
-msgid "pullRequests.needsTeamReview"
-msgstr "Needs my team’s review"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.checksSummary"
-msgstr "{failing, plural, =0 {} other {# failing · }}{pending, plural, =0 {} other {# pending · }}{passed} passed"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.fixFailingChecks"
-msgstr "Fix failing checks"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.openCheck"
-msgstr "Open check details"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/pull-request-checks.tsx
-msgid "git.github.checksIncomplete"
-msgstr "Some check details couldn’t be loaded."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.generateTitleAndBody"
-msgstr "Generate with Codex"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.collapseFile"
-msgstr "Collapse file"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.expandFile"
-msgstr "Expand file"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.viewed"
-msgstr "Viewed"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.jumpToFile"
-msgstr "Jump to file"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.jumpToFile.placeholder"
-msgstr "Jump to file…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.jumpToFile.empty"
-msgstr "No matching files"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.options"
-msgstr "Diff options"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout"
-msgstr "Layout"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout.auto"
-msgstr "Auto"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout.split"
-msgstr "Split"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.layout.unified"
-msgstr "Unified"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/review-diff-display.tsx
@@ -3435,286 +3834,71 @@ msgid "git.diff.wrap"
 msgstr "Word wrap"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.fullFiles"
-msgstr "Load full files"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.working"
+msgstr "Working…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.expandAll"
-msgstr "Expand all diffs"
+#: renderer/src/components/codex-summary.tsx
+msgid "chat.summary.workspace.directories"
+msgstr "Workspace directories"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.collapseAll"
-msgstr "Collapse all diffs"
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.workspace"
+msgstr "Workspace navigation"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.copyGitApply"
-msgstr "Copy git apply command"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.fileActions"
-msgstr "File actions"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.copyPath"
-msgstr "Copy path"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.openInGitHub"
-msgstr "Open in GitHub"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.hideImports"
-msgstr "Hide imports"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/review-diff-display.tsx
-msgid "git.diff.hideGenerated"
-msgstr "Hide generated files"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.largeDiff"
-msgstr "This diff is large, so it shows one file at a time."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.previousFile"
-msgstr "Previous file"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.diff.nextFile"
-msgstr "Next file"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.title"
-msgstr "Showing tracked changes only"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.description"
-msgstr "Review skipped {count} untracked files to stay responsive. If they are generated, ignore or clean them up, then refresh."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.copyCleanup"
-msgstr "Copy cleanup command"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.untrackedOmitted.refresh"
-msgstr "Refresh"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.worktree.label"
+msgstr "Worktree"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.openFile"
-msgstr "Open file"
+msgid "chat.worktree.label"
+msgstr "Worktree"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.browser.heading"
-msgstr "Open file"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.ariaLabel"
+msgstr "Worktree root"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.browser.description"
-msgstr "Select a file from the workspace tree"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.goToLine"
-msgstr "Go to line"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.goToLine.invalid"
-msgstr "Enter a valid whole line number"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.goToLine.range"
-msgstr "1–{lineCount}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.show"
-msgstr "Show git blame"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.hide"
-msgstr "Hide git blame"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.tooltip"
-msgstr "Show author, date, and commit details in the line gutter"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.author"
-msgstr "Author"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.commit"
-msgstr "Commit"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.blame.date"
-msgstr "Date"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyMenu"
-msgstr "Copy"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyAbsolutePath"
-msgstr "Copy absolute path"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyRepoPath"
-msgstr "Copy path relative to repository"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyRootPath"
-msgstr "Copy path relative to folder"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyContents"
-msgstr "Copy file contents"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.copyGitHubLink"
-msgstr "Copy GitHub link"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-files-panel.tsx
-msgid "files.openInGitHub"
-msgstr "Open in GitHub"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.root.label"
+msgstr "Worktree root"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.openInTab"
-msgstr "Open in tab"
+msgid "git.review.worktreeStart"
+msgstr "Worktree start point"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.section.worktrees"
+msgstr "Worktrees"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.worktrees"
+msgstr "Worktrees"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.openInTab.tooltip"
-msgstr "Open file in a tab"
+msgid "git.review.worktreesSection"
+msgstr "Worktrees"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
-msgid "git.review.openExternally"
-msgstr "Open in default app"
+msgid "git.review.worktrees"
+msgstr "Worktrees"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair"
-msgstr "Repair"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.checks"
-msgstr "Failing checks"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.comments"
-msgstr "Comments"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.conflicts"
-msgstr "Merge conflicts"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.repair.everything"
-msgstr "Everything"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.closed"
-msgstr "Reopen this pull request before merging"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.draft"
-msgstr "Mark this pull request ready for review before merging"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.conflicts"
-msgstr "Resolve merge conflicts before merging"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.failingChecks"
-msgstr "Fix failing checks before merging"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.pendingChecks"
-msgstr "Wait for checks to finish before merging"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.blocked"
-msgstr "This pull request can’t be merged yet"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeBlocked.unknown"
-msgstr "GitHub is still checking whether this can be merged"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeUnavailable"
-msgstr "Merge unavailable: {reason}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeMethod.squash"
-msgstr "Squash and merge"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.mergeMethod.merge"
-msgstr "Create merge commit"
+#: renderer/src/routes/settings.worktrees.tsx
+msgid "settings.worktrees.empty.body"
+msgstr "Worktrees created by Cypheria will appear here"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.reviewUncommitted"
-msgstr "Code review: uncommitted changes"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.prompt.reviewBranch"
-msgstr "Code review against {branch}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.dismissAgentComment"
-msgstr "Dismiss"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.dismissAgentComment.tooltip"
-msgstr "Hide this comment from the diff; it stays in the conversation"
+msgid "chat.worktree.gitRequired"
+msgstr "Worktrees require the project's first source folder to be a Git repository."

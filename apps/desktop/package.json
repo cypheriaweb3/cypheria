@@ -37,6 +37,7 @@
     "@hello-pangea/dnd": "^18.0.1",
     "@lingui/core": "^6.6.0",
     "@lingui/react": "^6.6.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
     "@solana/wallet-standard-chains": "^1.1.2",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/db": "0.9.2",

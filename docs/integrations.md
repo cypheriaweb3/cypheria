@@ -26,6 +26,11 @@ MCP servers are also a common concept. The integration API reports tools, resour
 
 Transport credentials and OAuth state stay in the Server or harness runtime. MCP elicitation enters the common Thread interaction lifecycle.
 
+MCP management is available for Codex and Pi; other Agents report it as unsupported.
+
+- **Codex:** through the App Server's MCP status, configuration, and OAuth requests.
+- **Pi:** through the managed Pi CLI's `pi mcp list --json`, `add`, and `login` commands, run with Pi's home as the working directory so no project `.pi/mcp.json` is read. Pi has no command that changes enablement, so Server sets the `enabled` field of servers in Pi's own `mcp.json`, as Pi's `/mcp` does; project servers are read-only. A sign-in returns the authorization page for the client to open while `pi mcp login` waits for the browser's loopback callback for up to five minutes, with Pi's own browser launch suppressed except on Windows. Running Pi sessions pick up changes when they restart. Desktop shows Pi's servers under Pi's Agent settings.
+
 For Codex's `codex_apps` server, each discovered tool reports an `appScope` only when its metadata identifies a consistent connector, account link, and action resource URI. Other tools report `null`. Consumers must recheck this scope and the current account before invoking a connector tool; discovery alone does not grant access.
 
 ## Plugin ecosystems
@@ -43,7 +48,7 @@ Plugin views retain source type, marketplace identity, install policy, availabil
 Codex remote plugins have a catalog ID distinct from their displayed name. Server resolves that ID from a fresh `plugin/list` result before remote detail or install requests, so a visible plugin is not sent to Codex's install endpoint under its display name.
 
 When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs its plugins, `cypheria-app-tools` and `code-review`, in that Agent's managed home, as the official desktop bundles `codex-app-tools` and `code-review`. They are described in [Cypheria app tools](#cypheria-app-tools). They declare no OpenAI App ID and have no GitHub or GitLab connector credentials.
-The bundled marketplace is a dual-format plugin root: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, and each Agent's MCP declaration lives in its own file next to the plugin's server.
+The bundled marketplace is the dual-format `plugins/` directory: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, lists each plugin at `./<plugin>`, and each Agent's MCP declaration lives in its own file next to the plugin's server.
 When an installed bundled plugin is discovered after a Cypheria update, Server checks its local version and updates it from the bundled marketplace before returning the plugin list.
 
 ### Cypheria app tools
@@ -51,7 +56,7 @@ When an installed bundled plugin is discovered after a Cypheria update, Server c
 The bundled plugins are how Codex and Claude reach Cypheria's own tools. Each declares one MCP server, and both run the same relay, which runs no tool itself: it lists and calls the tools of its server through `/api/v1/app-tools/*`, and Server executes each call for the calling Thread with the same code the clients use. Codex dynamic tools carry only the browser tools.
 
 - `cypheria-app-tools`, server `cypheria_app_tools`: the Thread, project, sidebar, worktree, handoff, and automation tools listed in [Agent harnesses](agent-harnesses.md#codex).
-- `code-review`, server `code-review`: `pull_requests.checks`, the one tool the official `code-review` plugin shows the model. Cypheria reads a GitHub pull request's checks, named by host, owner, repository, and number, through the Server's GitHub CLI, without job logs. The official plugin's other tools serve its embedded pull request app, which Desktop replaces with its own pull request panel.
+- `code-review`, server `code-review`: the official plugin's 31 `pull_requests.*` tools and its MCP App `ui://pull-requests/app`. Only `pull_requests.checks` is visible to the model; it reads a GitHub pull request's checks or a GitLab merge request's pipelines through OpenAI's backend, without job logs. The other tools serve the App, which Desktop hosts as the Code Review page and the Thread pull request panel. Server serves the App resource and the tool list itself; see [Code Review](code-review.md).
 
 Agents do local Git work with `git` and `gh` in their own commands; the Server Git protocol stays a client contract and is not offered to the model, as in the official desktop.
 
@@ -77,7 +82,7 @@ Server manages Claude plugins by running the managed Claude CLI's `claude plugin
 - After a change, Server reloads plugins in running Claude sessions unless that would invalidate a session's prompt cache; held sessions pick the change up when they restart.
 - Component details, such as skills and MCP servers, are available for installed plugins and for plugins that live inside their marketplace. Other uninstalled plugins show only their catalog entry.
 
-Cypheria-native plugins are a separate contract. The intended manifest declares Server entry points, Desktop UI contributions, optional future Expo contributions, permissions, compatible Cypheria versions, and contribution points. Server code must run in a controlled child process. Desktop contributions must be sandboxed and receive scoped host APIs rather than Node.js, filesystem, database, or secret access. Completing this runtime and UX remains planned work.
+Plugins contribute UI through MCP Apps and the OpenAI MCP Extensions, described in [Plugin Extensions](plugin-extensions.md). Cypheria-native plugins are planned to use the same contract. There is no separate Desktop contribution API. Server code runs in a controlled child process, and UI runs in sandboxed frames with scoped host requests rather than Node.js, filesystem, database, or secret access.
 
 ## Marketplace sources
 
@@ -120,9 +125,30 @@ A plugin is installed once and then enabled or disabled per Agent.
 
 Apps follow the OpenAI App Server/connector model and belong exclusively to the Codex harness extension. They are exposed through `client.harnesses.codex.apps`, including list, enablement, connect, callable/accessibility state, install URL, and plugin association.
 
+Code Review uses the GitHub and GitLab connections the user makes here, read through OpenAI's backend with the ChatGPT sign-in; see [Code Review](code-review.md#prerequisites).
+
 Desktop opens an App's install URL in the system browser. When focus returns, it refreshes App and MCP availability; the external page does not send a trusted local completion callback.
 
 Apps are not renamed into a universal Agent feature. If another harness later offers an equivalent capability, it receives its own harness extension and terminology.
+
+## Hooks
+
+Hooks provide automated command execution and security guards across Agent lifecycles.
+
+### Discovery and sources
+
+- **User hooks:** defined in `~/.cypheria/hooks.json`. Applied universally across all threads.
+- **Project hooks:** defined in `<repo>/.cypheria/hooks.json`. Scoped to workspaces under that repository.
+- **Plugin hooks:** declared in `<plugin_dir>/hooks/hooks.json` or within `plugin.json`'s `hooks` object.
+
+### Trust model
+
+Project-level hooks require explicit trust. The Server calculates a SHA-256 hash of `<repo>/.cypheria/hooks.json`. When the file is first discovered or modified, its trust status transitions to `untrusted` or `modified`, and the hook is skipped during dispatch until the user explicitly trusts it via the UI (`Settings -> Hooks`) or API.
+
+### Execution boundary and deduplication
+
+- **Codex harness:** When the active agent is Codex, plugin-level hooks are not executed in Cypheria's upper layer because Codex natively discovers and runs plugin hooks. Codex native hook runs are collected and reported through `hook/completed`. User-level and project-level Cypheria hooks are always executed by Cypheria.
+- **Other harnesses (Claude, Pi, OpenCode, ACP):** Cypheria's native `HookEngine` executes enabled plugin-level hooks directly for lifecycles like `UserPromptSubmit`, `SessionStart`, `SessionEnd`, and `Stop`.
 
 ## Caching and refresh
 

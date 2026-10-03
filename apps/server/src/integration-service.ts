@@ -1,5 +1,6 @@
 import type {
   AgentId,
+  HookView,
   IntegrationClientMessage,
   IntegrationServerMessage,
 } from "@cypheria/protocol"
@@ -10,6 +11,7 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { codexAppToolScope } from "./codex-app-tool-scope.js"
 import { ClaudePluginProvider } from "./integration/claude-plugin-provider.js"
 import { CodexPluginProvider } from "./integration/codex-plugin-provider.js"
+import { PiMcpProvider } from "./integration/pi-mcp-provider.js"
 import {
   InMemoryPluginMarketplaceRegistry,
   PluginHub,
@@ -17,6 +19,7 @@ import {
 } from "./integration/plugin-hub.js"
 import type { PluginProvider } from "./integration/plugin-provider.js"
 import { webUrl } from "./integration/plugin-utils.js"
+import { HookEngine } from "./integration/hook-engine.js"
 
 const mcpConfigSchema = z.record(
   z.string(),
@@ -32,8 +35,17 @@ const unsupported = (agentId: string, feature: string): Error => {
 export class IntegrationService {
   readonly #agents: AgentManager
   readonly #hub: PluginHub
+  readonly #piMcp: PiMcpProvider
+  readonly #hookEngine: HookEngine
 
-  constructor(agents: AgentManager, options: { marketplaces?: PluginMarketplaceRegistry } = {}) {
+  constructor(
+    agents: AgentManager,
+    options: {
+      cypheriaHome?: string
+      hookEngine?: HookEngine
+      marketplaces?: PluginMarketplaceRegistry
+    } = {}
+  ) {
     this.#agents = agents
     this.#hub = new PluginHub(
       new Map<AgentId, PluginProvider>([
@@ -49,6 +61,26 @@ export class IntegrationService {
       ]),
       options.marketplaces ?? new InMemoryPluginMarketplaceRegistry()
     )
+    this.#piMcp = new PiMcpProvider({
+      home: agents.piHome,
+      run: (args, runOptions) => agents.runPiCli(args, runOptions),
+      spec: (args) => agents.piCliSpec(args),
+    })
+    this.#hookEngine =
+      options.hookEngine ??
+      new HookEngine({
+        cypheriaHome: options.cypheriaHome,
+        pluginHub: this.#hub,
+      })
+  }
+
+  get hookEngine(): HookEngine {
+    return this.#hookEngine
+  }
+
+  /** Stops Pi MCP sign-ins that are still waiting for the browser. */
+  dispose(): void {
+    this.#piMcp.dispose()
   }
 
   #plugin(agentId: AgentId): PluginProvider {
@@ -114,23 +146,58 @@ export class IntegrationService {
           })
           respond({ succeeded: true })
           break
+        case "integration.hook.list.request":
+          respond(await this.#listHooks(message.payload.cwd, message.payload.agentId))
+          break
+        case "integration.hook.set-enabled.request":
+          await this.#setHookEnabled(
+            message.payload.key,
+            message.payload.enabled,
+            message.payload.agentId
+          )
+          respond({ succeeded: true })
+          break
+        case "integration.hook.trust.request":
+          await this.#trustHook(
+            message.payload.key,
+            message.payload.trustedHash,
+            message.payload.agentId
+          )
+          respond({ succeeded: true })
+          break
         case "integration.mcp.list.request":
-          this.#assertCodex(message.payload.agentId)
-          respond(await this.#listMcp())
+          if (message.payload.agentId === "pi") {
+            respond(await this.#piMcp.list())
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            respond(await this.#listMcp())
+          }
           break
         case "integration.mcp.add.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#addMcp(message.payload.name, message.payload.url)
+          if (message.payload.agentId === "pi") {
+            await this.#piMcp.add(message.payload.name, message.payload.url)
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            await this.#addMcp(message.payload.name, message.payload.url)
+          }
           respond({ succeeded: true })
           break
         case "integration.mcp.set-enabled.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#setMcpEnabled(message.payload.id, message.payload.enabled)
+          if (message.payload.agentId === "pi") {
+            await this.#piMcp.setEnabled(message.payload.id, message.payload.enabled)
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            await this.#setMcpEnabled(message.payload.id, message.payload.enabled)
+          }
           respond({ succeeded: true })
           break
         case "integration.mcp.login.request":
-          this.#assertCodex(message.payload.agentId)
-          respond(await this.#loginMcp(message.payload.id))
+          if (message.payload.agentId === "pi") {
+            respond(await this.#piMcp.login(message.payload.id))
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            respond(await this.#loginMcp(message.payload.id))
+          }
           break
         case "integration.plugin.list.request":
           respond(await this.#plugin(message.payload.agentId).list(message.payload))
@@ -413,6 +480,90 @@ export class IntegrationService {
           scope: skill.scope,
         }))
       ),
+    }
+  }
+
+  async #listHooks(cwd?: string, agentId: AgentId = "codex") {
+    const cypheriaResult = await this.#hookEngine.listHooks({ cwd, agentId })
+    if (agentId === "codex") {
+      try {
+        const response = await this.#call<v2.HooksListResponse>("hooks/list", {
+          cwds: cwd ? [cwd] : [],
+        })
+        const codexHooks: HookView[] = response.data.flatMap((entry) =>
+          entry.hooks.map(
+            (hook): HookView => ({
+              additionalContextLimit: hook.additionalContextLimit ?? null,
+              async: hook.handlerType === "command" ? hook.async : null,
+              command: hook.handlerType === "command" ? hook.command : null,
+              currentHash: hook.currentHash,
+              cwd: entry.cwd,
+              displayOrder: hook.displayOrder,
+              enabled: hook.enabled,
+              eventName: hook.eventName,
+              handlerType: hook.handlerType,
+              harness: { agentId: "codex" as const, nativeId: hook.key },
+              isManaged: hook.isManaged,
+              key: hook.key,
+              matcher: hook.matcher ?? null,
+              mcpServer: hook.handlerType === "mcpTool" ? hook.server : null,
+              mcpTool: hook.handlerType === "mcpTool" ? hook.tool : null,
+              pluginId: hook.pluginId ?? null,
+              source: hook.source,
+              sourcePath: hook.sourcePath,
+              statusMessage: hook.statusMessage ?? null,
+              timeoutSec: hook.timeoutSec,
+              trustStatus: hook.trustStatus,
+            })
+          )
+        )
+        const codexErrors = response.data.flatMap((entry) =>
+          entry.errors.map((error) => ({ message: error.message, path: error.path ?? null }))
+        )
+        return {
+          errors: [...cypheriaResult.errors, ...codexErrors],
+          hooks: [...cypheriaResult.hooks, ...codexHooks],
+        }
+      } catch {
+        return cypheriaResult
+      }
+    }
+    return cypheriaResult
+  }
+
+  async #setHookEnabled(key: string, enabled: boolean, agentId: AgentId = "codex"): Promise<void> {
+    await this.#hookEngine.setHookEnabled(key, enabled)
+    if (agentId === "codex") {
+      await this.#call("config/batchWrite", {
+        edits: [
+          {
+            keyPath: "hooks.state",
+            mergeStrategy: "upsert",
+            value: { [key]: { enabled } },
+          },
+        ],
+        expectedVersion: null,
+        filePath: null,
+        reloadUserConfig: true,
+      }).catch(() => undefined)
+    }
+  }
+
+  async #trustHook(key: string, trustedHash: string, agentId: AgentId = "codex"): Promise<void> {
+    await this.#hookEngine.trustHook(key, trustedHash)
+    if (agentId === "codex") {
+      await this.#call("config/batchWrite", {
+        edits: [
+          {
+            keyPath: "hooks.state",
+            mergeStrategy: "upsert",
+            value: { [key]: { trusted_hash: trustedHash } },
+          },
+        ],
+        expectedVersion: null,
+        filePath: null,
+        reloadUserConfig: true,
+      }).catch(() => undefined)
     }
   }
 

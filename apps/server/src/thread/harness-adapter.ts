@@ -91,11 +91,30 @@ export type ThreadHarnessResumeInput = ThreadHarnessContext & {
   readonly onEvent: (event: ThreadHarnessEvent) => void
 }
 
+/**
+ * Content an MCP App supplied for the model: its model context, or a message it sent. The model
+ * receives it apart from what the person wrote, as ChatGPT Desktop's `untrusted_input` tool
+ * output, so it cannot pass for the person's own words.
+ */
+export type UntrustedAppInput = {
+  readonly kind: "model_context" | "message"
+  readonly source: "mcp_app"
+  /** The App that supplied it. */
+  readonly sourceId: string
+  readonly server: string
+  readonly title: string
+  readonly text: string
+  readonly structuredContent?: Record<string, unknown>
+  readonly images: readonly { readonly data: string; readonly mimeType: string }[]
+}
+
 export type ThreadHarnessTurnInput = ThreadHarnessContext & {
   /** The kind of client that submitted the turn, `schedule` for a schedule run. */
   readonly clientKind?: string
   readonly clientMessageId: string
   readonly content: readonly ThreadInputBlock[]
+  /** App content kept out of `content`; only adapters that can isolate it receive it. */
+  readonly untrustedAppInput?: readonly UntrustedAppInput[]
 }
 
 export type ThreadHarnessSteerInput = ThreadHarnessTurnInput & {

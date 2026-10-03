@@ -38,12 +38,15 @@ The detailed future service boundary and threat model are in [Marketplace](marke
   - Add Skill recording where supported.
   - Complete loading, empty, error, disabled, update, advisory, and permission states.
   - Verify authenticated connector authorization in packaged Electron builds.
-  - Finish the Cypheria-native plugin process, permission, and Desktop contribution contract described in [Integrations](integrations.md).
+  - Complete the [Plugin Extensions limits](plugin-extensions.md#limits): render-only Apps of Claude tool calls and App-only tool hiding for Claude, Expo and CLI hosting, form uploads, and implicit resource selection.
+  - Verify the Desktop App sandbox end to end with the Bits & Bolts plugin in development and packaged Electron builds: entry points, the global page's workspace thread, file viewers, model context, messages, settings, mentions, and forms.
+  - Define the Cypheria-native manifest and the permission model for third-party `cypheria/*` host requests.
   - Add Pi and OpenCode plugin adapters as custom sources, and support marketplaces hosted on claude.ai for Claude.
 
 ## Local Git and pull requests
 
-- [ ] Verify packaged Electron Connect behavior and GitHub/GitLab authorization and PR/MR calls in Cypheria's managed Codex home.
+- [ ] Verify Code Review against OpenAI's backend with a real ChatGPT account: GitHub and GitLab connections (including several accounts), inbox sections, detail reads, writes, checks, and private reviews, and confirm the GitLab response shapes.
+- [ ] Verify Create PR end to end: with a signed-in `gh`, with the GitHub and GitLab accounts linked in ChatGPT (confirming the `github.create_pull_request` and `gitlab.create_merge_request` argument and result shapes), and through the browser pages.
 
 ## Built-in browser
 

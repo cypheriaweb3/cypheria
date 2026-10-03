@@ -1,0 +1,21 @@
+{
+  "name": "cypheria-bundled",
+  "owner": {
+    "name": "Cypheria"
+  },
+  "description": "Plugins bundled with Cypheria.",
+  "plugins": [
+    {
+      "name": "cypheria-app-tools",
+      "source": "./cypheria-app-tools",
+      "description": "Cypheria thread, project, worktree, and automation tools backed by the Cypheria Server.",
+      "category": "Developer Tools"
+    },
+    {
+      "name": "code-review",
+      "source": "./code-review",
+      "description": "Read GitHub pull request CI checks through the Cypheria Server.",
+      "category": "Developer Tools"
+    }
+  ]
+}

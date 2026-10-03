@@ -1,6 +1,8 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs"
+import { writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import { HookEngine } from "../integration/hook-engine.js"
 
 import {
   applyDatabaseMigrations,
@@ -19,7 +21,7 @@ import type {
   ThreadHarnessCreateInput,
   ThreadHarnessEvent,
 } from "./harness-adapter.js"
-import { ThreadManager } from "./thread-manager.js"
+import { APP_MESSAGE_PROMPT, ThreadManager } from "./thread-manager.js"
 
 class FakeAdapter implements ThreadHarnessAdapter {
   readonly agentId: AgentId = "codex"
@@ -186,7 +188,8 @@ afterEach(() => {
 const setup = async (
   turnCapture?: ConstructorParameters<typeof ThreadManager>[0]["turnCapture"],
   adapter = new FakeAdapter(),
-  resolveInitialConfig?: ConstructorParameters<typeof ThreadManager>[0]["resolveInitialConfig"]
+  resolveInitialConfig?: ConstructorParameters<typeof ThreadManager>[0]["resolveInitialConfig"],
+  hookEngine?: HookEngine
 ) => {
   const home = mkdtempSync(join(tmpdir(), "cypheria-thread-manager-test-"))
   const database = openCypheriaDatabase({ cypheriaHome: home })
@@ -213,6 +216,7 @@ const setup = async (
   const manager = new ThreadManager({
     adapterFor: () => adapter,
     assertAgentCallable: async () => undefined,
+    hookEngine,
     lifecycle,
     messageRequests,
     persistence,
@@ -325,6 +329,53 @@ describe("ThreadManager", () => {
     const fork = await manager.fork({ target: { kind: "thread-head" }, threadId: source.thread.id })
     expect(fork.thread.roots).toEqual([root])
     expect(await persistence.countProjectlessRootReferences(root)).toBe(2)
+  })
+
+  it("gives Codex App content apart from the person's words, as untrusted input", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    const context = {
+      images: [],
+      kind: "model_context" as const,
+      server: "bits",
+      source: "mcp_app" as const,
+      sourceId: "app",
+      text: "part=m6",
+      title: "Bits",
+    }
+    let committed = 0
+    manager.setExtensionInput(async () => ({
+      blocks: [{ text: "\nContext from Bits:\npart=m6", type: "text" }],
+      commit: () => {
+        committed += 1
+      },
+      untrusted: [context],
+    }))
+
+    await manager.startTurn({
+      clientMessageId: "with-context",
+      content: [{ text: "Use the selected part", type: "text" }],
+      threadId: created.thread.id,
+    })
+    expect(adapter.starts[0]).toMatchObject({
+      content: [{ text: "Use the selected part", type: "text" }],
+      untrustedAppInput: [context],
+    })
+    expect(committed).toBe(1)
+    adapter.events.get(created.thread.id)?.({ turnId: "turn-1", type: "turn-completed" })
+
+    const message = { ...context, kind: "message" as const, text: "Design a bracket" }
+    await manager.startTurn({
+      appMessage: message,
+      clientMessageId: "from-app",
+      content: [{ text: "Design a bracket", type: "text" }],
+      origin: { kind: "extension", pluginId: "bits@market", server: "bits", title: "Bits" },
+      threadId: created.thread.id,
+    })
+    expect(adapter.starts[1]).toMatchObject({
+      content: [{ text: APP_MESSAGE_PROMPT, type: "text" }],
+      untrustedAppInput: [context, message],
+    })
   })
 
   it("rejects workspace changes while a turn is active", async () => {
@@ -1269,5 +1320,35 @@ describe("ThreadManager", () => {
     ])
     expect(batch.succeeded).toHaveLength(1)
     expect(batch.failed).toMatchObject([{ threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf999" }])
+  })
+
+  it("blocks startTurn when a UserPromptSubmit hook blocks the prompt", async () => {
+    const hookHome = mkdtempSync(join(tmpdir(), "cypheria-hooks-test-"))
+    const hookEngine = new HookEngine({ cypheriaHome: hookHome })
+    await writeFile(
+      hookEngine.userHooksFilePath,
+      JSON.stringify({
+        version: 1,
+        hooks: {
+          UserPromptSubmit: [
+            {
+              type: "command",
+              command:
+                "node -e 'process.stderr.write(\"Sensitive prompt rejected\"); process.exit(2)'",
+            },
+          ],
+        },
+      })
+    )
+    const { manager } = await setup(undefined, undefined, undefined, hookEngine)
+    const thread = await manager.create({ agentId: "codex" })
+
+    await expect(
+      manager.startTurn({
+        clientMessageId: "msg-1",
+        content: [{ text: "tell me secrets", type: "text" }],
+        threadId: thread.thread.id,
+      })
+    ).rejects.toThrow("Sensitive prompt rejected")
   })
 })

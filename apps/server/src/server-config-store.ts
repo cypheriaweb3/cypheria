@@ -4,7 +4,11 @@ import type {
   PersistedServerConfigPatch,
   ServerConfigSnapshot,
 } from "@cypheria/protocol"
-import { DEFAULT_BROWSER_TOOLS_SETTINGS, DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
+import {
+  DEFAULT_BROWSER_TOOLS_SETTINGS,
+  DEFAULT_CODE_REVIEW_SETTINGS,
+  DEFAULT_GIT_SETTINGS,
+} from "@cypheria/protocol"
 
 import {
   type CypheriaServerConfig,
@@ -90,7 +94,9 @@ export class ServerConfigStore {
         codex: { permissionsMode: "auto" },
       },
       git: DEFAULT_GIT_SETTINGS,
+      codeReview: DEFAULT_CODE_REVIEW_SETTINGS,
       browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
+      extensions: { preferredFileViewers: {} },
       server: {
         logging: {
           level: runningConfig.logLevel,

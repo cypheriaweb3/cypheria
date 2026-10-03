@@ -434,6 +434,7 @@ export type ClientSettingDefinitions = Readonly<{
     wrap: boolean
   }>
   unreadThreadIds: ClientSettingDefinition<string[]>
+  codeReviewSidebarCollapsed: ClientSettingDefinition<string[]>
 }>
 
 export const clientSettingDefinitions: ClientSettingDefinitions = {
@@ -617,6 +618,14 @@ export const clientSettingDefinitions: ClientSettingDefinitions = {
     defaultValue: [] as string[],
     key: "unreadThreadIds",
     schema: z.array(z.string().min(1)).max(1_000),
+    version: 1,
+  }),
+  /** Code Review sidebar sections this client shows collapsed. */
+  codeReviewSidebarCollapsed: defineClientSetting({
+    category: "git-ui",
+    defaultValue: [] as string[],
+    key: "codeReviewSidebarCollapsed",
+    schema: z.array(z.string().min(1).max(64)).max(16),
     version: 1,
   }),
 }
