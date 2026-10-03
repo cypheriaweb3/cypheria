@@ -31,6 +31,7 @@ import {
   type ThreadTimelineItem,
   type ThreadView,
 } from "@cypheria/protocol"
+import type { HookEngine } from "../integration/hook-engine.js"
 import type {
   ThreadHarnessAdapter,
   ThreadHarnessContext,
@@ -40,7 +41,6 @@ import type {
   UntrustedAppInput,
 } from "./harness-adapter.js"
 import type { InputFileService } from "./input-file-service.js"
-import type { HookEngine } from "../integration/hook-engine.js"
 import {
   createProjectlessWorkspace,
   isManagedProjectlessWorkspace,
@@ -112,6 +112,7 @@ export type ThreadManagerOptions = {
   readonly onArchived?: (threadId: string, cwd: string) => Promise<void>
   readonly onDeleting?: (threadId: string) => Promise<void>
   readonly onUnarchiving?: (cwd: string) => Promise<void>
+  readonly onTurnCompleted?: (threadId: string, turnId: string) => Promise<void> | void
   readonly timelinePersistence: ThreadTimelinePersistenceService
   readonly hookEngine?: HookEngine
   readonly turnCapture?: {
@@ -147,6 +148,7 @@ export class ThreadManager {
   readonly #onArchived: ThreadManagerOptions["onArchived"]
   readonly #onDeleting: ThreadManagerOptions["onDeleting"]
   readonly #onUnarchiving: ThreadManagerOptions["onUnarchiving"]
+  readonly #onTurnCompleted: ThreadManagerOptions["onTurnCompleted"]
   readonly #runtime = new Map<string, RuntimeState>()
   readonly #timeline: ThreadTimelineStore
   #extensionInput: ExtensionInputProvider | undefined
@@ -180,6 +182,7 @@ export class ThreadManager {
     this.#onArchived = options.onArchived
     this.#onDeleting = options.onDeleting
     this.#onUnarchiving = options.onUnarchiving
+    this.#onTurnCompleted = options.onTurnCompleted
     this.#timeline = new ThreadTimelineStore(options.timelinePersistence)
     this.#turnCapture = options.turnCapture
   }
@@ -1553,6 +1556,9 @@ export class ThreadManager {
                 { turnId: completedTurnId, cwd: thread.roots[0] ?? undefined },
                 { agentId: thread.agentId as AgentId, threadId: thread.id, turnId: completedTurnId }
               )
+            }
+            if (this.#onTurnCompleted) {
+              void this.#onTurnCompleted(threadId, completedTurnId)
             }
           }
           break

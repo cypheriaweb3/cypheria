@@ -40,7 +40,7 @@ export const pluginImage = async (
 
 export const BUNDLED_MARKETPLACE_NAME = "cypheria-bundled"
 /** Plugins the bundled marketplace carries; Server keeps each one installed and current. */
-export const BUNDLED_PLUGIN_NAMES = ["cypheria-app-tools", "code-review"] as const
+export const BUNDLED_PLUGIN_NAMES = ["cypheria-app-tools", "code-review", "browser"] as const
 
 /**
  * Locates the bundled marketplace directory in a checkout or in the built

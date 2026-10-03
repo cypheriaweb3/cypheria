@@ -2,7 +2,6 @@
 // packages/desktop/src/features/browser-automation/service.ts.
 import { realpathSync } from "node:fs"
 import { isAbsolute, relative, resolve as resolvePath } from "node:path"
-
 import type {
   BrowserAutomationCommand,
   BrowserAutomationConsoleLogEntry,
@@ -13,8 +12,9 @@ import type {
   BrowserAutomationRequest,
   BrowserTabKind,
 } from "@cypheria/protocol"
+import jsQR from "jsqr"
 import { type ActionabilityResult, waitForActionableTarget } from "./actionability.js"
-import { BrowserSnapshotEngine } from "./snapshot-engine.js"
+import { BrowserSnapshotEngine, type SnapshotPage } from "./snapshot-engine.js"
 import {
   type ClickInputOptions,
   dispatchTrustedClick,
@@ -53,6 +53,8 @@ export interface TabContents {
 export interface TabImage {
   toPNG(): Uint8Array
   getSize(): { width: number; height: number }
+  toBitmap?(): Uint8Array | Buffer
+  crop?(rect: { x: number; y: number; width: number; height: number }): TabImage
 }
 
 export interface BrowserRegistry {
@@ -62,6 +64,7 @@ export interface BrowserRegistry {
   getBrowserThreadId(browserId: string): string | null
   getThreadActiveBrowserId(threadId: string): string | null
   getBrowserKind(browserId: string): BrowserTabKind
+  activateTab?(browserId: string): void
 }
 
 export type AutomationCommandPayload = BrowserAutomationOutcome
@@ -287,6 +290,144 @@ type CommandHandler = (
   context: CommandHandlerContext
 ) => AutomationCommandPayload | Promise<AutomationCommandPayload>
 
+export function elementExpressionFromSelector(selector: string): string {
+  if (selector.startsWith("//") || selector.startsWith("(//") || selector.startsWith("xpath=")) {
+    const rawXpath = selector.startsWith("xpath=") ? selector.slice(6) : selector
+    return `(() => {
+      const res = document.evaluate(${JSON.stringify(rawXpath)}, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+      return res.singleNodeValue instanceof Element ? res.singleNodeValue : null;
+    })()`
+  }
+  return `document.querySelector(${JSON.stringify(selector)})`
+}
+
+interface TargetPointInput {
+  ref?: string
+  selector?: string
+  point?: { x: number; y: number }
+  x?: number
+  y?: number
+}
+
+async function resolveActionablePoint(input: {
+  automationId: string
+  browserId: string
+  contents: TabContents
+  snapshotEngine: BrowserSnapshotEngine
+  target: TargetPointInput
+  targetName?: string
+  editable?: boolean
+}): Promise<{ ok: true; point: { x: number; y: number } } | FailurePayload> {
+  const {
+    automationId,
+    browserId,
+    contents,
+    snapshotEngine,
+    target,
+    targetName = "target",
+    editable,
+  } = input
+
+  if (target.point) {
+    return { ok: true, point: target.point }
+  }
+  if (typeof target.x === "number" && typeof target.y === "number") {
+    return { ok: true, point: { x: target.x, y: target.y } }
+  }
+
+  let elementExpression: string | null = null
+  let usingRef = false
+
+  if (target.ref) {
+    const expr = snapshotEngine.runtimeElementExpression({ browserId, ref: target.ref })
+    if (typeof expr === "string") {
+      elementExpression = expr
+      usingRef = true
+    } else if (!target.selector) {
+      return staleRefFailure(automationId, target.ref)
+    }
+  }
+
+  if (!elementExpression && target.selector) {
+    elementExpression = elementExpressionFromSelector(target.selector)
+  }
+
+  if (!elementExpression) {
+    return fail(
+      automationId,
+      "browser_target_not_found",
+      `No ref, selector, or point was specified for ${targetName}.`
+    )
+  }
+
+  const actionable = await waitForActionableTarget({
+    page: contents,
+    elementExpression,
+    editable,
+  })
+
+  if (!actionable.ok) {
+    if (usingRef && target.ref) {
+      return actionabilityFailure(automationId, target.ref, actionable)
+    }
+    return fail(
+      automationId,
+      "browser_target_not_found",
+      `Element matching "${target.selector}" is ${actionable.reason === "timeout" ? (actionable.detail ?? "not actionable") : actionable.reason}.`
+    )
+  }
+
+  return { ok: true, point: actionable.target.point }
+}
+
+async function executeFillElement(
+  page: SnapshotPage,
+  expression: string,
+  value: string
+): Promise<boolean> {
+  const script = `(() => {
+    const element = ${expression};
+    if (!element || !element.isConnected) return false;
+    element.scrollIntoView?.({ block: 'center', inline: 'center' });
+    element.focus?.();
+    const nextValue = ${JSON.stringify(value)};
+    if ('value' in element) {
+      element.value = nextValue;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+    element.textContent = nextValue;
+    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: nextValue }));
+    return true;
+  })()`
+  const res = await page.executeJavaScript(script)
+  return res === true
+}
+
+async function executeSelectElement(
+  page: SnapshotPage,
+  expression: string,
+  value: string
+): Promise<boolean> {
+  const script = `(() => {
+    const element = ${expression};
+    if (!element || !element.isConnected) return false;
+    element.scrollIntoView?.({ block: 'center', inline: 'center' });
+    element.focus?.();
+    const nextValue = ${JSON.stringify(value)};
+    if ('value' in element) {
+      element.value = nextValue;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+    return false;
+  })()`
+  const res = await page.executeJavaScript(script)
+  return res === true
+}
+
 const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandler> = {
   list_tabs: ({ automationId, threadId, registry }) =>
     executeListTabs(automationId, threadId, registry),
@@ -308,7 +449,11 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       clickCommand.args.browserId,
-      clickCommand.args.ref,
+      {
+        ref: clickCommand.args.ref,
+        selector: clickCommand.args.selector,
+        point: clickCommand.args.point,
+      },
       {
         button: clickCommand.args.button,
         doubleClick: clickCommand.args.doubleClick,
@@ -324,7 +469,10 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       fillCommand.args.browserId,
-      fillCommand.args.ref,
+      {
+        ref: fillCommand.args.ref,
+        selector: fillCommand.args.selector,
+      },
       fillCommand.args.value,
       registry,
       snapshotEngine
@@ -350,7 +498,10 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       typeCommand.args.browserId,
-      typeCommand.args.ref,
+      {
+        ref: typeCommand.args.ref,
+        selector: typeCommand.args.selector,
+      },
       typeCommand.args.text,
       registry,
       snapshotEngine
@@ -362,7 +513,10 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       keypressCommand.args.browserId,
-      keypressCommand.args.ref,
+      {
+        ref: keypressCommand.args.ref,
+        selector: keypressCommand.args.selector,
+      },
       keypressCommand.args.key,
       registry,
       snapshotEngine
@@ -432,7 +586,11 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       request.cwd,
       threadId,
       uploadCommand.args.browserId,
-      { ref: uploadCommand.args.ref, filePaths: uploadCommand.args.filePaths },
+      {
+        ref: uploadCommand.args.ref,
+        selector: uploadCommand.args.selector,
+        filePaths: uploadCommand.args.filePaths,
+      },
       registry,
       snapshotEngine
     )
@@ -443,7 +601,10 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       selectCommand.args.browserId,
-      selectCommand.args.ref,
+      {
+        ref: selectCommand.args.ref,
+        selector: selectCommand.args.selector,
+      },
       selectCommand.args.value,
       registry,
       snapshotEngine
@@ -455,7 +616,11 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       hoverCommand.args.browserId,
-      hoverCommand.args.ref,
+      {
+        ref: hoverCommand.args.ref,
+        selector: hoverCommand.args.selector,
+        point: hoverCommand.args.point,
+      },
       registry,
       snapshotEngine
     )
@@ -466,8 +631,16 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       dragCommand.args.browserId,
-      dragCommand.args.sourceRef,
-      dragCommand.args.targetRef,
+      {
+        ref: dragCommand.args.sourceRef,
+        selector: dragCommand.args.sourceSelector,
+        point: dragCommand.args.sourcePoint,
+      },
+      {
+        ref: dragCommand.args.targetRef,
+        selector: dragCommand.args.targetSelector,
+        point: dragCommand.args.targetPoint,
+      },
       registry,
       snapshotEngine
     )
@@ -489,7 +662,10 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       threadId,
       evaluateCommand.args.browserId,
       evaluateCommand.args.function,
-      evaluateCommand.args.ref,
+      {
+        ref: evaluateCommand.args.ref,
+        selector: evaluateCommand.args.selector,
+      },
       registry,
       snapshotEngine
     )
@@ -500,7 +676,11 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       automationId,
       threadId,
       scrollCommand.args.browserId,
-      scrollCommand.args.ref,
+      {
+        ref: scrollCommand.args.ref,
+        selector: scrollCommand.args.selector,
+        point: scrollCommand.args.point,
+      },
       scrollCommand.args.deltaX,
       scrollCommand.args.deltaY,
       registry,
@@ -511,6 +691,39 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
     fail(automationId, "browser_unsupported", "browser_resize is handled by the app runtime."),
   close_tab: ({ automationId }) =>
     fail(automationId, "browser_unsupported", "browser_close_tab is handled by the app runtime."),
+  mark_deliverable: ({ command, automationId, threadId, registry }) => {
+    const c = command as Extract<BrowserAutomationCommand, { command: "mark_deliverable" }>
+    return executeMarkDeliverable(automationId, threadId, c.args.browserId, registry)
+  },
+  mark_handoff: ({ command, automationId, threadId, registry }) => {
+    const c = command as Extract<BrowserAutomationCommand, { command: "mark_handoff" }>
+    return executeMarkHandoff(automationId, threadId, c.args.browserId, registry)
+  },
+  request_manual_handoff: ({ command, automationId, threadId, registry }) => {
+    const c = command as Extract<BrowserAutomationCommand, { command: "request_manual_handoff" }>
+    return executeRequestManualHandoff(
+      automationId,
+      threadId,
+      c.args.browserId,
+      c.args.reason,
+      registry
+    )
+  },
+  scan_qr: ({ command, automationId, threadId, registry, snapshotEngine }) => {
+    const c = command as Extract<BrowserAutomationCommand, { command: "scan_qr" }>
+    return executeScanQr(
+      automationId,
+      threadId,
+      c.args.browserId,
+      { ref: c.args.ref, selector: c.args.selector },
+      registry,
+      snapshotEngine
+    )
+  },
+  extract_assets: ({ command, automationId, threadId, registry }) => {
+    const c = command as Extract<BrowserAutomationCommand, { command: "extract_assets" }>
+    return executeExtractAssets(automationId, threadId, c.args.browserId, c.args.kinds, registry)
+  },
 }
 
 interface ResolvedTabTarget {
@@ -590,7 +803,7 @@ async function executeClick(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  ref: string,
+  targetInput: { ref?: string; selector?: string; point?: { x: number; y: number } },
   options: ClickInputOptions,
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
@@ -607,30 +820,28 @@ async function executeClick(
         "browser_click requires trusted browser input"
       )
     }
-    const elementExpression = snapshotEngine.runtimeElementExpression({
+    const resolvedPoint = await resolveActionablePoint({
+      automationId,
       browserId: target.browserId,
-      ref,
+      contents: target.contents,
+      snapshotEngine,
+      target: targetInput,
     })
-    if (typeof elementExpression !== "string") {
-      return staleRefFailure(automationId, ref)
+    if (!("ok" in resolvedPoint) || !resolvedPoint.ok) {
+      return resolvedPoint
     }
-    const actionable = await waitForActionableTarget({
-      page: target.contents,
-      elementExpression,
-    })
-    if (!actionable.ok) {
-      return actionabilityFailure(automationId, ref, actionable)
-    }
-    await dispatchTrustedClick(cdpSender(target.contents), actionable.target.point, options)
+    await dispatchTrustedClick(cdpSender(target.contents), resolvedPoint.point, options)
     return {
       automationId,
       ok: true,
       result: {
         command: "click",
         browserId: target.browserId,
-        ref,
-        x: actionable.target.point.x,
-        y: actionable.target.point.y,
+        ...(targetInput.ref ? { ref: targetInput.ref } : {}),
+        ...(targetInput.selector ? { selector: targetInput.selector } : {}),
+        ...(targetInput.point ? { point: targetInput.point } : {}),
+        x: resolvedPoint.point.x,
+        y: resolvedPoint.point.y,
       },
     }
   })
@@ -640,7 +851,7 @@ async function executeFill(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  ref: string,
+  targetInput: { ref?: string; selector?: string },
   value: string,
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
@@ -650,16 +861,53 @@ async function executeFill(
     return target
   }
   return withDialogCapture(target.contents, async () => {
-    const result = await snapshotEngine.fill({
-      browserId: target.browserId,
-      page: target.contents,
-      ref,
-      value,
-    })
-    if (!result.ok) {
-      return staleRefFailure(automationId, ref)
+    if (targetInput.ref) {
+      const result = await snapshotEngine.fill({
+        browserId: target.browserId,
+        page: target.contents,
+        ref: targetInput.ref,
+        value,
+      })
+      if (result.ok) {
+        return {
+          automationId,
+          ok: true,
+          result: {
+            command: "fill",
+            browserId: target.browserId,
+            ref: targetInput.ref,
+            ...(targetInput.selector ? { selector: targetInput.selector } : {}),
+          },
+        }
+      }
+      if (!targetInput.selector) {
+        return staleRefFailure(automationId, targetInput.ref)
+      }
     }
-    return { automationId, ok: true, result: { command: "fill", browserId: target.browserId, ref } }
+
+    if (targetInput.selector) {
+      const expr = elementExpressionFromSelector(targetInput.selector)
+      const filled = await executeFillElement(target.contents, expr, value)
+      if (!filled) {
+        return fail(
+          automationId,
+          "browser_target_not_found",
+          `Element matching "${targetInput.selector}" was not found or could not be filled.`
+        )
+      }
+      return {
+        automationId,
+        ok: true,
+        result: {
+          command: "fill",
+          browserId: target.browserId,
+          selector: targetInput.selector,
+          ...(targetInput.ref ? { ref: targetInput.ref } : {}),
+        },
+      }
+    }
+
+    return fail(automationId, "browser_target_not_found", "Neither ref nor selector was provided.")
   })
 }
 
@@ -667,7 +915,7 @@ async function executeSelect(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  ref: string,
+  targetInput: { ref?: string; selector?: string },
   value: string,
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
@@ -677,20 +925,55 @@ async function executeSelect(
     return target
   }
   return withDialogCapture(target.contents, async () => {
-    const result = await snapshotEngine.select({
-      browserId: target.browserId,
-      page: target.contents,
-      ref,
-      value,
-    })
-    if (!result.ok) {
-      return staleRefFailure(automationId, ref)
+    if (targetInput.ref) {
+      const result = await snapshotEngine.select({
+        browserId: target.browserId,
+        page: target.contents,
+        ref: targetInput.ref,
+        value,
+      })
+      if (result.ok) {
+        return {
+          automationId,
+          ok: true,
+          result: {
+            command: "select",
+            browserId: target.browserId,
+            ref: targetInput.ref,
+            value,
+            ...(targetInput.selector ? { selector: targetInput.selector } : {}),
+          },
+        }
+      }
+      if (!targetInput.selector) {
+        return staleRefFailure(automationId, targetInput.ref)
+      }
     }
-    return {
-      automationId,
-      ok: true,
-      result: { command: "select", browserId: target.browserId, ref, value },
+
+    if (targetInput.selector) {
+      const expr = elementExpressionFromSelector(targetInput.selector)
+      const selected = await executeSelectElement(target.contents, expr, value)
+      if (!selected) {
+        return fail(
+          automationId,
+          "browser_target_not_found",
+          `Element matching "${targetInput.selector}" was not found or could not be selected.`
+        )
+      }
+      return {
+        automationId,
+        ok: true,
+        result: {
+          command: "select",
+          browserId: target.browserId,
+          selector: targetInput.selector,
+          value,
+          ...(targetInput.ref ? { ref: targetInput.ref } : {}),
+        },
+      }
     }
+
+    return fail(automationId, "browser_target_not_found", "Neither ref nor selector was provided.")
   })
 }
 
@@ -698,7 +981,7 @@ async function executeHover(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  ref: string,
+  targetInput: { ref?: string; selector?: string; point?: { x: number; y: number } },
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
 ): Promise<AutomationCommandPayload> {
@@ -714,30 +997,28 @@ async function executeHover(
         "browser_hover requires trusted browser input"
       )
     }
-    const elementExpression = snapshotEngine.runtimeElementExpression({
+    const resolvedPoint = await resolveActionablePoint({
+      automationId,
       browserId: target.browserId,
-      ref,
+      contents: target.contents,
+      snapshotEngine,
+      target: targetInput,
     })
-    if (typeof elementExpression !== "string") {
-      return staleRefFailure(automationId, ref)
+    if (!("ok" in resolvedPoint) || !resolvedPoint.ok) {
+      return resolvedPoint
     }
-    const actionable = await waitForActionableTarget({
-      page: target.contents,
-      elementExpression,
-    })
-    if (!actionable.ok) {
-      return actionabilityFailure(automationId, ref, actionable)
-    }
-    await dispatchTrustedHover(cdpSender(target.contents), actionable.target.point)
+    await dispatchTrustedHover(cdpSender(target.contents), resolvedPoint.point)
     return {
       automationId,
       ok: true,
       result: {
         command: "hover",
         browserId: target.browserId,
-        ref,
-        x: actionable.target.point.x,
-        y: actionable.target.point.y,
+        ...(targetInput.ref ? { ref: targetInput.ref } : {}),
+        ...(targetInput.selector ? { selector: targetInput.selector } : {}),
+        ...(targetInput.point ? { point: targetInput.point } : {}),
+        x: resolvedPoint.point.x,
+        y: resolvedPoint.point.y,
       },
     }
   })
@@ -747,8 +1028,8 @@ async function executeDrag(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  sourceRef: string,
-  targetRef: string,
+  sourceInput: { ref?: string; selector?: string; point?: { x: number; y: number } },
+  targetInput: { ref?: string; selector?: string; point?: { x: number; y: number } },
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
 ): Promise<AutomationCommandPayload> {
@@ -764,48 +1045,45 @@ async function executeDrag(
         "browser_drag requires trusted browser input"
       )
     }
-    const sourceExpression = snapshotEngine.runtimeElementExpression({
+    const source = await resolveActionablePoint({
+      automationId,
       browserId: target.browserId,
-      ref: sourceRef,
+      contents: target.contents,
+      snapshotEngine,
+      target: sourceInput,
+      targetName: "source",
     })
-    const targetExpression = snapshotEngine.runtimeElementExpression({
+    if (!("ok" in source) || !source.ok) {
+      return source
+    }
+    const dropTarget = await resolveActionablePoint({
+      automationId,
       browserId: target.browserId,
-      ref: targetRef,
+      contents: target.contents,
+      snapshotEngine,
+      target: targetInput,
+      targetName: "target",
     })
-    if (typeof sourceExpression !== "string" || typeof targetExpression !== "string") {
-      return staleRefFailure(automationId, `${sourceRef}/${targetRef}`)
+    if (!("ok" in dropTarget) || !dropTarget.ok) {
+      return dropTarget
     }
-    const source = await waitForActionableTarget({
-      page: target.contents,
-      elementExpression: sourceExpression,
-    })
-    if (!source.ok) {
-      return actionabilityFailure(automationId, sourceRef, source)
-    }
-    const dropTarget = await waitForActionableTarget({
-      page: target.contents,
-      elementExpression: targetExpression,
-    })
-    if (!dropTarget.ok) {
-      return actionabilityFailure(automationId, targetRef, dropTarget)
-    }
-    await dispatchTrustedDrag(
-      cdpSender(target.contents),
-      source.target.point,
-      dropTarget.target.point
-    )
+    await dispatchTrustedDrag(cdpSender(target.contents), source.point, dropTarget.point)
     return {
       automationId,
       ok: true,
       result: {
         command: "drag",
         browserId: target.browserId,
-        sourceRef,
-        targetRef,
-        sourceX: source.target.point.x,
-        sourceY: source.target.point.y,
-        targetX: dropTarget.target.point.x,
-        targetY: dropTarget.target.point.y,
+        ...(sourceInput.ref ? { sourceRef: sourceInput.ref } : {}),
+        ...(sourceInput.selector ? { sourceSelector: sourceInput.selector } : {}),
+        ...(sourceInput.point ? { sourcePoint: sourceInput.point } : {}),
+        ...(targetInput.ref ? { targetRef: targetInput.ref } : {}),
+        ...(targetInput.selector ? { targetSelector: targetInput.selector } : {}),
+        ...(targetInput.point ? { targetPoint: targetInput.point } : {}),
+        sourceX: source.point.x,
+        sourceY: source.point.y,
+        targetX: dropTarget.point.x,
+        targetY: dropTarget.point.y,
       },
     }
   })
@@ -845,7 +1123,7 @@ async function executeEvaluate(
   threadId: string | undefined,
   browserId: string,
   functionSource: string,
-  ref: string | undefined,
+  targetInput: { ref?: string; selector?: string },
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
 ): Promise<AutomationCommandPayload> {
@@ -855,15 +1133,21 @@ async function executeEvaluate(
   }
   return withDialogCapture(target.contents, async () => {
     let elementExpression: string | undefined
-    if (ref) {
+    if (targetInput.ref) {
       const expression = snapshotEngine.runtimeElementExpression({
         browserId: target.browserId,
-        ref,
+        ref: targetInput.ref,
       })
       if (typeof expression !== "string") {
-        return staleRefFailure(automationId, ref)
+        if (!targetInput.selector) {
+          return staleRefFailure(automationId, targetInput.ref)
+        }
+      } else {
+        elementExpression = expression
       }
-      elementExpression = expression
+    }
+    if (!elementExpression && targetInput.selector) {
+      elementExpression = elementExpressionFromSelector(targetInput.selector)
     }
 
     let rawResult: unknown
@@ -877,7 +1161,7 @@ async function executeEvaluate(
 
     const result = readEvaluateScriptResult(rawResult)
     if (result.status === "stale_ref") {
-      return staleRefFailure(automationId, ref ?? "unknown")
+      return staleRefFailure(automationId, targetInput.ref ?? targetInput.selector ?? "unknown")
     }
     if (result.status === "error") {
       return fail(automationId, "browser_unknown_error", capEvaluateErrorMessage(result.message))
@@ -901,7 +1185,7 @@ async function executeScroll(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  ref: string | undefined,
+  targetInput: { ref?: string; selector?: string; point?: { x: number; y: number } },
   deltaX: number,
   deltaY: number,
   registry: BrowserRegistry,
@@ -921,22 +1205,18 @@ async function executeScroll(
     }
 
     let point: { x: number; y: number }
-    if (ref) {
-      const elementExpression = snapshotEngine.runtimeElementExpression({
+    if (targetInput.ref || targetInput.selector || targetInput.point) {
+      const res = await resolveActionablePoint({
+        automationId,
         browserId: target.browserId,
-        ref,
+        contents: target.contents,
+        snapshotEngine,
+        target: targetInput,
       })
-      if (typeof elementExpression !== "string") {
-        return staleRefFailure(automationId, ref)
+      if (!("ok" in res) || !res.ok) {
+        return res
       }
-      const actionable = await waitForActionableTarget({
-        page: target.contents,
-        elementExpression,
-      })
-      if (!actionable.ok) {
-        return actionabilityFailure(automationId, ref, actionable)
-      }
-      point = actionable.target.point
+      point = res.point
     } else {
       point = await readViewportCenter(target.contents)
     }
@@ -948,7 +1228,9 @@ async function executeScroll(
       result: {
         command: "scroll",
         browserId: target.browserId,
-        ...(ref ? { ref } : {}),
+        ...(targetInput.ref ? { ref: targetInput.ref } : {}),
+        ...(targetInput.selector ? { selector: targetInput.selector } : {}),
+        ...(targetInput.point ? { point: targetInput.point } : {}),
         deltaX,
         deltaY,
         x: point.x,
@@ -1063,7 +1345,7 @@ async function executeType(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  ref: string | undefined,
+  targetInput: { ref?: string; selector?: string; point?: { x: number; y: number } },
   text: string,
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
@@ -1080,24 +1362,21 @@ async function executeType(
         "browser_type requires trusted browser input"
       )
     }
-    let actionable: ActionabilityResult | null = null
-    if (ref) {
-      const elementExpression = snapshotEngine.runtimeElementExpression({
+    let resolvedPoint: { x: number; y: number } | null = null
+    if (targetInput.ref || targetInput.selector || targetInput.point) {
+      const res = await resolveActionablePoint({
+        automationId,
         browserId: target.browserId,
-        ref,
-      })
-      if (typeof elementExpression !== "string") {
-        return staleRefFailure(automationId, ref)
-      }
-      actionable = await waitForActionableTarget({
-        page: target.contents,
-        elementExpression,
+        contents: target.contents,
+        snapshotEngine,
+        target: targetInput,
         editable: true,
       })
-      if (!actionable.ok) {
-        return actionabilityFailure(automationId, ref, actionable)
+      if (!("ok" in res) || !res.ok) {
+        return res
       }
-      await dispatchTrustedClick(cdpSender(target.contents), actionable.target.point)
+      resolvedPoint = res.point
+      await dispatchTrustedClick(cdpSender(target.contents), resolvedPoint)
     }
     await dispatchTrustedText(cdpSender(target.contents), text)
     return {
@@ -1106,8 +1385,10 @@ async function executeType(
       result: {
         command: "type",
         browserId: target.browserId,
-        ...(ref ? { ref } : {}),
-        ...(actionable?.ok ? { x: actionable.target.point.x, y: actionable.target.point.y } : {}),
+        ...(targetInput.ref ? { ref: targetInput.ref } : {}),
+        ...(targetInput.selector ? { selector: targetInput.selector } : {}),
+        ...(targetInput.point ? { point: targetInput.point } : {}),
+        ...(resolvedPoint ? { x: resolvedPoint.x, y: resolvedPoint.y } : {}),
       },
     }
   })
@@ -1117,7 +1398,7 @@ async function executeKeypress(
   automationId: string,
   threadId: string | undefined,
   browserId: string,
-  ref: string | undefined,
+  targetInput: { ref?: string; selector?: string; point?: { x: number; y: number } },
   key: string,
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
@@ -1127,27 +1408,9 @@ async function executeKeypress(
     return target
   }
   return withDialogCapture(target.contents, async () => {
-    let actionable: ActionabilityResult | null = null
-    if (ref) {
-      const elementExpression = snapshotEngine.runtimeElementExpression({
-        browserId: target.browserId,
-        ref,
-      })
-      if (typeof elementExpression !== "string") {
-        return staleRefFailure(automationId, ref)
-      }
-      actionable = await waitForActionableTarget({
-        page: target.contents,
-        elementExpression,
-      })
-      if (!actionable.ok) {
-        return actionabilityFailure(automationId, ref, actionable)
-      }
-      const focused = await focusKeypressTarget(target.contents, elementExpression)
-      if (focused === "stale_ref") {
-        return staleRefFailure(automationId, ref)
-      }
-      if (focused === "editable") {
+    let resolvedPoint: { x: number; y: number } | null = null
+    if (targetInput.ref || targetInput.selector || targetInput.point) {
+      if (targetInput.point) {
         if (!target.contents.sendDebugCommand) {
           return fail(
             automationId,
@@ -1155,7 +1418,58 @@ async function executeKeypress(
             "browser_keypress requires trusted browser input"
           )
         }
-        await dispatchTrustedClick(cdpSender(target.contents), actionable.target.point)
+        resolvedPoint = targetInput.point
+        await dispatchTrustedClick(cdpSender(target.contents), resolvedPoint)
+      } else {
+        let elementExpression: string | null = null
+        if (targetInput.ref) {
+          const expr = snapshotEngine.runtimeElementExpression({
+            browserId: target.browserId,
+            ref: targetInput.ref,
+          })
+          if (typeof expr === "string") {
+            elementExpression = expr
+          } else if (!targetInput.selector) {
+            return staleRefFailure(automationId, targetInput.ref)
+          }
+        }
+        if (!elementExpression && targetInput.selector) {
+          elementExpression = elementExpressionFromSelector(targetInput.selector)
+        }
+        if (elementExpression) {
+          const actionable = await waitForActionableTarget({
+            page: target.contents,
+            elementExpression,
+          })
+          if (!actionable.ok) {
+            if (targetInput.ref) {
+              return actionabilityFailure(automationId, targetInput.ref, actionable)
+            }
+            return fail(
+              automationId,
+              "browser_target_not_found",
+              `Element matching "${targetInput.selector}" is ${actionable.reason === "timeout" ? (actionable.detail ?? "not actionable") : actionable.reason}.`
+            )
+          }
+          resolvedPoint = actionable.target.point
+          const focused = await focusKeypressTarget(target.contents, elementExpression)
+          if (focused === "stale_ref") {
+            return staleRefFailure(
+              automationId,
+              targetInput.ref ?? targetInput.selector ?? "target"
+            )
+          }
+          if (focused === "editable") {
+            if (!target.contents.sendDebugCommand) {
+              return fail(
+                automationId,
+                "browser_unsupported",
+                "browser_keypress requires trusted browser input"
+              )
+            }
+            await dispatchTrustedClick(cdpSender(target.contents), actionable.target.point)
+          }
+        }
       }
     }
     dispatchTrustedKey((event) => target.contents.sendInputEvent(event), key)
@@ -1166,8 +1480,10 @@ async function executeKeypress(
         command: "keypress",
         browserId: target.browserId,
         key,
-        ...(ref ? { ref } : {}),
-        ...(actionable?.ok ? { x: actionable.target.point.x, y: actionable.target.point.y } : {}),
+        ...(targetInput.ref ? { ref: targetInput.ref } : {}),
+        ...(targetInput.selector ? { selector: targetInput.selector } : {}),
+        ...(targetInput.point ? { point: targetInput.point } : {}),
+        ...(resolvedPoint ? { x: resolvedPoint.x, y: resolvedPoint.y } : {}),
       },
     }
   })
@@ -1410,7 +1726,7 @@ async function executeUpload(
   cwd: string | undefined,
   threadId: string | undefined,
   browserId: string,
-  input: { ref: string; filePaths: string[] },
+  input: { ref?: string; selector?: string; filePaths: string[] },
   registry: BrowserRegistry,
   snapshotEngine: BrowserSnapshotEngine
 ): Promise<AutomationCommandPayload> {
@@ -1422,13 +1738,29 @@ async function executeUpload(
     if (!target.contents.sendDebugCommand) {
       return fail(automationId, "browser_unsupported", "browser_upload requires CDP")
     }
-    const expression = snapshotEngine.runtimeElementExpression({
-      browserId: target.browserId,
-      ref: input.ref,
-    })
-    if (typeof expression !== "string") {
-      return staleRefFailure(automationId, input.ref)
+    let expression: string | null = null
+    if (input.ref) {
+      const expr = snapshotEngine.runtimeElementExpression({
+        browserId: target.browserId,
+        ref: input.ref,
+      })
+      if (typeof expr === "string") {
+        expression = expr
+      } else if (!input.selector) {
+        return staleRefFailure(automationId, input.ref)
+      }
     }
+    if (!expression && input.selector) {
+      expression = elementExpressionFromSelector(input.selector)
+    }
+    if (!expression) {
+      return fail(
+        automationId,
+        "browser_target_not_found",
+        "Neither ref nor selector was provided for upload."
+      )
+    }
+
     const evaluated = (await target.contents.sendDebugCommand("Runtime.evaluate", {
       expression,
       objectGroup: "cypheria-browser-automation",
@@ -1436,14 +1768,24 @@ async function executeUpload(
     })) as CdpRuntimeEvaluateResult
     const objectId = evaluated.result?.objectId
     if (!objectId || evaluated.result?.subtype === "null") {
-      return staleRefFailure(automationId, input.ref)
+      if (input.ref) return staleRefFailure(automationId, input.ref)
+      return fail(
+        automationId,
+        "browser_target_not_found",
+        `Element with selector "${input.selector}" was not found.`
+      )
     }
     const described = (await target.contents.sendDebugCommand("DOM.describeNode", {
       objectId,
     })) as CdpDescribeNodeResult
     const backendNodeId = described.node?.backendNodeId
     if (typeof backendNodeId !== "number" || backendNodeId <= 0) {
-      return staleRefFailure(automationId, input.ref)
+      if (input.ref) return staleRefFailure(automationId, input.ref)
+      return fail(
+        automationId,
+        "browser_target_not_found",
+        `Element with selector "${input.selector}" is not a valid DOM node.`
+      )
     }
     const workspaceRoot = resolveUploadWorkspaceRoot(cwd)
     if (!workspaceRoot) {
@@ -1468,8 +1810,375 @@ async function executeUpload(
       result: {
         command: "upload",
         browserId: target.browserId,
-        ref: input.ref,
         filePaths,
+        ...(input.ref ? { ref: input.ref } : {}),
+        ...(input.selector ? { selector: input.selector } : {}),
+      },
+    }
+  })
+}
+
+async function executeMarkDeliverable(
+  automationId: string,
+  threadId: string | undefined,
+  browserId: string,
+  registry: BrowserRegistry
+): Promise<AutomationCommandPayload> {
+  const target = resolveTabTarget({ automationId, threadId, browserId, registry })
+  if ("ok" in target) {
+    return target
+  }
+  return {
+    automationId,
+    ok: true,
+    result: {
+      command: "mark_deliverable",
+      browserId: target.browserId,
+    },
+  }
+}
+
+async function executeMarkHandoff(
+  automationId: string,
+  threadId: string | undefined,
+  browserId: string,
+  registry: BrowserRegistry
+): Promise<AutomationCommandPayload> {
+  const target = resolveTabTarget({ automationId, threadId, browserId, registry })
+  if ("ok" in target) {
+    return target
+  }
+  return {
+    automationId,
+    ok: true,
+    result: {
+      command: "mark_handoff",
+      browserId: target.browserId,
+    },
+  }
+}
+
+async function executeRequestManualHandoff(
+  automationId: string,
+  threadId: string | undefined,
+  browserId: string,
+  _reason: string | undefined,
+  registry: BrowserRegistry
+): Promise<AutomationCommandPayload> {
+  const target = resolveTabTarget({ automationId, threadId, browserId, registry })
+  if ("ok" in target) {
+    return target
+  }
+  if (registry.activateTab) {
+    registry.activateTab(target.browserId)
+  }
+  return {
+    automationId,
+    ok: true,
+    result: {
+      command: "request_manual_handoff",
+      browserId: target.browserId,
+      status: "completed",
+    },
+  }
+}
+
+async function executeScanQr(
+  automationId: string,
+  threadId: string | undefined,
+  browserId: string,
+  targetInput: { ref?: string; selector?: string },
+  registry: BrowserRegistry,
+  snapshotEngine: BrowserSnapshotEngine
+): Promise<AutomationCommandPayload> {
+  const target = resolveTabTarget({ automationId, threadId, browserId, registry })
+  if ("ok" in target) {
+    return target
+  }
+  return withDialogCapture(target.contents, async () => {
+    let cropRect: { x: number; y: number; width: number; height: number } | null = null
+    if (targetInput.ref || targetInput.selector) {
+      let elementExpression: string | null = null
+      if (targetInput.ref) {
+        const expr = snapshotEngine.runtimeElementExpression({
+          browserId: target.browserId,
+          ref: targetInput.ref,
+        })
+        if (typeof expr === "string") {
+          elementExpression = expr
+        } else if (!targetInput.selector) {
+          return staleRefFailure(automationId, targetInput.ref)
+        }
+      }
+      if (!elementExpression && targetInput.selector) {
+        elementExpression = elementExpressionFromSelector(targetInput.selector)
+      }
+      if (elementExpression) {
+        const rectResult = (await target.contents.executeJavaScript(`(() => {
+          const el = ${elementExpression};
+          if (!el || !el.isConnected) return null;
+          const r = el.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width, height: r.height };
+        })()`)) as { x: number; y: number; width: number; height: number } | null
+        if (rectResult && rectResult.width > 0 && rectResult.height > 0) {
+          cropRect = rectResult
+        } else if (targetInput.ref) {
+          return staleRefFailure(automationId, targetInput.ref)
+        } else if (targetInput.selector) {
+          return fail(
+            automationId,
+            "browser_target_not_found",
+            `Element with selector "${targetInput.selector}" not found or has 0 size.`
+          )
+        }
+      }
+    }
+
+    let image: TabImage
+    try {
+      image = await capturePaintedViewport(target.contents)
+    } catch (error) {
+      if (error instanceof BrowserTabClosedError) {
+        return fail(automationId, "browser_tab_closed", `Browser tab ${browserId} has been closed`)
+      }
+      if (isScreenshotNoFrameError(error)) {
+        return screenshotNoFrameFailure(automationId, error)
+      }
+      throw error
+    }
+
+    let targetImage = image
+    let offsetX = 0
+    let offsetY = 0
+    if (cropRect && targetImage.crop) {
+      offsetX = Math.max(0, Math.floor(cropRect.x))
+      offsetY = Math.max(0, Math.floor(cropRect.y))
+      const cropW = Math.max(1, Math.floor(cropRect.width))
+      const cropH = Math.max(1, Math.floor(cropRect.height))
+      targetImage = targetImage.crop({ x: offsetX, y: offsetY, width: cropW, height: cropH })
+    }
+
+    let bitmap: Uint8Array | null = null
+    let width = targetImage.getSize().width
+    let height = targetImage.getSize().height
+
+    if (targetImage.toBitmap) {
+      const raw = targetImage.toBitmap()
+      bitmap = raw instanceof Uint8Array ? raw : new Uint8Array(raw)
+    }
+
+    if (!bitmap) {
+      try {
+        const electron = await import("electron")
+        let nImg = electron.nativeImage.createFromBuffer(Buffer.from(targetImage.toPNG()))
+        if (cropRect && !targetImage.crop) {
+          offsetX = Math.max(0, Math.floor(cropRect.x))
+          offsetY = Math.max(0, Math.floor(cropRect.y))
+          const cropW = Math.max(1, Math.floor(cropRect.width))
+          const cropH = Math.max(1, Math.floor(cropRect.height))
+          nImg = nImg.crop({ x: offsetX, y: offsetY, width: cropW, height: cropH })
+        }
+        const s = nImg.getSize()
+        width = s.width
+        height = s.height
+        bitmap = new Uint8Array(nImg.toBitmap())
+      } catch {
+        return {
+          automationId,
+          ok: true,
+          result: { command: "scan_qr", browserId: target.browserId, found: false },
+        }
+      }
+    }
+
+    if (bitmap.length < width * height * 4) {
+      return {
+        automationId,
+        ok: true,
+        result: { command: "scan_qr", browserId: target.browserId, found: false },
+      }
+    }
+
+    const rgba = new Uint8ClampedArray(bitmap.length)
+    for (let i = 0; i < bitmap.length; i += 4) {
+      rgba[i] = bitmap[i + 2] ?? 0
+      rgba[i + 1] = bitmap[i + 1] ?? 0
+      rgba[i + 2] = bitmap[i] ?? 0
+      rgba[i + 3] = bitmap[i + 3] ?? 0
+    }
+
+    const code = jsQR(rgba, width, height)
+    if (code?.data) {
+      const minX = Math.min(
+        code.location.topLeftCorner.x,
+        code.location.bottomLeftCorner.x,
+        code.location.topRightCorner.x,
+        code.location.bottomRightCorner.x
+      )
+      const maxX = Math.max(
+        code.location.topLeftCorner.x,
+        code.location.bottomLeftCorner.x,
+        code.location.topRightCorner.x,
+        code.location.bottomRightCorner.x
+      )
+      const minY = Math.min(
+        code.location.topLeftCorner.y,
+        code.location.bottomLeftCorner.y,
+        code.location.topRightCorner.y,
+        code.location.bottomRightCorner.y
+      )
+      const maxY = Math.max(
+        code.location.topLeftCorner.y,
+        code.location.bottomLeftCorner.y,
+        code.location.topRightCorner.y,
+        code.location.bottomRightCorner.y
+      )
+      return {
+        automationId,
+        ok: true,
+        result: {
+          command: "scan_qr",
+          browserId: target.browserId,
+          found: true,
+          text: code.data,
+          bounds: {
+            x: Math.round(minX + offsetX),
+            y: Math.round(minY + offsetY),
+            width: Math.round(maxX - minX),
+            height: Math.round(maxY - minY),
+          },
+        },
+      }
+    }
+
+    return {
+      automationId,
+      ok: true,
+      result: {
+        command: "scan_qr",
+        browserId: target.browserId,
+        found: false,
+      },
+    }
+  })
+}
+
+async function executeExtractAssets(
+  automationId: string,
+  threadId: string | undefined,
+  browserId: string,
+  kinds: Array<"image" | "svg" | "font" | "stylesheet"> | undefined,
+  registry: BrowserRegistry
+): Promise<AutomationCommandPayload> {
+  const target = resolveTabTarget({ automationId, threadId, browserId, registry })
+  if ("ok" in target) {
+    return target
+  }
+  return withDialogCapture(target.contents, async () => {
+    const script = `(() => {
+      const allowedKinds = ${JSON.stringify(kinds ?? ["image", "svg", "font", "stylesheet"])};
+      const results = [];
+      const seen = new Set();
+      const add = (kind, url, name) => {
+        if (!url || typeof url !== 'string') return;
+        try {
+          const absolute = new URL(url, document.baseURI).href;
+          const key = kind + ':' + absolute;
+          if (!seen.has(key)) {
+            seen.add(key);
+            const item = { kind, url: absolute };
+            if (name) item.name = name;
+            results.push(item);
+          }
+        } catch {}
+      };
+
+      if (allowedKinds.includes("image")) {
+        document.querySelectorAll('img[src], picture source[srcset]').forEach(el => {
+          if (el.src) add('image', el.src, el.alt || undefined);
+          if (el.currentSrc) add('image', el.currentSrc, el.alt || undefined);
+          if (el.srcset) {
+            el.srcset.split(',').forEach(part => {
+              const u = part.trim().split(/\\s+/)[0];
+              if (u) add('image', u);
+            });
+          }
+        });
+        document.querySelectorAll('link[rel*="icon"]').forEach(el => add('image', el.href));
+      }
+
+      if (allowedKinds.includes("svg")) {
+        document.querySelectorAll('image[*|href], image[href]').forEach(el => {
+          const href = el.getAttribute('xlink:href') || el.getAttribute('href');
+          if (href) add('svg', href);
+        });
+        document.querySelectorAll('img[src*=".svg"]').forEach(el => {
+          if (el.src) add('svg', el.src, el.alt || undefined);
+        });
+      }
+
+      if (allowedKinds.includes("stylesheet")) {
+        document.querySelectorAll('link[rel="stylesheet"][href]').forEach(el => add('stylesheet', el.href));
+      }
+
+      if (allowedKinds.includes("font")) {
+        document.querySelectorAll('link[rel*="font"][href], link[rel="preload"][as="font"][href]').forEach(el => add('font', el.href));
+        try {
+          for (const sheet of document.styleSheets) {
+            try {
+              for (const rule of sheet.cssRules || []) {
+                if (rule.type === CSSRule.FONT_FACE_RULE && rule.cssText) {
+                  const matches = rule.cssText.matchAll(/url\\(["']?([^"')]+)["']?\\)/g);
+                  for (const m of matches) {
+                    if (m[1]) add('font', m[1]);
+                  }
+                }
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+
+      return results;
+    })()`
+
+    let rawAssets: unknown
+    try {
+      rawAssets = await target.contents.executeJavaScript(script)
+    } catch (error) {
+      return fail(automationId, "browser_unknown_error", evaluateErrorMessage(error))
+    }
+
+    const assets: Array<{
+      kind: "image" | "svg" | "font" | "stylesheet"
+      url: string
+      name?: string
+    }> = []
+    if (Array.isArray(rawAssets)) {
+      for (const item of rawAssets) {
+        if (
+          item &&
+          typeof item === "object" &&
+          typeof item.url === "string" &&
+          typeof item.kind === "string"
+        ) {
+          assets.push({
+            kind: item.kind as "image" | "svg" | "font" | "stylesheet",
+            url: item.url,
+            ...(typeof item.name === "string" && item.name.length > 0 ? { name: item.name } : {}),
+          })
+        }
+      }
+    }
+
+    return {
+      automationId,
+      ok: true,
+      result: {
+        command: "extract_assets",
+        browserId: target.browserId,
+        assets,
+        totalCount: assets.length,
       },
     }
   })

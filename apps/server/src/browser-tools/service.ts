@@ -10,10 +10,13 @@ import {
   type ClientKind,
 } from "@cypheria/protocol"
 import type { v2 } from "@cypheria/protocol/codex-types"
-
 import type { CodexDynamicToolCallContext } from "../agent/codex-dynamic-tools.js"
+import type { AppToolMcpResult, AppToolMcpTool } from "../app-tools/service.js"
+import { toMcpResult } from "../app-tools/service.js"
 import { BrowserToolsBroker, type BrowserToolsExecuteInput, browserToolsFailure } from "./broker.js"
-import { browserCommandForTool, browserToolResponse } from "./tools.js"
+import { browserCommandForTool, browserToolResponse, browserToolSpecs } from "./tools.js"
+
+export type TabTurnDisposition = "temporary" | "deliverable" | "handoff"
 
 export type BrowserHostSession = {
   readonly id: string
@@ -42,11 +45,59 @@ export class BrowserToolsService {
   readonly #audit: Pick<AuditLogService, "append"> | undefined
   readonly #enabled: () => boolean
   readonly #releases = new Map<string, () => void>()
+  readonly #tabsByThread = new Map<string, Map<string, TabTurnDisposition>>()
 
   constructor(options: BrowserToolsServiceOptions) {
     this.broker = options.broker ?? new BrowserToolsBroker()
     this.#audit = options.audit
     this.#enabled = options.enabled
+  }
+
+  trackTab(
+    threadId: string,
+    browserId: string,
+    disposition: TabTurnDisposition = "temporary"
+  ): void {
+    let tabs = this.#tabsByThread.get(threadId)
+    if (!tabs) {
+      tabs = new Map()
+      this.#tabsByThread.set(threadId, tabs)
+    }
+    tabs.set(browserId, disposition)
+  }
+
+  setTabDisposition(threadId: string, browserId: string, disposition: TabTurnDisposition): void {
+    this.#tabsByThread.get(threadId)?.set(browserId, disposition)
+  }
+
+  forgetTab(threadId: string, browserId: string): void {
+    this.#tabsByThread.get(threadId)?.delete(browserId)
+  }
+
+  getTabDisposition(threadId: string, browserId: string): TabTurnDisposition | undefined {
+    return this.#tabsByThread.get(threadId)?.get(browserId)
+  }
+
+  async cleanupTurnTabs(threadId: string): Promise<void> {
+    const tabs = this.#tabsByThread.get(threadId)
+    if (!tabs || tabs.size === 0) return
+    const toClose: string[] = []
+    for (const [browserId, disposition] of tabs.entries()) {
+      if (disposition === "temporary") {
+        toClose.push(browserId)
+      }
+    }
+    for (const browserId of toClose) {
+      tabs.delete(browserId)
+      try {
+        await this.execute({
+          threadId,
+          command: { command: "close_tab", args: { browserId } },
+        })
+      } catch {
+        // Ignore failures on auto-close
+      }
+    }
   }
 
   async handle(
@@ -140,7 +191,54 @@ export class BrowserToolsService {
     }
     const outcome = await this.broker.execute({ ...input, automationId })
     if (audited) await audit(outcome.ok ? "succeeded" : "failed")?.catch(() => undefined)
+
+    if (outcome.ok && input.threadId) {
+      const res = outcome.result
+      if (res.command === "new_tab") {
+        this.trackTab(input.threadId, res.browserId, "temporary")
+      } else if (res.command === "mark_deliverable") {
+        this.setTabDisposition(input.threadId, res.browserId, "deliverable")
+      } else if (res.command === "mark_handoff" || res.command === "request_manual_handoff") {
+        this.setTabDisposition(input.threadId, res.browserId, "handoff")
+      } else if (res.command === "close_tab") {
+        this.forgetTab(input.threadId, res.browserId)
+      }
+    }
+
     return outcome
+  }
+
+  mcpTools(): AppToolMcpTool[] {
+    return browserToolSpecs().flatMap((spec) =>
+      spec.type === "function"
+        ? [
+            {
+              description: spec.description,
+              inputSchema: spec.inputSchema as Record<string, unknown>,
+              name: spec.name,
+            },
+          ]
+        : []
+    )
+  }
+
+  async callMcpTool(
+    name: string,
+    args: unknown,
+    context: { threadId?: string; cwd?: string }
+  ): Promise<AppToolMcpResult> {
+    const response = await this.callCodexTool(
+      {
+        arguments: (args ?? {}) as v2.DynamicToolCallParams["arguments"],
+        callId: `mcp-${randomUUID()}`,
+        namespace: null,
+        threadId: context.threadId ?? "",
+        tool: name,
+        turnId: "",
+      },
+      context
+    )
+    return toMcpResult(response)
   }
 
   /** Codex dynamic tool handler. Browser scope follows the calling Cypheria Thread. */

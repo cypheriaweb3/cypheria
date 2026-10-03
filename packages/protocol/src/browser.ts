@@ -18,6 +18,8 @@ export const BrowserAutomationErrorCodeSchema = z.enum([
   "browser_denied",
   "browser_unsupported",
   "browser_stale_ref",
+  "browser_target_not_found",
+  "browser_qr_not_found",
   "browser_unknown_error",
 ])
 export type BrowserAutomationErrorCode = z.infer<typeof BrowserAutomationErrorCodeSchema>
@@ -49,6 +51,11 @@ export const BROWSER_AUTOMATION_COMMAND_NAMES = [
   "scroll",
   "resize",
   "close_tab",
+  "mark_deliverable",
+  "mark_handoff",
+  "request_manual_handoff",
+  "scan_qr",
+  "extract_assets",
 ] as const
 
 export const BrowserAutomationCommandNameSchema = z.enum(BROWSER_AUTOMATION_COMMAND_NAMES)
@@ -56,7 +63,17 @@ export type BrowserAutomationCommandName = z.infer<typeof BrowserAutomationComma
 
 /** Commands that only read page state; every other command is audited as a mutation. */
 export const BROWSER_AUTOMATION_READ_ONLY_COMMANDS: ReadonlySet<BrowserAutomationCommandName> =
-  new Set(["list_tabs", "snapshot", "screenshot", "logs", "wait"])
+  new Set([
+    "list_tabs",
+    "snapshot",
+    "screenshot",
+    "logs",
+    "wait",
+    "scan_qr",
+    "extract_assets",
+    "mark_deliverable",
+    "mark_handoff",
+  ])
 
 export const BrowserIdSchema = z
   .string({ error: () => BROWSER_ID_MESSAGE })
@@ -89,16 +106,30 @@ export const BrowserAutomationNewTabCommandSchema = command(
 export const BrowserAutomationSnapshotCommandSchema = command("snapshot", tabTarget)
 export const BrowserAutomationClickCommandSchema = command(
   "click",
-  tabTarget.extend({
-    button: MouseButtonSchema.default("left"),
-    doubleClick: z.boolean().default(false),
-    modifiers: z.array(InputModifierSchema).default([]),
-    ref: BrowserRefSchema,
-  })
+  tabTarget
+    .extend({
+      button: MouseButtonSchema.default("left"),
+      doubleClick: z.boolean().default(false),
+      modifiers: z.array(InputModifierSchema).default([]),
+      point: z.object({ x: z.number(), y: z.number() }).optional(),
+      ref: BrowserRefSchema.optional(),
+      selector: z.string().min(1).optional(),
+    })
+    .refine((args) => Boolean(args.ref) || Boolean(args.selector) || Boolean(args.point), {
+      message: "click requires at least one of ref, selector, or point",
+    })
 )
 export const BrowserAutomationFillCommandSchema = command(
   "fill",
-  tabTarget.extend({ ref: BrowserRefSchema, value: z.string() })
+  tabTarget
+    .extend({
+      ref: BrowserRefSchema.optional(),
+      selector: z.string().min(1).optional(),
+      value: z.string(),
+    })
+    .refine((args) => Boolean(args.ref) || Boolean(args.selector), {
+      message: "fill requires either ref or selector",
+    })
 )
 export const BrowserAutomationWaitCommandSchema = command(
   "wait",
@@ -114,11 +145,19 @@ export const BrowserAutomationWaitCommandSchema = command(
 )
 export const BrowserAutomationTypeCommandSchema = command(
   "type",
-  tabTarget.extend({ ref: BrowserRefSchema.optional(), text: z.string() })
+  tabTarget.extend({
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().min(1).optional(),
+    text: z.string(),
+  })
 )
 export const BrowserAutomationKeypressCommandSchema = command(
   "keypress",
-  tabTarget.extend({ key: z.string().min(1), ref: BrowserRefSchema.optional() })
+  tabTarget.extend({
+    key: z.string().min(1),
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().min(1).optional(),
+  })
 )
 export const BrowserAutomationNavigateCommandSchema = command(
   "navigate",
@@ -133,19 +172,58 @@ export const BrowserAutomationScreenshotCommandSchema = command(
 )
 export const BrowserAutomationUploadCommandSchema = command(
   "upload",
-  tabTarget.extend({ filePaths: z.array(z.string().min(1)).min(1), ref: BrowserRefSchema })
+  tabTarget
+    .extend({
+      filePaths: z.array(z.string().min(1)).min(1),
+      ref: BrowserRefSchema.optional(),
+      selector: z.string().min(1).optional(),
+    })
+    .refine((args) => Boolean(args.ref) || Boolean(args.selector), {
+      message: "upload requires either ref or selector",
+    })
 )
 export const BrowserAutomationSelectCommandSchema = command(
   "select",
-  tabTarget.extend({ ref: BrowserRefSchema, value: z.string() })
+  tabTarget
+    .extend({
+      ref: BrowserRefSchema.optional(),
+      selector: z.string().min(1).optional(),
+      value: z.string(),
+    })
+    .refine((args) => Boolean(args.ref) || Boolean(args.selector), {
+      message: "select requires either ref or selector",
+    })
 )
 export const BrowserAutomationHoverCommandSchema = command(
   "hover",
-  tabTarget.extend({ ref: BrowserRefSchema })
+  tabTarget
+    .extend({
+      modifiers: z.array(InputModifierSchema).default([]),
+      point: z.object({ x: z.number(), y: z.number() }).optional(),
+      ref: BrowserRefSchema.optional(),
+      selector: z.string().min(1).optional(),
+    })
+    .refine((args) => Boolean(args.ref) || Boolean(args.selector) || Boolean(args.point), {
+      message: "hover requires at least one of ref, selector, or point",
+    })
 )
 export const BrowserAutomationDragCommandSchema = command(
   "drag",
-  tabTarget.extend({ sourceRef: BrowserRefSchema, targetRef: BrowserRefSchema })
+  tabTarget
+    .extend({
+      sourcePoint: z.object({ x: z.number(), y: z.number() }).optional(),
+      sourceRef: BrowserRefSchema.optional(),
+      sourceSelector: z.string().min(1).optional(),
+      targetPoint: z.object({ x: z.number(), y: z.number() }).optional(),
+      targetRef: BrowserRefSchema.optional(),
+      targetSelector: z.string().min(1).optional(),
+    })
+    .refine(
+      (args) =>
+        (Boolean(args.sourceRef) || Boolean(args.sourceSelector) || Boolean(args.sourcePoint)) &&
+        (Boolean(args.targetRef) || Boolean(args.targetSelector) || Boolean(args.targetPoint)),
+      { message: "drag requires a valid source and target (ref, selector, or point)" }
+    )
 )
 export const BrowserAutomationLogsCommandSchema = command(
   "logs",
@@ -153,11 +231,21 @@ export const BrowserAutomationLogsCommandSchema = command(
 )
 export const BrowserAutomationEvaluateCommandSchema = command(
   "evaluate",
-  tabTarget.extend({ function: z.string().min(1), ref: BrowserRefSchema.optional() })
+  tabTarget.extend({
+    function: z.string().min(1),
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().min(1).optional(),
+  })
 )
 export const BrowserAutomationScrollCommandSchema = command(
   "scroll",
-  tabTarget.extend({ deltaX: z.number(), deltaY: z.number(), ref: BrowserRefSchema.optional() })
+  tabTarget.extend({
+    deltaX: z.number(),
+    deltaY: z.number(),
+    point: z.object({ x: z.number(), y: z.number() }).optional(),
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().min(1).optional(),
+  })
 )
 export const BrowserAutomationResizeCommandSchema = command(
   "resize",
@@ -167,6 +255,40 @@ export const BrowserAutomationResizeCommandSchema = command(
   })
 )
 export const BrowserAutomationCloseTabCommandSchema = command("close_tab", tabTarget)
+export const BrowserAutomationMarkDeliverableCommandSchema = command("mark_deliverable", tabTarget)
+export const BrowserAutomationMarkHandoffCommandSchema = command("mark_handoff", tabTarget)
+export const BrowserAutomationRequestManualHandoffCommandSchema = command(
+  "request_manual_handoff",
+  tabTarget.extend({
+    reason: z.string().min(1),
+  })
+)
+export const BrowserAutomationScanQrCommandSchema = command(
+  "scan_qr",
+  tabTarget.extend({
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().min(1).optional(),
+  })
+)
+
+export const BrowserAssetKindSchema = z.enum(["image", "svg", "font", "stylesheet"])
+export type BrowserAssetKind = z.infer<typeof BrowserAssetKindSchema>
+
+export const BrowserAssetItemSchema = z
+  .object({
+    kind: BrowserAssetKindSchema,
+    name: z.string().optional(),
+    url: z.string(),
+  })
+  .strict()
+export type BrowserAssetItem = z.infer<typeof BrowserAssetItemSchema>
+
+export const BrowserAutomationExtractAssetsCommandSchema = command(
+  "extract_assets",
+  tabTarget.extend({
+    kinds: z.array(BrowserAssetKindSchema).optional(),
+  })
+)
 
 export const BrowserAutomationCommandSchema = z.discriminatedUnion("command", [
   BrowserAutomationListTabsCommandSchema,
@@ -191,6 +313,11 @@ export const BrowserAutomationCommandSchema = z.discriminatedUnion("command", [
   BrowserAutomationScrollCommandSchema,
   BrowserAutomationResizeCommandSchema,
   BrowserAutomationCloseTabCommandSchema,
+  BrowserAutomationMarkDeliverableCommandSchema,
+  BrowserAutomationMarkHandoffCommandSchema,
+  BrowserAutomationRequestManualHandoffCommandSchema,
+  BrowserAutomationScanQrCommandSchema,
+  BrowserAutomationExtractAssetsCommandSchema,
 ])
 export type BrowserAutomationCommand = z.infer<typeof BrowserAutomationCommandSchema>
 /** Command arguments before defaults are applied, as written by an Agent or test. */
@@ -268,11 +395,25 @@ export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
     truncated: z.boolean(),
     url: z.string(),
   }),
-  withBrowser("click", { ref: BrowserRefSchema, ...point }),
-  withBrowser("fill", { ref: BrowserRefSchema }),
+  withBrowser("click", {
+    point: z.object({ x: z.number(), y: z.number() }).optional(),
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().optional(),
+    ...point,
+  }),
+  withBrowser("fill", { ref: BrowserRefSchema.optional(), selector: z.string().optional() }),
   withBrowser("wait", { matched: z.enum(["text", "url"]) }),
-  withBrowser("type", { ref: BrowserRefSchema.optional(), ...point }),
-  withBrowser("keypress", { key: z.string().min(1), ref: BrowserRefSchema.optional(), ...point }),
+  withBrowser("type", {
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().optional(),
+    ...point,
+  }),
+  withBrowser("keypress", {
+    key: z.string().min(1),
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().optional(),
+    ...point,
+  }),
   withBrowser("navigate", { url: z.string().min(1) }),
   withBrowser("back", {}),
   withBrowser("forward", {}),
@@ -283,14 +424,30 @@ export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
     mimeType: z.literal("image/png"),
     width: z.int().nonnegative(),
   }),
-  withBrowser("upload", { filePaths: z.array(z.string().min(1)).min(1), ref: BrowserRefSchema }),
-  withBrowser("select", { ref: BrowserRefSchema, value: z.string() }),
-  withBrowser("hover", { ref: BrowserRefSchema, ...point }),
+  withBrowser("upload", {
+    filePaths: z.array(z.string().min(1)).min(1),
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().optional(),
+  }),
+  withBrowser("select", {
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().optional(),
+    value: z.string(),
+  }),
+  withBrowser("hover", {
+    ref: BrowserRefSchema.optional(),
+    selector: z.string().optional(),
+    ...point,
+  }),
   withBrowser("drag", {
-    sourceRef: BrowserRefSchema,
+    sourcePoint: z.object({ x: z.number(), y: z.number() }).optional(),
+    sourceRef: BrowserRefSchema.optional(),
+    sourceSelector: z.string().optional(),
     sourceX: z.number().optional(),
     sourceY: z.number().optional(),
-    targetRef: BrowserRefSchema,
+    targetPoint: z.object({ x: z.number(), y: z.number() }).optional(),
+    targetRef: BrowserRefSchema.optional(),
+    targetSelector: z.string().optional(),
     targetX: z.number().optional(),
     targetY: z.number().optional(),
   }),
@@ -303,10 +460,25 @@ export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
     deltaX: z.number(),
     deltaY: z.number(),
     ref: BrowserRefSchema.optional(),
+    selector: z.string().optional(),
     ...point,
   }),
   withBrowser("resize", { height: z.int().positive(), width: z.int().positive() }),
   withBrowser("close_tab", {}),
+  withBrowser("mark_deliverable", {}),
+  withBrowser("mark_handoff", {}),
+  withBrowser("request_manual_handoff", { status: z.enum(["completed", "dismissed"]) }),
+  withBrowser("scan_qr", {
+    bounds: z
+      .object({ height: z.number(), width: z.number(), x: z.number(), y: z.number() })
+      .optional(),
+    found: z.boolean(),
+    text: z.string().optional(),
+  }),
+  withBrowser("extract_assets", {
+    assets: z.array(BrowserAssetItemSchema),
+    totalCount: z.number(),
+  }),
 ])
 export type BrowserAutomationResult = z.infer<typeof BrowserAutomationResultSchema>
 

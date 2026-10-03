@@ -1,0 +1,28 @@
+{
+  "name": "browser",
+  "version": "0.6.0",
+  "description": "Cypheria built-in browser automation tools.\n\nUse Browser when the user asks to open, inspect, navigate, test, click, fill, or screenshot web pages, dApps, or local development servers (e.g. localhost, 127.0.0.1, vite, next.js dev servers).\n\nCypheria connects directly to the built-in desktop browser webview with full CDP automation, visual snapshots, QR code recognition, and deliverable/handoff lifecycle management.",
+  "author": {
+    "name": "Cypheria"
+  },
+  "keywords": [
+    "browser",
+    "automation",
+    "web",
+    "cdp",
+    "in-app browser"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Browser",
+    "shortDescription": "Control the in-app browser",
+    "longDescription": "Lets the Agent open, navigate, inspect, interact with, and screenshot web pages and local apps inside Cypheria's built-in browser.",
+    "developerName": "Cypheria",
+    "category": "Automation",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": "Open localhost:3000 and inspect the page.",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/browser.png"
+  },
+  "mcpServers": "./.codex-mcp.json"
+}

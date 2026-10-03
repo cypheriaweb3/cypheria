@@ -10,9 +10,17 @@ const root = fileURLToPath(new URL("../../../../plugins/", import.meta.url))
 const json = async (path: string) => JSON.parse(await readFile(`${root}${path}`, "utf8"))
 
 /** Each bundled plugin and the one MCP server it declares. */
-const SERVERS = { "code-review": "code-review", "cypheria-app-tools": "cypheria_app_tools" }
+const SERVERS = {
+  browser: "browser",
+  "code-review": "code-review",
+  "cypheria-app-tools": "cypheria_app_tools",
+}
 /** Where each plugin keeps the relay its MCP server runs. */
-const RELAYS = { "code-review": "src/server/relay.mjs", "cypheria-app-tools": "mcp/server.mjs" }
+const RELAYS = {
+  browser: "mcp/server.mjs",
+  "code-review": "src/server/relay.mjs",
+  "cypheria-app-tools": "mcp/server.mjs",
+}
 
 describe("bundled Cypheria marketplace", () => {
   it("ships each plugin with a manifest for every supported Agent at the same version", async () => {

@@ -1,0 +1,7 @@
+{
+  "name": "browser",
+  "version": "0.6.0",
+  "description": "Cypheria built-in browser automation tools.",
+  "author": { "name": "Cypheria" },
+  "mcpServers": "./.claude-mcp.json"
+}

@@ -26,7 +26,7 @@ await cp(migrationsSource, migrationsDestination, { recursive: true })
 // The bundled marketplace: its manifests, `cypheria-app-tools` as it is, and `code-review` as an
 // installable plugin without its App sources and dependencies.
 await rm(pluginMarketplaceDestination, { force: true, recursive: true })
-for (const entry of [".agents", ".claude-plugin", "cypheria-app-tools"]) {
+for (const entry of [".agents", ".claude-plugin", "cypheria-app-tools", "browser"]) {
   await cp(`${plugins}${entry}`, `${pluginMarketplaceDestination}${entry}`, { recursive: true })
 }
 await packageCodeReview(`${pluginMarketplaceDestination}code-review`)

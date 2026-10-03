@@ -148,6 +148,15 @@ export function adaptWebContents(contents: BrowserAutomationWebContents): TabCon
       cdpQueue.run(async () => {
         if (!contents.debugger.isAttached()) {
           contents.debugger.attach("1.3")
+          try {
+            await contents.debugger.sendCommand("Target.setAutoAttach", {
+              autoAttach: true,
+              waitForDebuggerOnStart: false,
+              flatten: true,
+            })
+          } catch {
+            // Best-effort autoAttach for OOPIFs
+          }
         }
         return contents.debugger.sendCommand(command, params ?? {})
       }),
@@ -367,6 +376,15 @@ class DialogMonitor {
     return this.cdpQueue.run(async () => {
       if (!this.contents.debugger.isAttached()) {
         this.contents.debugger.attach("1.3")
+        try {
+          await this.contents.debugger.sendCommand("Target.setAutoAttach", {
+            autoAttach: true,
+            waitForDebuggerOnStart: false,
+            flatten: true,
+          })
+        } catch {
+          // Best-effort autoAttach for OOPIFs
+        }
       }
       return this.contents.debugger.sendCommand(command, params ?? {})
     })
@@ -380,6 +398,15 @@ class DialogMonitor {
     // the per-tab command queue.
     if (!this.contents.debugger.isAttached()) {
       this.contents.debugger.attach("1.3")
+      try {
+        await this.contents.debugger.sendCommand("Target.setAutoAttach", {
+          autoAttach: true,
+          waitForDebuggerOnStart: false,
+          flatten: true,
+        })
+      } catch {
+        // Best-effort autoAttach for OOPIFs
+      }
     }
     return this.contents.debugger.sendCommand(command, params ?? {})
   }

@@ -47,7 +47,7 @@ Plugin view 保留 source type、marketplace identity、install policy、availab
 
 Codex 远程插件的目录 ID 与展示名称不同。Server 在远程详情和安装请求前，从最新的 `plugin/list` 结果解析该 ID，避免用展示名称调用 Codex 安装接口。
 
-为 Codex 或 Claude 启用插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在对应 Agent 管理的 home 中安装其中的插件 `cypheria-app-tools` 和 `code-review`，对应官方桌面端随附的 `codex-app-tools` 和 `code-review`。详见 [Cypheria app tools](#cypheria-app-tools)。它们不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
+为 Codex 或 Claude 启用插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在对应 Agent 管理的 home 中安装其中的插件 `cypheria-app-tools`、`code-review` 和 `browser`，对应官方桌面端随附的 `codex-app-tools` 和 `code-review`。详见 [Cypheria app tools](#cypheria-app-tools)。它们不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
 内置 marketplace 是双格式的 `plugins/` 目录：同时包含 Codex 的 marketplace 与 manifest，以及 Claude 的 marketplace 与 manifest，并以 `./<plugin>` 列出每个插件；各 Agent 的 MCP 声明放在各自文件中，与插件的 server 放在一起。
 Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本地版本，并从随程序分发的 marketplace 更新插件，再返回列表。
 
@@ -57,6 +57,7 @@ Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本�
 
 - `cypheria-app-tools`，server 为 `cypheria_app_tools`：[Agent harnesses](agent-harnesses.zh-CN.md#codex) 列出的 Thread、项目、侧边栏、worktree、handoff 和 automation 工具。
 - `code-review`，server 为 `code-review`：官方插件的 31 个 `pull_requests.*` 工具及其 MCP App `ui://pull-requests/app`。只有 `pull_requests.checks` 对模型可见；它通过 OpenAI 后端读取 GitHub 拉取请求的检查或 GitLab 合并请求的流水线，不含 job 日志。其他工具服务于该 App，Desktop 将其承载为代码审查页面和 Thread 拉取请求面板。App 资源和工具列表由 Server 自己提供；见[代码审查](code-review.zh-CN.md)。
+- `browser`，server 为 `browser`：27 个内置浏览器自动化工具（导航、标签页管理、DOM 快照、视觉截图、选择器与坐标交互、二维码识别、网页资源提取，以及 turn/deliverable/handoff 生命周期管理）。
 
 Agent 在自己的命令中用 `git` 和 `gh` 完成本地 Git 工作；Server Git 协议仍是客户端契约，不提供给模型，与官方桌面端一致。
 

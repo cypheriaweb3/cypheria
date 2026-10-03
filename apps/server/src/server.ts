@@ -397,6 +397,9 @@ export class CypheriaServer implements HttpAppHost {
         await this.threadAttachments.deleteForThread(threadId)
         await this.inputFiles.releaseThread(threadId)
       },
+      onTurnCompleted: async (threadId) => {
+        await this.browserTools.cleanupTurnTabs(threadId)
+      },
       inputFiles: this.inputFiles,
       resolveReference: (reference, context) => this.composerReferences.resolve(reference, context),
       onUnarchiving: async (cwd) => {
@@ -1355,6 +1358,7 @@ export class CypheriaServer implements HttpAppHost {
       return server === "review_context" ? this.privateReviews.contextTools() : undefined
     }
     if (server === "cypheria_app_tools") return await this.appTools.mcpTools()
+    if (server === "browser") return this.browserTools.mcpTools()
     if (server === CODE_REVIEW_SERVER) {
       return grant.kind === "codex"
         ? this.codeReviewTools.list()
@@ -1404,6 +1408,9 @@ export class CypheriaServer implements HttpAppHost {
       }
     }
     const callContext = { ...context, ...(signal ? { signal } : {}) }
+    if (request.server === "browser") {
+      return this.browserTools.callMcpTool(request.name, request.arguments ?? {}, callContext)
+    }
     return toMcpResult(
       await this.appTools.call(
         { arguments: request.arguments ?? {}, tool: request.name },

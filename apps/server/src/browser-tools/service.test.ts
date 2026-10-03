@@ -52,7 +52,7 @@ const register = async (context: ReturnType<typeof setup>) => {
   const replies: BrowserServerMessage[] = []
   await context.service.handle(
     {
-      payload: { hostKind: "desktop app", supportedCommands: ["back", "screenshot"] },
+      payload: { hostKind: "desktop app", supportedCommands: ["back", "screenshot", "close_tab"] },
       requestId: "host-1",
       type: "browser.host.register.request",
     },
@@ -169,12 +169,75 @@ describe("BrowserToolsService", () => {
     context.service.sessionClosed(context.session.id)
     expect(context.service.broker.hostCount).toBe(0)
   })
+
+  it("exposes MCP tools matching command definitions", () => {
+    const context = setup()
+    const tools = context.service.mcpTools()
+    expect(tools).toHaveLength(27)
+    expect(tools.some((t) => t.name === "browser_navigate")).toBe(true)
+    expect(tools.some((t) => t.name === "browser_scan_qr")).toBe(true)
+    expect(tools.some((t) => t.name === "browser_mark_deliverable")).toBe(true)
+    expect(tools.some((t) => t.name === "browser_extract_assets")).toBe(true)
+  })
+
+  it("handles callMcpTool for MCP clients", async () => {
+    const context = setup()
+    await register(context)
+    const result = await context.service.callMcpTool(
+      "browser_screenshot",
+      { browserId },
+      { threadId }
+    )
+    expect(result.isError).toBeFalsy()
+    expect(result.content?.[0]?.type).toBe("text")
+    expect(result.content?.[1]?.type).toBe("image")
+  })
+
+  it("tracks tab disposition and cleans up temporary tabs on turn end", async () => {
+    const context = setup()
+    await register(context)
+
+    const tabTemp = "11111111-1111-4111-8111-111111111111"
+    const tabDeliverable = "22222222-2222-4222-8222-222222222222"
+    const tabHandoff = "33333333-3333-4333-8333-333333333333"
+
+    context.service.trackTab(threadId, tabTemp)
+    context.service.trackTab(threadId, tabDeliverable)
+    context.service.trackTab(threadId, tabHandoff)
+
+    context.service.setTabDisposition(threadId, tabDeliverable, "deliverable")
+    context.service.setTabDisposition(threadId, tabHandoff, "handoff")
+
+    expect(context.service.getTabDisposition(threadId, tabTemp)).toBe("temporary")
+    expect(context.service.getTabDisposition(threadId, tabDeliverable)).toBe("deliverable")
+    expect(context.service.getTabDisposition(threadId, tabHandoff)).toBe("handoff")
+
+    await context.service.cleanupTurnTabs(threadId)
+
+    // Temporary tab should have received a close_tab command notification
+    const closeNotification = context.notifications.find(
+      (n) =>
+        n.type === "browser.automation.command.notification" &&
+        n.payload.command.command === "close_tab" &&
+        n.payload.command.args.browserId === tabTemp
+    )
+    expect(closeNotification).toBeDefined()
+
+    // Deliverable and handoff tabs should NOT be closed
+    const deliverableClose = context.notifications.find(
+      (n) =>
+        n.type === "browser.automation.command.notification" &&
+        n.payload.command.command === "close_tab" &&
+        n.payload.command.args.browserId === tabDeliverable
+    )
+    expect(deliverableClose).toBeUndefined()
+  })
 })
 
 describe("browser tool specs", () => {
   it("exposes one JSON-schema tool per command", () => {
     const specs = browserToolSpecs()
-    expect(specs).toHaveLength(22)
+    expect(specs).toHaveLength(27)
     const click = specs.find((spec) => spec.type === "function" && spec.name === "browser_click")
     expect(click).toMatchObject({
       inputSchema: { properties: { browserId: { type: "string" }, ref: { type: "string" } } },

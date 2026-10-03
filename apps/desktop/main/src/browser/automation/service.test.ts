@@ -22,7 +22,8 @@ const THREAD_B = "01984de2-8f74-7c91-a3b2-5c5e937cf319"
 class FakeImage implements TabImage {
   public constructor(
     private readonly bytes = new Uint8Array([137, 80, 78, 71, 1, 2, 3]),
-    private readonly size = { width: 640, height: 480 }
+    private readonly size = { width: 640, height: 480 },
+    private readonly bitmap?: Uint8Array
   ) {}
 
   public toPNG(): Uint8Array {
@@ -31,6 +32,14 @@ class FakeImage implements TabImage {
 
   public getSize(): { width: number; height: number } {
     return this.size
+  }
+
+  public toBitmap(): Uint8Array {
+    return this.bitmap ?? new Uint8Array(this.size.width * this.size.height * 4)
+  }
+
+  public crop(rect: { x: number; y: number; width: number; height: number }): TabImage {
+    return new FakeImage(this.bytes, { width: rect.width, height: rect.height }, this.bitmap)
   }
 }
 
@@ -1969,5 +1978,173 @@ describe("executeAutomationCommand", () => {
       },
       { command: "DOM.describeNode", params: { objectId: "object-1" } },
     ])
+  })
+
+  test("mark_deliverable returns deliverable status for tab", async () => {
+    const browser = new BrowserAutomationHarness()
+    const result = await browser.execute({
+      command: "mark_deliverable",
+      args: { browserId: BROWSER_A },
+    })
+    expect(result).toEqual({
+      automationId: "req-mark_deliverable",
+      ok: true,
+      result: {
+        command: "mark_deliverable",
+        browserId: BROWSER_A,
+      },
+    })
+  })
+
+  test("mark_handoff returns handoff status for tab", async () => {
+    const browser = new BrowserAutomationHarness()
+    const result = await browser.execute({
+      command: "mark_handoff",
+      args: { browserId: BROWSER_A },
+    })
+    expect(result).toEqual({
+      automationId: "req-mark_handoff",
+      ok: true,
+      result: {
+        command: "mark_handoff",
+        browserId: BROWSER_A,
+      },
+    })
+  })
+
+  test("request_manual_handoff activates tab and completes", async () => {
+    const browser = new BrowserAutomationHarness()
+    const result = await browser.execute({
+      command: "request_manual_handoff",
+      args: { browserId: BROWSER_A, reason: "Needs 2FA" },
+    })
+    expect(result).toEqual({
+      automationId: "req-request_manual_handoff",
+      ok: true,
+      result: {
+        command: "request_manual_handoff",
+        browserId: BROWSER_A,
+        status: "completed",
+      },
+    })
+  })
+
+  test("scan_qr returns found: false when image contains no QR code", async () => {
+    const browser = new BrowserAutomationHarness()
+    const result = await browser.execute({
+      command: "scan_qr",
+      args: { browserId: BROWSER_A },
+    })
+    expect(result).toEqual({
+      automationId: "req-scan_qr",
+      ok: true,
+      result: {
+        command: "scan_qr",
+        browserId: BROWSER_A,
+        found: false,
+      },
+    })
+  })
+
+  test("extract_assets extracts deduplicated assets from page", async () => {
+    const browser = new BrowserAutomationHarness()
+    browser.tab.executeJavaScript = async (code: string) => {
+      if (code.includes("allowedKinds")) {
+        return [
+          { kind: "image", url: "https://example.com/logo.png" },
+          { kind: "stylesheet", url: "https://example.com/style.css" },
+        ]
+      }
+      return true
+    }
+    const result = await browser.execute({
+      command: "extract_assets",
+      args: { browserId: BROWSER_A, kinds: ["image", "stylesheet"] },
+    })
+    expect(result).toEqual({
+      automationId: "req-extract_assets",
+      ok: true,
+      result: {
+        command: "extract_assets",
+        browserId: BROWSER_A,
+        assets: [
+          { kind: "image", url: "https://example.com/logo.png" },
+          { kind: "stylesheet", url: "https://example.com/style.css" },
+        ],
+      },
+    })
+  })
+
+  test("click with direct point clicks at point without requiring ref", async () => {
+    const browser = new BrowserAutomationHarness()
+    const result = await browser.execute({
+      command: "click",
+      args: { browserId: BROWSER_A, point: { x: 100, y: 150 } },
+    })
+    expect(result).toEqual({
+      automationId: "req-click",
+      ok: true,
+      result: {
+        command: "click",
+        browserId: BROWSER_A,
+        point: { x: 100, y: 150 },
+        x: 100,
+        y: 150,
+      },
+    })
+    expect(browser.tab.debugCommands).toContainEqual({
+      command: "Input.dispatchMouseEvent",
+      params: expect.objectContaining({
+        type: "mousePressed",
+        x: 100,
+        y: 150,
+      }),
+    })
+  })
+
+  test("click with selector resolves actionable point and clicks", async () => {
+    const browser = new BrowserAutomationHarness()
+    browser.tab.actionabilityResult = {
+      ok: true,
+      target: { point: { x: 200, y: 300 }, rect: { x: 150, y: 250, width: 100, height: 100 } },
+    }
+    const result = await browser.execute({
+      command: "click",
+      args: { browserId: BROWSER_A, selector: "#submit-btn" },
+    })
+    expect(result).toEqual({
+      automationId: "req-click",
+      ok: true,
+      result: {
+        command: "click",
+        browserId: BROWSER_A,
+        selector: "#submit-btn",
+        x: 200,
+        y: 300,
+      },
+    })
+  })
+
+  test("fill with selector evaluates fill script on element", async () => {
+    const browser = new BrowserAutomationHarness()
+    browser.tab.executeJavaScript = async (code: string) => {
+      if (code.includes('document.querySelector("#name-input")')) {
+        return true
+      }
+      return true
+    }
+    const result = await browser.execute({
+      command: "fill",
+      args: { browserId: BROWSER_A, selector: "#name-input", value: "Cypheria User" },
+    })
+    expect(result).toEqual({
+      automationId: "req-fill",
+      ok: true,
+      result: {
+        command: "fill",
+        browserId: BROWSER_A,
+        selector: "#name-input",
+      },
+    })
   })
 })

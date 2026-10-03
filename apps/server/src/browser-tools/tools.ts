@@ -37,6 +37,11 @@ const DESCRIPTIONS: Record<BrowserAutomationCommandName, string> = {
   type: "Type text into an element, or into the focused element when ref is omitted.",
   upload: `Set files on a file input. Paths must be inside this thread's working directory. ${REF_HINT}`,
   wait: "Wait until the page contains text or its URL contains a fragment. Pass exactly one of text or url.",
+  mark_deliverable: `Mark a Cypheria browser tab as a deliverable for the user so it remains open after the turn completes. ${TAB_HINT}`,
+  mark_handoff: `Mark a Cypheria browser tab as needing user handoff so it remains open after the turn completes. ${TAB_HINT}`,
+  request_manual_handoff: `Request manual user intervention on a tab (e.g. for login or 2FA) and activate the tab in the desktop window. ${TAB_HINT}`,
+  scan_qr: `Scan the viewport or a specified element (via ref or selector) for a QR code and decode its payload. ${TAB_HINT}`,
+  extract_assets: `Extract downloadable or referenced assets (images, SVGs, stylesheets, fonts) from a tab. ${TAB_HINT}`,
 }
 
 export const browserToolName = (command: BrowserAutomationCommandName): string =>
@@ -90,6 +95,20 @@ const summarize = (outcome: Extract<BrowserAutomationOutcome, { ok: true }>): st
       return `Screenshot of ${result.browserId} (${result.width}×${result.height}).`
     case "evaluate":
       return `${result.resultJson}${result.truncated ? "\n(result truncated)" : ""}`
+    case "scan_qr":
+      return result.found
+        ? `QR code detected in tab ${result.browserId}: ${result.text}`
+        : `No QR code detected in tab ${result.browserId}.`
+    case "extract_assets":
+      return `Extracted ${result.assets.length} assets from tab ${result.browserId}:\n${result.assets
+        .map((asset) => `- [${asset.kind}] ${asset.url}${asset.name ? ` (${asset.name})` : ""}`)
+        .join("\n")}`
+    case "mark_deliverable":
+      return `Tab ${result.browserId} marked as deliverable.`
+    case "mark_handoff":
+      return `Tab ${result.browserId} marked for handoff.`
+    case "request_manual_handoff":
+      return `Manual handoff requested for tab ${result.browserId}.`
     default:
       return JSON.stringify(result, null, 2)
   }

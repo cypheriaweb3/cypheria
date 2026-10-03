@@ -135,4 +135,72 @@ describe("browser automation protocol", () => {
       browserTools: { enabled: true },
     })
   })
+
+  it("validates direct selector, point, and new commands", () => {
+    expect(
+      BrowserAutomationCommandSchema.parse({
+        args: { browserId, selector: "button.submit" },
+        command: "click",
+      })
+    ).toEqual({
+      args: {
+        browserId,
+        button: "left",
+        doubleClick: false,
+        modifiers: [],
+        selector: "button.submit",
+      },
+      command: "click",
+    })
+
+    expect(
+      BrowserAutomationCommandSchema.parse({
+        args: { browserId, selector: "input#search", value: "test" },
+        command: "fill",
+      })
+    ).toEqual({
+      args: { browserId, selector: "input#search", value: "test" },
+      command: "fill",
+    })
+
+    expect(
+      BrowserAutomationCommandSchema.parse({
+        args: { browserId },
+        command: "mark_deliverable",
+      })
+    ).toEqual({
+      args: { browserId },
+      command: "mark_deliverable",
+    })
+
+    expect(
+      BrowserAutomationCommandSchema.parse({
+        args: { browserId, reason: "Solve captcha" },
+        command: "request_manual_handoff",
+      })
+    ).toEqual({
+      args: { browserId, reason: "Solve captcha" },
+      command: "request_manual_handoff",
+    })
+
+    expect(
+      BrowserAutomationCommandSchema.parse({
+        args: { browserId, selector: "canvas#qr" },
+        command: "scan_qr",
+      })
+    ).toEqual({
+      args: { browserId, selector: "canvas#qr" },
+      command: "scan_qr",
+    })
+
+    expect(
+      BrowserAutomationCommandSchema.parse({
+        args: { browserId, kinds: ["image", "svg"] },
+        command: "extract_assets",
+      })
+    ).toEqual({
+      args: { browserId, kinds: ["image", "svg"] },
+      command: "extract_assets",
+    })
+  })
 })
