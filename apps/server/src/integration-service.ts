@@ -10,6 +10,7 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { codexAppToolScope } from "./codex-app-tool-scope.js"
 import { ClaudePluginProvider } from "./integration/claude-plugin-provider.js"
 import { CodexPluginProvider } from "./integration/codex-plugin-provider.js"
+import { PiMcpProvider } from "./integration/pi-mcp-provider.js"
 import {
   InMemoryPluginMarketplaceRegistry,
   PluginHub,
@@ -32,6 +33,7 @@ const unsupported = (agentId: string, feature: string): Error => {
 export class IntegrationService {
   readonly #agents: AgentManager
   readonly #hub: PluginHub
+  readonly #piMcp: PiMcpProvider
 
   constructor(agents: AgentManager, options: { marketplaces?: PluginMarketplaceRegistry } = {}) {
     this.#agents = agents
@@ -49,6 +51,16 @@ export class IntegrationService {
       ]),
       options.marketplaces ?? new InMemoryPluginMarketplaceRegistry()
     )
+    this.#piMcp = new PiMcpProvider({
+      home: agents.piHome,
+      run: (args, runOptions) => agents.runPiCli(args, runOptions),
+      spec: (args) => agents.piCliSpec(args),
+    })
+  }
+
+  /** Stops Pi MCP sign-ins that are still waiting for the browser. */
+  dispose(): void {
+    this.#piMcp.dispose()
   }
 
   #plugin(agentId: AgentId): PluginProvider {
@@ -115,22 +127,38 @@ export class IntegrationService {
           respond({ succeeded: true })
           break
         case "integration.mcp.list.request":
-          this.#assertCodex(message.payload.agentId)
-          respond(await this.#listMcp())
+          if (message.payload.agentId === "pi") {
+            respond(await this.#piMcp.list())
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            respond(await this.#listMcp())
+          }
           break
         case "integration.mcp.add.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#addMcp(message.payload.name, message.payload.url)
+          if (message.payload.agentId === "pi") {
+            await this.#piMcp.add(message.payload.name, message.payload.url)
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            await this.#addMcp(message.payload.name, message.payload.url)
+          }
           respond({ succeeded: true })
           break
         case "integration.mcp.set-enabled.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#setMcpEnabled(message.payload.id, message.payload.enabled)
+          if (message.payload.agentId === "pi") {
+            await this.#piMcp.setEnabled(message.payload.id, message.payload.enabled)
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            await this.#setMcpEnabled(message.payload.id, message.payload.enabled)
+          }
           respond({ succeeded: true })
           break
         case "integration.mcp.login.request":
-          this.#assertCodex(message.payload.agentId)
-          respond(await this.#loginMcp(message.payload.id))
+          if (message.payload.agentId === "pi") {
+            respond(await this.#piMcp.login(message.payload.id))
+          } else {
+            this.#assertCodex(message.payload.agentId)
+            respond(await this.#loginMcp(message.payload.id))
+          }
           break
         case "integration.plugin.list.request":
           respond(await this.#plugin(message.payload.agentId).list(message.payload))

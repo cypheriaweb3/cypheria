@@ -20,33 +20,33 @@ import { useEffect, useId, useState } from "react"
 import type { CodexAppView, CodexMcpView } from "../../../ipc/src/index.js"
 import { McpAddRequestSchema } from "../../../ipc/src/integrations.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
-import { integrationApi } from "../integration-api.js"
+import { integrationApi, type McpAgent } from "../integration-api.js"
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : "The request failed. Please retry."
 
-export function usePluginIntegrations(active: boolean) {
+export function usePluginIntegrations(active: boolean, agentId: McpAgent = "codex") {
   const cache = useQueryClient()
   const [notice, setNotice] = useState<string | null>(null)
   const [authorizing, setAuthorizing] = useState<string | null>(null)
   const appsQuery = useQuery({
     queryKey: ["codex", "apps"],
-    enabled: active,
+    enabled: active && agentId === "codex",
     queryFn: () => {
       return integrationApi.apps.list(true)
     },
   })
   const mcpQuery = useQuery({
-    queryKey: ["codex", "mcp"],
+    queryKey: [agentId, "mcp"],
     enabled: active,
     queryFn: () => {
-      return integrationApi.mcp.list()
+      return integrationApi.mcp.list(agentId)
     },
   })
   const refresh = async () => {
     await Promise.all([
       cache.invalidateQueries({ queryKey: ["codex", "apps"] }),
-      cache.invalidateQueries({ queryKey: ["codex", "mcp"] }),
+      cache.invalidateQueries({ queryKey: [agentId, "mcp"] }),
     ])
   }
   useEffect(() => {
@@ -79,7 +79,7 @@ export function usePluginIntegrations(active: boolean) {
     // An external connection page has no trusted local success callback: re-read on return.
     const onFocus = () => {
       void cache.invalidateQueries({ queryKey: ["codex", "apps"] })
-      void cache.invalidateQueries({ queryKey: ["codex", "mcp"] })
+      void cache.invalidateQueries({ queryKey: [agentId, "mcp"] })
     }
     window.addEventListener("focus", onFocus)
     return () => {
@@ -87,7 +87,7 @@ export function usePluginIntegrations(active: boolean) {
       unsubscribe()
       window.removeEventListener("focus", onFocus)
     }
-  }, [active, cache])
+  }, [active, agentId, cache])
   useEffect(() => {
     if (!authorizing) return
     const timeout = window.setTimeout(() => {
@@ -104,7 +104,7 @@ export function usePluginIntegrations(active: boolean) {
   })
   const mcpMutation = useMutation({
     mutationFn: async ({ server, enabled }: { server: CodexMcpView; enabled: boolean }) => {
-      await integrationApi.mcp.setEnabled(server.name, enabled)
+      await integrationApi.mcp.setEnabled(server.name, enabled, agentId)
     },
     onSettled: refresh,
   })
@@ -119,21 +119,26 @@ export function usePluginIntegrations(active: boolean) {
   const login = useMutation({
     onMutate: (server: CodexMcpView) => {
       setNotice(null)
-      if (window.cypheria) setAuthorizing(server.name)
+      // Only Codex reports when a sign-in completes; Pi's status is re-read on return.
+      if (window.cypheria && agentId === "codex") setAuthorizing(server.name)
     },
     mutationFn: async (server: CodexMcpView) => {
-      await integrationApi.mcp.login(server.name)
+      await integrationApi.mcp.login(server.name, agentId)
+      if (agentId !== "codex") {
+        setNotice("Complete sign-in in your browser, then return here. Status will be refreshed.")
+      }
     },
     onError: () => setAuthorizing(null),
   })
   const addMcp = useMutation({
     mutationFn: async (input: { name: string; url: string }) => {
       McpAddRequestSchema.parse(input)
-      await integrationApi.mcp.add(input)
+      await integrationApi.mcp.add(input, agentId)
     },
     onSettled: refresh,
   })
   return {
+    agentId,
     apps: appsQuery.data?.apps ?? [],
     servers: mcpQuery.data?.servers ?? [],
     appsQuery,
@@ -421,7 +426,8 @@ export function AddMcpDialog({
           <DialogTitle>Add MCP server</DialogTitle>
           <DialogDescription>
             Connect a trusted HTTP MCP server. It can provide tools to Cypheria; only add servers
-            you trust. Credentials are managed by Codex, not this form.
+            you trust. Credentials are managed by {integrations.agentId === "pi" ? "Pi" : "Codex"},
+            not this form.
           </DialogDescription>
         </DialogHeader>
         <form

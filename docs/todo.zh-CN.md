@@ -38,7 +38,8 @@ title: 当前路线图
   - 在 harness 支持时添加 Skill recording。
   - 完成 loading、empty、error、disabled、update、advisory 和 permission states。
   - 在打包 Electron build 中验证 authenticated connector authorization。
-  - 完成 [Integrations](integrations.zh-CN.md) 所述 Cypheria 原生 plugin process、permission 和 Desktop contribution 契约。
+  - 按推出顺序实现 [Plugin Extensions](plugin-extensions.zh-CN.md)，并把 Code Review 迁移到新的 `extensions` API。
+  - 定义 Cypheria 原生 manifest，以及第三方 `cypheria/*` host 请求的权限模型。
   - 以 custom source 的形式添加 Pi 和 OpenCode 插件适配器，并支持 Claude 使用托管在 claude.ai 的 marketplace。
 
 ## 本地 Git 与拉取请求

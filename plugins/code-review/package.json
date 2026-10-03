@@ -1,11 +1,11 @@
 {
-  "name": "@cypheria/code-review-app",
+  "name": "@cypheria/code-review",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The Code Review MCP App the bundled code-review plugin serves as ui://pull-requests/app.",
+  "description": "The bundled code-review plugin: its manifests, MCP relay, and the Code Review MCP App served as ui://pull-requests/app.",
   "scripts": {
-    "build": "vite build",
+    "build": "node scripts/build.mjs",
     "check": "pnpm i18n:compile && pnpm typecheck",
     "dev": "vite build --watch",
     "i18n:compile": "lingui compile --strict",

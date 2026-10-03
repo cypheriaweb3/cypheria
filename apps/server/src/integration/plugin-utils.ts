@@ -49,7 +49,7 @@ export const BUNDLED_PLUGIN_NAMES = ["cypheria-app-tools", "code-review"] as con
  */
 export const bundledMarketplaceDirectory = async (marker: string): Promise<string> => {
   const candidates = [
-    new URL("../../../../plugins/marketplace/", import.meta.url),
+    new URL("../../../../plugins/", import.meta.url),
     new URL("./marketplace/", import.meta.url),
   ]
   for (const candidate of candidates) {

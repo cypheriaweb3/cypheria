@@ -30,6 +30,7 @@ title: Cypheria 文档
 - [本地 Git 设计](git.zh-CN.md)：Git 能力归属、后端选择、安全、持久状态与 Agent 工具。
 - [代码审查](code-review.zh-CN.md)：代码审查 MCP App、经由 OpenAI 后端的工具、私密审查与 Desktop 界面。
 - [Integrations](integrations.zh-CN.md)：Skills、MCP、plugins、marketplace 来源与 Codex Apps。
+- [Plugin Extensions](plugin-extensions.zh-CN.md)：计划中的、由 Server 托管的插件 UI 界面，基于 OpenAI MCP Extensions 规范：入口、设置、提及、文件查看器与模型上下文。
 - [AI 网关](gateway.zh-CN.md)：基于 Cypheria Agent 的 magpie 网关，其版本固定、生命周期、端口与范围。
 - [Web3](web3.zh-CN.md)：network、wallet、policy、签名、dApp 与审计。
 - [UI 系统](ui.zh-CN.md)：视觉原则、主题实现、会话组件与回归不变量。

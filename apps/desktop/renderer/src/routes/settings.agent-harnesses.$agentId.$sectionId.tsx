@@ -69,6 +69,7 @@ import {
   TriangleAlert,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { AgentMcpSection } from "../components/agent-mcp-section"
 import { waitForAgentOperation } from "../components/agent-operation"
 import { CodexSettingsSection } from "../components/codex-settings-section"
 import { AuthenticationSection } from "../components/harness-authentication-section"
@@ -86,6 +87,8 @@ const baseSections = [
   { id: "authentication", label: "Authentication" },
   { id: "models", label: "Models" },
 ]
+/** Pi manages its own MCP servers; Codex's are on the Plugins page. */
+const mcpSection = { id: "mcp", label: "MCP servers" }
 const codexSections = [
   { id: "authentication", label: "Authentication" },
   { id: "settings", label: "Settings" },
@@ -123,6 +126,7 @@ function AgentHarnessSettingsRoute() {
         ? codexSections
         : [
             ...baseSections,
+            ...(agentId === "pi" ? [mcpSection] : []),
             ...(catalogQuery.data?.settingSections ?? []).map(({ id, label }) => ({ id, label })),
           ],
     [agentId, catalogQuery.data?.settingSections]
@@ -233,6 +237,9 @@ function AgentHarnessSettingsRoute() {
                 {sectionId === "models" && agentId !== "codex" ? (
                   <ModelsSection agentId={agentId} snapshot={catalogQuery.data} />
                 ) : null}
+                {sectionId === "mcp" && agentId === "pi" ? (
+                  <AgentMcpSection agentId="pi" agentName={agent.name} />
+                ) : null}
                 {sectionId === "settings" && agentId === "codex" ? (
                   <CodexSettingsSection
                     snapshot={catalogQuery.data}
@@ -240,7 +247,8 @@ function AgentHarnessSettingsRoute() {
                   />
                 ) : null}
                 {!baseSections.some((item) => item.id === sectionId) &&
-                !(sectionId === "settings" && agentId === "codex") ? (
+                !(sectionId === "settings" && agentId === "codex") &&
+                !(sectionId === "mcp" && agentId === "pi") ? (
                   <SettingsSection
                     agentId={agentId}
                     section={catalogQuery.data?.settingSections.find(

@@ -55,6 +55,8 @@ Claude has no setting that turns plugins off, so Cypheria owns one: `agents.clau
 
 The Pi harness uses the pinned Pi coding-agent package and its RPC session model. It discovers provider models and each provider's account, OAuth, device-code, or API-key authentication methods, and maps message streaming, tool activity, configuration, session lifecycle, and extension metadata into the common Thread contract. Pi extensions are represented as Pi-ecosystem plugins, not as Cypheria-native plugins.
 
+Pi connects MCP servers itself through its built-in MCP, codemode, and tool search extensions, which its RPC mode loads. MCP tools appear as `mcp__<server>__<tool>` tool calls; calls a codemode script makes are recorded on that `codemode` call, not as separate Timeline items. Pi does not render MCP Apps and does not support MCP elicitation. Server manages Pi's MCP servers as described in [Integrations](integrations.md#mcp).
+
 ### OpenCode
 
 The OpenCode harness supports OpenCode v2 only. Dynamic installation uses the pinned `@opencode/cli` package rather than an ACP registry distribution, and Server integration uses the matching `@opencode/client` v2 API. Cypheria disables OpenCode self-updates, supervises its local service, consumes the v2 event stream, and maps sessions, messages, forms, permissions, models, integrations, and credentials into the common Thread, Timeline, catalog, and authentication contracts. No OpenCode v1 compatibility path is retained.

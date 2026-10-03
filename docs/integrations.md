@@ -26,6 +26,11 @@ MCP servers are also a common concept. The integration API reports tools, resour
 
 Transport credentials and OAuth state stay in the Server or harness runtime. MCP elicitation enters the common Thread interaction lifecycle.
 
+MCP management is available for Codex and Pi; other Agents report it as unsupported.
+
+- **Codex:** through the App Server's MCP status, configuration, and OAuth requests.
+- **Pi:** through the managed Pi CLI's `pi mcp list --json`, `add`, and `login` commands, run with Pi's home as the working directory so no project `.pi/mcp.json` is read. Pi has no command that changes enablement, so Server sets the `enabled` field of servers in Pi's own `mcp.json`, as Pi's `/mcp` does; project servers are read-only. A sign-in returns the authorization page for the client to open while `pi mcp login` waits for the browser's loopback callback for up to five minutes, with Pi's own browser launch suppressed except on Windows. Running Pi sessions pick up changes when they restart. Desktop shows Pi's servers under Pi's Agent settings.
+
 For Codex's `codex_apps` server, each discovered tool reports an `appScope` only when its metadata identifies a consistent connector, account link, and action resource URI. Other tools report `null`. Consumers must recheck this scope and the current account before invoking a connector tool; discovery alone does not grant access.
 
 ## Plugin ecosystems
@@ -43,7 +48,7 @@ Plugin views retain source type, marketplace identity, install policy, availabil
 Codex remote plugins have a catalog ID distinct from their displayed name. Server resolves that ID from a fresh `plugin/list` result before remote detail or install requests, so a visible plugin is not sent to Codex's install endpoint under its display name.
 
 When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs its plugins, `cypheria-app-tools` and `code-review`, in that Agent's managed home, as the official desktop bundles `codex-app-tools` and `code-review`. They are described in [Cypheria app tools](#cypheria-app-tools). They declare no OpenAI App ID and have no GitHub or GitLab connector credentials.
-The bundled marketplace is a dual-format plugin root: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, and each Agent's MCP declaration lives in its own file next to the plugin's server.
+The bundled marketplace is the dual-format `plugins/` directory: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, lists each plugin at `./<plugin>`, and each Agent's MCP declaration lives in its own file next to the plugin's server.
 When an installed bundled plugin is discovered after a Cypheria update, Server checks its local version and updates it from the bundled marketplace before returning the plugin list.
 
 ### Cypheria app tools
@@ -77,7 +82,7 @@ Server manages Claude plugins by running the managed Claude CLI's `claude plugin
 - After a change, Server reloads plugins in running Claude sessions unless that would invalidate a session's prompt cache; held sessions pick the change up when they restart.
 - Component details, such as skills and MCP servers, are available for installed plugins and for plugins that live inside their marketplace. Other uninstalled plugins show only their catalog entry.
 
-Cypheria-native plugins are a separate contract. The intended manifest declares Server entry points, Desktop UI contributions, optional future Expo contributions, permissions, compatible Cypheria versions, and contribution points. Server code must run in a controlled child process. Desktop contributions must be sandboxed and receive scoped host APIs rather than Node.js, filesystem, database, or secret access. Completing this runtime and UX remains planned work.
+Cypheria-native plugins are planned to use the same UI contract as other plugins: MCP servers whose MCP Apps and extensions are hosted by the Server for every client, as designed in [Plugin Extensions](plugin-extensions.md). There is no separate Desktop contribution API. Server code runs in a controlled child process, and UI runs in sandboxed frames with scoped host requests rather than Node.js, filesystem, database, or secret access.
 
 ## Marketplace sources
 

@@ -35,7 +35,7 @@ flowchart LR
 ```
 
 - **Server** (`apps/server/src/code-review`) owns the ChatGPT session, the backend client, the 31 `pull_requests.*` tools, private reviews, and the host-side provider calls.
-- **The MCP App** (`packages/code-review-app`) is `ui://pull-requests/app`, one self-contained HTML document that the Server build copies into the bundled plugin's `assets/`. It renders onboarding, the pull request detail, Changes, and settings, and talks only through its MCP Apps channel.
+- **The MCP App** (`plugins/code-review/src/app`) is `ui://pull-requests/app`, one self-contained HTML document built into the plugin's `dist/app.html`, which Server reads from the bundled marketplace. It renders onboarding, the pull request detail, Changes, and settings, and talks only through its MCP Apps channel.
 - **Desktop** hosts the App in a sandboxed iframe (`McpAppFrame`) and answers its `cypheria/codeReview/*` host requests. The Code Review sidebar is drawn by Desktop from the sections the App reports.
 
 ## Tools

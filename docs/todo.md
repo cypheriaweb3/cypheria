@@ -38,7 +38,8 @@ The detailed future service boundary and threat model are in [Marketplace](marke
   - Add Skill recording where supported.
   - Complete loading, empty, error, disabled, update, advisory, and permission states.
   - Verify authenticated connector authorization in packaged Electron builds.
-  - Finish the Cypheria-native plugin process, permission, and Desktop contribution contract described in [Integrations](integrations.md).
+  - Implement [Plugin Extensions](plugin-extensions.md) in its rollout order, moving Code Review onto the new `extensions` API.
+  - Define the Cypheria-native manifest and the permission model for third-party `cypheria/*` host requests.
   - Add Pi and OpenCode plugin adapters as custom sources, and support marketplaces hosted on claude.ai for Claude.
 
 ## Local Git and pull requests

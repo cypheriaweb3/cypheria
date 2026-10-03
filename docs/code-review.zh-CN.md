@@ -35,7 +35,7 @@ flowchart LR
 ```
 
 - **Server**（`apps/server/src/code-review`）负责 ChatGPT 会话、后端客户端、31 个 `pull_requests.*` 工具、私密审查以及宿主侧的 provider 调用。
-- **MCP App**（`packages/code-review-app`）即 `ui://pull-requests/app`，是一个自包含的 HTML 文档，由 Server 构建复制到内置插件的 `assets/`。它渲染引导、Pull Request 详情、更改和设置，只通过 MCP Apps 通道通信。
+- **MCP App**（`plugins/code-review/src/app`）即 `ui://pull-requests/app`，是一个自包含的 HTML 文档，构建为插件的 `dist/app.html`，Server 从内置 marketplace 中读取它。它渲染引导、Pull Request 详情、更改和设置，只通过 MCP Apps 通道通信。
 - **Desktop** 在沙箱 iframe（`McpAppFrame`）中承载 App，并响应它的 `cypheria/codeReview/*` 宿主请求。代码审查侧边栏由 Desktop 根据 App 上报的分区绘制。
 
 ## 工具

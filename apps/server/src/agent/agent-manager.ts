@@ -875,7 +875,42 @@ export class AgentManager {
     args: string[],
     options: { input?: string; signal?: AbortSignal; timeoutMs?: number } = {}
   ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
-    const spec = await this.authTerminalSpec("claude", args)
+    return await this.#runCli("Claude", await this.authTerminalSpec("claude", args), options)
+  }
+
+  /** The managed Pi home that holds `mcp.json`, settings, and MCP OAuth credentials. */
+  get piHome(): string {
+    return join(this.#agentHomes, "pi", "home")
+  }
+
+  /** The managed Pi CLI's launch spec inside Cypheria's isolated `PI_CODING_AGENT_DIR`. */
+  async piCliSpec(
+    args: string[],
+    extraEnvironment: Record<string, string> = {}
+  ): Promise<{ args: string[]; command: string; cwd: string; env: Record<string, string> }> {
+    const home = this.piHome
+    await mkdir(home, { recursive: true })
+    const spec = await this.authTerminalSpec("pi", args, {
+      ...extraEnvironment,
+      PI_CODING_AGENT_DIR: home,
+    })
+    // Running in the home keeps the CLI from reading a project `.pi/mcp.json`.
+    return { ...spec, cwd: home }
+  }
+
+  /** Runs the managed Pi CLI to completion. Callers pass explicit argv; there is no shell. */
+  async runPiCli(
+    args: string[],
+    options: { signal?: AbortSignal; timeoutMs?: number } = {}
+  ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+    return await this.#runCli("Pi", await this.piCliSpec(args), options)
+  }
+
+  async #runCli(
+    label: string,
+    spec: { args: string[]; command: string; cwd: string; env: Record<string, string> },
+    options: { input?: string; signal?: AbortSignal; timeoutMs?: number }
+  ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
     return await new Promise((resolve, reject) => {
       const child = spawn(spec.command, spec.args, {
         cwd: spec.cwd,
@@ -893,7 +928,7 @@ export class AgentManager {
       child.once("error", reject)
       child.once("close", (code, signal) => {
         if (code === null) {
-          reject(new Error(`Claude CLI was terminated by ${signal ?? "a signal"}`))
+          reject(new Error(`${label} CLI was terminated by ${signal ?? "a signal"}`))
           return
         }
         resolve({

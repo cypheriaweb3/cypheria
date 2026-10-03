@@ -8,7 +8,7 @@
       "name": "cypheria-app-tools",
       "source": {
         "source": "local",
-        "path": "./plugins/cypheria-app-tools"
+        "path": "./cypheria-app-tools"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -20,7 +20,7 @@
       "name": "code-review",
       "source": {
         "source": "local",
-        "path": "./plugins/code-review"
+        "path": "./code-review"
       },
       "policy": {
         "installation": "AVAILABLE",

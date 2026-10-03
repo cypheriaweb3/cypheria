@@ -8,6 +8,6 @@
     "rootDir": ".",
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "lingui.config.ts"],
+  "include": ["src/app/**/*.ts", "src/app/**/*.tsx", "vite.config.ts", "lingui.config.ts"],
   "exclude": ["dist"]
 }

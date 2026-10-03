@@ -162,7 +162,7 @@ describe("ClaudePluginProvider", () => {
     const added = calls.filter((call) => call.slice(0, 3).join(" ") === "plugin marketplace add")
     expect(added.map((call) => call[3])).toEqual([
       "anthropics/claude-plugins-official",
-      expect.stringMatching(/plugins\/marketplace$/u),
+      expect.stringMatching(/[\\/]plugins$/u),
     ])
     expect(calls.some((call) => call[1] === "install")).toBe(false)
   })

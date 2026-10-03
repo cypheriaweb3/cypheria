@@ -70,13 +70,17 @@ const trimShiki = (): Plugin => ({
   name: "cypheria-trim-shiki",
 })
 
-/** One self-contained HTML document: MCP App resources are served as a single `ui://` text. */
+/**
+ * One self-contained HTML document, `dist/app.html`: MCP App resources are served as a single
+ * `ui://` text.
+ */
 export default defineConfig({
   build: {
     emptyOutDir: true,
-    outDir: "dist",
-    rollupOptions: { input: "pull-requests.html" },
+    outDir: "../../dist",
+    rollupOptions: { input: "app.html" },
   },
+  root: "src/app",
   plugins: [
     trimShiki(),
     babel({ plugins: ["@lingui/babel-plugin-lingui-macro"] }),

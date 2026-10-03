@@ -480,10 +480,10 @@ export class CypheriaServer implements HttpAppHost {
         args: [
           join(
             await bundledMarketplaceDirectory(".agents/plugins/marketplace.json"),
-            "plugins",
             "code-review",
-            "mcp",
-            "server.mjs"
+            "src",
+            "server",
+            "relay.mjs"
           ),
           "--server",
           "review_context",
@@ -1425,6 +1425,7 @@ export class CypheriaServer implements HttpAppHost {
     this.terminals.stop()
     this.web3.stop()
     this.harnesses.stop()
+    this.integrations.dispose()
     await this.privateReviews.dispose()
     await this.magpieManager.shutdown()
 

@@ -306,7 +306,7 @@ describe("IntegrationService", () => {
     )
     expect(callCodex).toHaveBeenCalledWith(
       "marketplace/add",
-      expect.objectContaining({ source: expect.stringContaining("plugins/marketplace") })
+      expect.objectContaining({ source: expect.stringMatching(/plugins\/?$/u) })
     )
     expect(callCodex).toHaveBeenCalledWith(
       "plugin/install",

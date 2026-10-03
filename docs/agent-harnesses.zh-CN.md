@@ -55,6 +55,8 @@ Claude 没有关闭插件的设置，因此由 Cypheria 自己提供：`$CYPHERI
 
 Pi harness 使用固定版本的 Pi coding-agent 包及其 RPC session model。它会发现 provider models 与各 provider 的 account、OAuth、device-code 或 API-key 认证方式，并把消息流、tool activity、配置、session 生命周期和 extension metadata 映射到通用 Thread 契约。Pi extensions 表示为 Pi 生态插件，不等同于 Cypheria 原生插件。
 
+Pi 通过其 RPC 模式加载的内置 MCP、codemode 与 tool search extension 自行连接 MCP server。MCP 工具以 `mcp__<server>__<tool>` 工具调用出现；codemode 脚本发出的调用记录在该 `codemode` 调用上，不会成为单独的 Timeline 项。Pi 不渲染 MCP Apps，也不支持 MCP elicitation。Server 如何管理 Pi 的 MCP server 见 [Integrations](integrations.zh-CN.md#mcp)。
+
 ### OpenCode
 
 OpenCode harness 仅支持 OpenCode v2。动态安装使用固定版本的 `@opencode/cli`，不再使用 ACP registry distribution；Server 对接使用配套的 `@opencode/client` v2 API。Cypheria 会禁用 OpenCode 自更新、监管其本地 service、消费 v2 event stream，并把 sessions、messages、forms、permissions、models、integrations 和 credentials 映射到通用 Thread、Timeline、catalog 与认证契约。不保留任何 OpenCode v1 兼容路径。
