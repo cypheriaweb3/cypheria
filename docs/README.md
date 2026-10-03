@@ -30,7 +30,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 - [Local Git design](git.md): Git ownership, backend selection, safety, persistence, and Agent tools.
 - [Code Review](code-review.md): the Code Review MCP App, its tools over OpenAI's backend, private reviews, and Desktop surfaces.
 - [Integrations](integrations.md): Skills, MCP, plugins, marketplace sources, and Codex Apps.
-- [Plugin Extensions](plugin-extensions.md): planned Server-hosted plugin UI surfaces from the OpenAI MCP Extensions specification: entry points, settings, mentions, file viewers, and model context.
+- [Plugin Extensions](plugin-extensions.md): plugin UI surfaces from the OpenAI MCP Extensions specification, served by the Server for every client: entry points, settings, mentions, file viewers, model context, and the Desktop App sandbox.
 - [AI gateway](gateway.md): the magpie gateway over Cypheria's Agents, its release pin, lifecycle, ports, and scope.
 - [Web3](web3.md): networks, wallets, policies, signing, dApps, and audit.
 - [UI system](ui.md): visual principles, theme implementation, conversation components, and regression invariants.

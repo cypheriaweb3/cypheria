@@ -20,10 +20,10 @@ Without these, the Code Review page shows its onboarding step and the Thread pul
 
 ```mermaid
 flowchart LR
-  Page[Code Review page] --> Frame[McpAppFrame]
+  Page[Code Review page] --> Frame[McpAppHost]
   Panel[Thread pull request panel] --> Frame
   Settings[Code Review settings] --> Frame
-  Frame -->|tools/call| Client[client.mcpApps]
+  Frame -->|tools/call| Client[client.extensions]
   Frame -->|cypheria/codeReview/*| Host[Desktop host extension]
   Host --> CR[client.codeReview]
   Client --> Server[Server CodeReviewTools]
@@ -36,7 +36,7 @@ flowchart LR
 
 - **Server** (`apps/server/src/code-review`) owns the ChatGPT session, the backend client, the 31 `pull_requests.*` tools, private reviews, and the host-side provider calls.
 - **The MCP App** (`plugins/code-review/src/app`) is `ui://pull-requests/app`, one self-contained HTML document built into the plugin's `dist/app.html`, which Server reads from the bundled marketplace. It renders onboarding, the pull request detail, Changes, and settings, and talks only through its MCP Apps channel.
-- **Desktop** hosts the App in a sandboxed iframe (`McpAppFrame`) and answers its `cypheria/codeReview/*` host requests. The Code Review sidebar is drawn by Desktop from the sections the App reports.
+- **Desktop** hosts the App with `McpAppHost`, as it hosts every plugin App (see [Plugin Extensions](plugin-extensions.md#desktop-app-host)), and answers its `cypheria/codeReview/*` host requests. Server answers the App's tool calls itself, because `code-review` is a bundled plugin. The Code Review sidebar is drawn by Desktop from the sections the App reports.
 
 ## Tools
 
@@ -58,12 +58,13 @@ GitHub calls go to `/wham/github/operations/<operation>` with the ChatGPT accoun
 
 A private review asks Codex to review a pull request without a checkout. Server runs `codex exec --sandbox read-only` with a temporary `review_context` MCP server that exposes `read_diff`, `list_files`, and `read_file` for the fixed head and merge base. Findings must anchor to a diff hunk; unanchored findings are dropped. Results stay in Cypheria until the user posts a finding as a comment.
 
-Runs are leased for 60 seconds and renewed while alive. At most two run at a time and a run times out after 15 minutes. A run whose lease expired is reported as interrupted and is never resumed automatically. The `code_reviews` table stores runs and findings; see [Database](database.md).
+Runs are leased for 60 seconds and renewed while alive. At most two run at a time and a run times out after 15 minutes. A run whose lease expired is reported as interrupted and is never resumed automatically. The `code_review_runs` table stores runs and findings; see [Database](database.md).
 
 ## Desktop surfaces
 
-- **Code Review page** (`/code-review`, Sidebar item **Code Review**). The left sidebar shows Pinned, then the chosen sections (Authored by me, Needs my review, Needs my team's review, Approved, Drafts, Recently merged), search, and Compact or Detailed layout. The main pane is the App. A `?pr=` link opens that pull request.
-- **Thread pull request panel.** The conversation's right panel has a **Pull request** tab with the same App detail on the Thread surface. Desktop finds the pull request from the Thread's attachments, or by searching the Thread branch's head through the App tools. The conversation header's branch menu offers View PR, Open in GitHub or GitLab, Copy link, and Add to chat, and Create PR prefills a composer prompt.
+- **Code Review page** (`/code-review`, Sidebar item **Code Review**). The left sidebar shows Recent and Pinned, then the chosen sections (Authored by me, Needs my review, Needs my team's review, Approved, Drafts, Recently merged), search, and Compact or Detailed layout. Recent lists the account's last 100 opened pull requests and is one of the sections the user can hide. The Server keeps pinned and recent pull requests per provider account, so every client shows the same lists; which sections are collapsed is Desktop client state. The main pane is the App. A `?pr=` link opens that pull request.
+- **Pull request chat.** A chat floats at the bottom right of an open pull request, as on a [plugin's global page](plugin-extensions.md#surfaces). The Server records it as the workspace thread `code-review:<pull request identity>`, so every client reopens it there. Until one is chosen, the page shows the latest chat the pull request is attached to. Opening a chat from the App on this page starts a new chat in that panel with the prompt in its composer, and opening a linked Thread shows that Thread there; on the Thread surface both open the conversation page instead.
+- **Thread pull request panel.** The conversation's right panel has a **Pull request** tab with the same App detail on the Thread surface. Desktop shows the Thread's most recently attached pull request. As in ChatGPT Desktop, a Thread without a pull request attachment shows none; nothing is inferred from its branch. Pull requests are attached by Create PR, by the Agent's `attach_artifact`, or by hand. The conversation header's pull request menu offers View PR, Open in GitHub or GitLab, Copy link, Add to chat, and Detach from chat with Undo. Without a pull request it offers Create PR, described in [Git](git.md#creating-pull-requests), and Attach existing pull request, which takes a pull request or merge request URL.
 - **Detail.** Summary and Changes tabs; pin, copy link, and open in GitHub or GitLab; **Review with Codex** (private review or a new chat) with review instructions; the state, title editor, author, branches, description with reactions, activity filtered by All activity, All comments, Human comments, or Commits, and the comment box; a right rail with Threads, Comments, Reviews, and Checks with Fix actions; merge and Submit review dialogs. Changes shows the diff beside a filterable file tree, with inline threads and review comments.
 - **Watch and fix.** On the Thread surface, the detail offers Watch and fix for an open pull request. Desktop creates a Server schedule that runs in that Thread every ten minutes with a prompt built from the Git watch preferences (auto-merge, merge method, and watch instructions) at creation time; the pause button pauses it, and Schedules can also pause or resume it.
 - **Settings.** Settings > Code Review hosts the App's settings entry point: review provider, GitHub account or GitLab instance, where review links open, and review instructions. Settings are Server configuration under `codeReview`.
@@ -72,9 +73,9 @@ Opening a chat from Code Review (review, fix checks, fix comments, fix conflicts
 
 ## Host extension
 
-The App and Desktop validate host requests and notifications with `@cypheria/protocol/code-review-app`. Requests cover setup, settings read and update, GitLab provider operations, sidebar state, connect, open link, open chat, the initial selection, linked Threads, open Thread, pins, and Watch and fix. Notifications carry the sidebar selection, sidebar actions (more or retry), search text, and settings changes. Resource reads arrive in 200,000-character pieces so a relay message limit cannot truncate the App.
+The App and Desktop validate host requests and notifications with `@cypheria/protocol/code-review-app`. Requests cover setup, settings read and update, GitLab provider operations, sidebar state, connect, open link, open chat, the initial selection, linked Threads, open Thread, pins, visits, and Watch and fix. A visit records the pull request the App opened among the account's recent ones and tells the App whether it is pinned. Notifications carry the sidebar selection, sidebar actions (more or retry), search text, and settings changes. Resource reads arrive in 200,000-character pieces so a relay message limit cannot truncate the App.
 
-The iframe has an opaque origin, allows scripts, forms, and popups, and carries an injected CSP from the resource's `_meta.ui.csp`; the App receives the host theme, locale, and the standard MCP style variables, and never receives a token or Node.js access.
+The App runs on its own sandbox origin with a CSP from the resource's `_meta.ui.csp`; it receives the host theme, locale, and the standard MCP style variables, and never receives a token or Node.js access.
 
 ## Validation status
 

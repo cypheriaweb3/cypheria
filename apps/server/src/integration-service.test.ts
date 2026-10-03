@@ -376,6 +376,145 @@ describe("IntegrationService", () => {
     )
   })
 
+  it("lists, enables, and trusts hooks via Codex App Server", async () => {
+    const callCodex = vi.fn(async (method: string, _params?: unknown) => {
+      if (method === "hooks/list") {
+        return {
+          data: [
+            {
+              cwd: "/workspace",
+              errors: [],
+              hooks: [
+                {
+                  additionalContextLimit: 2500,
+                  async: false,
+                  command: "python3 test.py",
+                  currentHash: "hash123",
+                  displayOrder: 0,
+                  enabled: false,
+                  eventName: "PreToolUse",
+                  handlerType: "command",
+                  isManaged: false,
+                  key: "user:pre_tool_use:0:0",
+                  matcher: "^Bash$",
+                  pluginId: null,
+                  source: "user",
+                  sourcePath: "/home/user/.codex/hooks.json",
+                  statusMessage: "Checking bash",
+                  timeoutSec: 30,
+                  trustStatus: "untrusted",
+                },
+              ],
+              warnings: [],
+            },
+          ],
+        }
+      }
+      if (method === "config/batchWrite") {
+        return {}
+      }
+      throw new Error(`Unexpected call: ${method}`)
+    })
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
+    const send = vi.fn()
+
+    await service.handle(
+      {
+        payload: { agentId: "codex", cwd: "/workspace" },
+        requestId: "req_hooks",
+        type: "integration.hook.list.request",
+      },
+      send
+    )
+
+    expect(callCodex).toHaveBeenCalledWith("hooks/list", { cwds: ["/workspace"] })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: {
+          ok: true,
+          value: expect.objectContaining({
+            hooks: [
+              expect.objectContaining({
+                command: "python3 test.py",
+                enabled: false,
+                eventName: "PreToolUse",
+                handlerType: "command",
+                harness: { agentId: "codex", nativeId: "user:pre_tool_use:0:0" },
+                key: "user:pre_tool_use:0:0",
+                trustStatus: "untrusted",
+              }),
+            ],
+          }),
+        },
+        requestId: "req_hooks",
+        type: "integration.hook.list.response",
+      })
+    )
+
+    send.mockClear()
+    await service.handle(
+      {
+        payload: { agentId: "codex", enabled: true, key: "user:pre_tool_use:0:0" },
+        requestId: "req_hook_enable",
+        type: "integration.hook.set-enabled.request",
+      },
+      send
+    )
+
+    expect(callCodex).toHaveBeenCalledWith("config/batchWrite", {
+      edits: [
+        {
+          keyPath: "hooks.state",
+          mergeStrategy: "upsert",
+          value: { "user:pre_tool_use:0:0": { enabled: true } },
+        },
+      ],
+      expectedVersion: null,
+      filePath: null,
+      reloadUserConfig: true,
+    })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { ok: true, value: { succeeded: true } },
+        requestId: "req_hook_enable",
+        type: "integration.hook.set-enabled.response",
+      })
+    )
+
+    send.mockClear()
+    await service.handle(
+      {
+        payload: { agentId: "codex", key: "user:pre_tool_use:0:0", trustedHash: "hash123" },
+        requestId: "req_hook_trust",
+        type: "integration.hook.trust.request",
+      },
+      send
+    )
+
+    expect(callCodex).toHaveBeenCalledWith("config/batchWrite", {
+      edits: [
+        {
+          keyPath: "hooks.state",
+          mergeStrategy: "upsert",
+          value: { "user:pre_tool_use:0:0": { trusted_hash: "hash123" } },
+        },
+      ],
+      expectedVersion: null,
+      filePath: null,
+      reloadUserConfig: true,
+    })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { ok: true, value: { succeeded: true } },
+        requestId: "req_hook_trust",
+        type: "integration.hook.trust.response",
+      })
+    )
+  })
+
   it("rejects unsupported harness adapters without falling back to Codex", async () => {
     const callCodex = vi.fn()
     const service = new IntegrationService({

@@ -55,7 +55,7 @@ import {
   CodexDynamicToolRegistry,
   type CodexDynamicToolSpecDecorator,
 } from "./codex-dynamic-tools.js"
-import { CodexRuntime } from "./codex-runtime.js"
+import { CodexRuntime, type HiddenThreadHandler } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
 import { OpenCodeRuntime, openCodeHomeEnvironment } from "./opencode-runtime.js"
@@ -699,10 +699,21 @@ export class AgentManager {
 
   async callCodex(
     method: keyof typeof AGENT_CODEX_CLIENT_RPC,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    options?: { timeoutMs?: number }
   ): Promise<Record<string, unknown>> {
     await this.#assertCallable("codex")
-    return (await this.#ensureCodexRuntime()).request(method, params)
+    return (await this.#ensureCodexRuntime()).request(method, params, options)
+  }
+
+  /** Hides a Codex Thread that carries extension MCP calls; see `CodexRuntime.hideThread`. */
+  async hideCodexThread(threadId: string, handler: HiddenThreadHandler): Promise<void> {
+    const runtime = await this.#ensureCodexRuntime()
+    runtime.hideThread(threadId, handler)
+  }
+
+  async unhideCodexThread(threadId: string): Promise<void> {
+    if (this.#codexRuntime) this.#codexRuntime.unhideThread(threadId)
   }
 
   async rejectCodexReverse(sessionId: string, requestId: string, message: string): Promise<void> {

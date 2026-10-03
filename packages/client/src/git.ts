@@ -6,11 +6,14 @@ import type {
   GitBranchContext,
   GitBranchReview,
   GitBranchSearchResult,
+  GitClientMessage,
   GitCloneState,
   GitCommitSummary,
   GitIndexEntry,
   GitOrigin,
   GitPatchResult,
+  GitPullRequestSource,
+  GitPullRequestTarget,
   GitRemoteIdentity,
   GitRepository,
   GitReviewFile,
@@ -238,6 +241,20 @@ export interface GitActions {
     input?: { remote?: string; branch?: string; setUpstream?: boolean; forceWithLease?: boolean },
     options?: RequestOptions
   ): Promise<string>
+  /** Where the checkout's pull request would go; null without a GitHub or GitLab origin. */
+  pullRequestTarget(cwd: string, options?: RequestOptions): Promise<GitPullRequestTarget | null>
+  /** Commits, pushes, creates the pull request, and attaches it to the Thread when given. */
+  createPullRequest(
+    input: Extract<GitClientMessage, { type: "git.pull-request-create.request" }>["payload"],
+    options?: RequestOptions
+  ): Promise<{
+    url: string
+    number: number | null
+    source: GitPullRequestSource
+    openedInBrowser: boolean
+    branch: string
+    commit: string | null
+  }>
   worktrees(cwd: string, options?: RequestOptions): Promise<GitWorktree[]>
   /** Managed worktrees of every repository, grouped by repository. */
   managedWorktrees(
@@ -421,6 +438,17 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ output: string }>(
       await client.requestGit("git.push.request", { cwd, ...input }, options)
     ).output,
+  pullRequestTarget: async (cwd, options) =>
+    unwrap<{ target: GitPullRequestTarget | null }>(
+      await client.requestGit("git.pull-request-target.request", { cwd }, options)
+    ).target,
+  createPullRequest: async (input, options) =>
+    unwrap(
+      await client.requestGit("git.pull-request-create.request", input, {
+        timeoutMs: 600_000,
+        ...options,
+      })
+    ),
   worktrees: async (cwd, options) =>
     unwrap(await client.requestGit("git.worktrees.request", { cwd }, options)),
   managedWorktrees: async (options) =>

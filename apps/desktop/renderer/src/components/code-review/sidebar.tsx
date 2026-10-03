@@ -41,9 +41,10 @@ import {
 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 
-import { clientStateStore, codeReviewPinsAtom } from "../../client-state.js"
+import { clientStateStore, codeReviewSidebarCollapsedAtom } from "../../client-state.js"
 import { ensureCypheriaClient } from "../../cypheria-client.js"
 import { codeReviewNotifierAtom, codeReviewSidebarAtom } from "./host.js"
+import { setPullRequestPinned, usePullRequestList } from "./pull-request-lists.js"
 
 const compactAge = (value: string | null | undefined): string => {
   if (!value) return ""
@@ -62,6 +63,7 @@ const compactAge = (value: string | null | undefined): string => {
 }
 
 const SECTION_IDS = [
+  "recents",
   "waiting_for_review",
   "needs_my_review",
   "needs_my_teams_review",
@@ -80,9 +82,11 @@ export function CodeReviewSidebar({
   const { i18n } = useLingui()
   const state = useAtomValue(codeReviewSidebarAtom)
   const notifier = useAtomValue(codeReviewNotifierAtom)
-  const pins = useAtomValue(codeReviewPinsAtom)
+  const accountKey = state?.accountKey ?? null
+  const pins = usePullRequestList("pinned", accountKey).data ?? []
+  const recents = usePullRequestList("recent", accountKey).data ?? []
   const [query, setQuery] = useState("")
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  const collapsed = new Set(useAtomValue(codeReviewSidebarCollapsedAtom))
   const queryClient = useQueryClient()
   const config = useQuery({
     queryFn: async () => (await ensureCypheriaClient()).settings.get(),
@@ -117,23 +121,19 @@ export function CodeReviewSidebar({
       })
     ),
     pinned: i18n._(msg({ id: "codeReview.sidebar.section.pinned", message: "Pinned" })),
+    recents: i18n._(msg({ id: "codeReview.sidebar.section.recents", message: "Recent" })),
     search: i18n._(msg({ id: "codeReview.sidebar.section.results", message: "Results" })),
     waiting_for_review: i18n._(
       msg({ id: "codeReview.sidebar.section.authored", message: "Authored by me" })
     ),
   }
-  const pinned = useMemo(
-    () => pins.filter((pin) => state && pin.accountKey === state.accountKey),
-    [pins, state]
-  )
+  const pinnedUrls = useMemo(() => new Set(pins.map((pin) => pin.url.toLowerCase())), [pins])
   const layout = settings?.sidebarLayout ?? "detailed"
   const toggle = (id: string) =>
-    setCollapsed((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    void clientStateStore.set(codeReviewSidebarCollapsedAtom, (current) =>
+      current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
+    )
+  const showRecents = settings?.sidebarSections.includes("recents") ?? false
   const sections: {
     id: string
     items: readonly CodeReviewSidebarItem[]
@@ -144,7 +144,8 @@ export function CodeReviewSidebar({
     query.trim() && state?.search
       ? [{ ...state.search, id: "search" }]
       : [
-          ...(pinned.length > 0 ? [{ id: "pinned", items: pinned }] : []),
+          ...(showRecents && recents.length > 0 ? [{ id: "recents", items: recents }] : []),
+          ...(pins.length > 0 ? [{ id: "pinned", items: pins }] : []),
           ...(state?.sections ?? []),
         ]
 
@@ -268,12 +269,10 @@ export function CodeReviewSidebar({
                   {section.items.map((item) => (
                     <SidebarRow
                       key={item.url}
-                      accountKey={state?.accountKey ?? null}
+                      accountKey={accountKey}
                       item={item}
                       layout={layout}
-                      pinned={pins.some(
-                        (pin) => pin.url === item.url && pin.accountKey === state?.accountKey
-                      )}
+                      pinned={pinnedUrls.has(item.url.toLowerCase())}
                       selected={selectedUrl?.toLowerCase() === item.url.toLowerCase()}
                       onSelect={() => onSelect(item.url)}
                     />
@@ -396,10 +395,8 @@ function SidebarRow({
   const { i18n } = useLingui()
   const togglePin = async () => {
     if (!accountKey) return
-    await clientStateStore.set(codeReviewPinsAtom, (pins) => {
-      const others = pins.filter((pin) => !(pin.accountKey === accountKey && pin.url === item.url))
-      return pinned ? others : [{ ...item, accountKey }, ...others]
-    })
+    const { savedAt: _savedAt, ...stored } = item as CodeReviewSidebarItem & { savedAt?: number }
+    await setPullRequestPinned(accountKey, stored, !pinned).catch(() => undefined)
   }
   return (
     <li className="group relative">

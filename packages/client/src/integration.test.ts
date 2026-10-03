@@ -23,6 +23,9 @@ describe("integration actions", () => {
       pluginName: "review",
     })
     await actions.plugins.setGlobalEnabled({ agentId: "codex", enabled: false })
+    await actions.hooks.list({ agentId: "codex", cwd: "/workspace" })
+    await actions.hooks.setEnabled({ agentId: "codex", enabled: true, key: "hook:1" })
+    await actions.hooks.trust({ agentId: "codex", key: "hook:1", trustedHash: "hash123" })
 
     expect(requestIntegration.mock.calls).toEqual([
       ["integration.skill.list.request", { agentId: "codex", cwd: "/workspace" }, undefined],
@@ -34,6 +37,17 @@ describe("integration actions", () => {
       [
         "integration.plugin.set-global-enabled.request",
         { agentId: "codex", enabled: false },
+        undefined,
+      ],
+      ["integration.hook.list.request", { agentId: "codex", cwd: "/workspace" }, undefined],
+      [
+        "integration.hook.set-enabled.request",
+        { agentId: "codex", enabled: true, key: "hook:1" },
+        undefined,
+      ],
+      [
+        "integration.hook.trust.request",
+        { agentId: "codex", key: "hook:1", trustedHash: "hash123" },
         undefined,
       ],
     ])

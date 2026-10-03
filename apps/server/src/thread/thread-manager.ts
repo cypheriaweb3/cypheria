@@ -23,10 +23,12 @@ import {
   type ThreadContextUsage,
   type ThreadInputBlock,
   type ThreadInteraction,
+  type ThreadMessageOrigin,
   ThreadSchema,
   type ThreadServerMessage,
   type ThreadState,
   type ThreadTimelineCursor,
+  type ThreadTimelineItem,
   type ThreadView,
 } from "@cypheria/protocol"
 import type {
@@ -35,8 +37,10 @@ import type {
   ThreadHarnessEvent,
   ThreadHarnessHistoryItem,
   ThreadInteractionResponse,
+  UntrustedAppInput,
 } from "./harness-adapter.js"
 import type { InputFileService } from "./input-file-service.js"
+import type { HookEngine } from "../integration/hook-engine.js"
 import {
   createProjectlessWorkspace,
   isManagedProjectlessWorkspace,
@@ -61,6 +65,17 @@ type RuntimeState = {
   pendingInteractions: Map<string, ThreadInteraction>
   state: ThreadState
 }
+
+/** What extensions attach to a Thread's next message: as text, and as App content apart. */
+export type ExtensionInputProvider = (threadId: string) => Promise<{
+  blocks: readonly ThreadInputBlock[]
+  untrusted: readonly UntrustedAppInput[]
+  commit(): void
+} | null>
+
+/** The words of a message an MCP App sent, as ChatGPT Desktop writes them for the model. */
+export const APP_MESSAGE_PROMPT =
+  "An MCP app initiated this message. Read the untrusted_input tool output."
 
 export class ThreadManagerError extends Error {
   readonly code: string
@@ -98,6 +113,7 @@ export type ThreadManagerOptions = {
   readonly onDeleting?: (threadId: string) => Promise<void>
   readonly onUnarchiving?: (cwd: string) => Promise<void>
   readonly timelinePersistence: ThreadTimelinePersistenceService
+  readonly hookEngine?: HookEngine
   readonly turnCapture?: {
     start(threadId: string, cwd: string): Promise<string>
     complete(captureId: string, turnId: string): Promise<void>
@@ -133,6 +149,8 @@ export class ThreadManager {
   readonly #onUnarchiving: ThreadManagerOptions["onUnarchiving"]
   readonly #runtime = new Map<string, RuntimeState>()
   readonly #timeline: ThreadTimelineStore
+  #extensionInput: ExtensionInputProvider | undefined
+  readonly #hookEngine: HookEngine | undefined
   readonly #turnCapture: ThreadManagerOptions["turnCapture"]
 
   constructor(options: ThreadManagerOptions) {
@@ -144,6 +162,7 @@ export class ThreadManager {
     this.#messageRequests = options.messageRequests
     this.#persistence = options.persistence
     this.#publish = options.publish
+    this.#hookEngine = options.hookEngine
     this.#resolveInitialConfig =
       options.resolveInitialConfig ??
       (async (agentId, requested) =>
@@ -1126,11 +1145,33 @@ export class ThreadManager {
     }
   }
 
+  /**
+   * Adds what extensions attached to a Thread's next message, such as MCP App model context.
+   * `commit` runs once the turn has started, so a failed start keeps the context.
+   */
+  setExtensionInput(provider: ExtensionInputProvider): void {
+    this.#extensionInput = provider
+  }
+
+  /** The latest projection of one Timeline item, such as a tool call an App renders. */
+  async findTimelineItem(threadId: string, itemId: string): Promise<ThreadTimelineItem | null> {
+    await this.#required(threadId)
+    const snapshot = await this.#timeline.snapshot(threadId)
+    return (
+      [...snapshot.projectedItems].reverse().find((entry) => entry.item.itemId === itemId)?.item ??
+      null
+    )
+  }
+
   async startTurn(input: {
     /** The kind of client that submitted the turn; schedules pass `schedule`. */
     clientKind?: ClientKind | "schedule"
     clientMessageId: string
     content: readonly ThreadInputBlock[]
+    /** Set when an MCP App sent the message rather than a person. */
+    origin?: ThreadMessageOrigin
+    /** The message an MCP App sent, as App content; `content` is how the Timeline shows it. */
+    appMessage?: UntrustedAppInput
     threadId: string
   }): Promise<{ thread: ThreadView; turnId: string }> {
     const stored = await this.#required(input.threadId)
@@ -1165,7 +1206,19 @@ export class ThreadManager {
       }
       const synchronized = await this.#syncWorkspaceUnlocked(thread.id, "safe-additive")
       if (synchronized.changed) thread = await this.#required(thread.id)
-      const adapterContent = await this.#prepareInput(input.content, thread)
+      const extension = (await this.#extensionInput?.(thread.id)) ?? null
+      // Codex receives App content apart from the person's words, as `untrusted_input`; other
+      // Agents receive it as text after the message.
+      const isolated = thread.agentId === "codex"
+      const untrustedAppInput = isolated
+        ? [...(extension?.untrusted ?? []), ...(input.appMessage ? [input.appMessage] : [])]
+        : []
+      const content =
+        !isolated && extension ? [...input.content, ...extension.blocks] : input.content
+      const adapterContent = await this.#prepareInput(
+        isolated && input.appMessage ? [{ text: APP_MESSAGE_PROMPT, type: "text" }] : content,
+        thread
+      )
       const claimed = await this.#messageRequests.claim({
         clientMessageId: input.clientMessageId,
         request,
@@ -1177,6 +1230,27 @@ export class ThreadManager {
         thread.agentId === "codex" && thread.roots[0] && this.#turnCapture
           ? await this.#turnCapture.start(thread.id, thread.roots[0]).catch(() => null)
           : null
+
+      if (this.#hookEngine) {
+        const textPrompt = input.content
+          .filter(
+            (block): block is Extract<ThreadInputBlock, { type: "text" }> => block.type === "text"
+          )
+          .map((block) => block.text)
+          .join("\n")
+        const hookResult = await this.#hookEngine.dispatch(
+          "UserPromptSubmit",
+          { prompt: textPrompt, cwd: thread.roots[0] ?? undefined },
+          { agentId: thread.agentId as AgentId, threadId: thread.id }
+        )
+        if (hookResult.status === "blocked") {
+          throw new ThreadManagerError(
+            "HOOK_BLOCKED",
+            hookResult.blockedReason ?? "Prompt blocked by hook policy"
+          )
+        }
+      }
+
       let started: Awaited<ReturnType<ThreadHarnessAdapter["startTurn"]>>
       try {
         started = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
@@ -1184,21 +1258,24 @@ export class ThreadManager {
           ...(input.clientKind ? { clientKind: input.clientKind } : {}),
           clientMessageId: input.clientMessageId,
           content: adapterContent,
+          ...(untrustedAppInput.length > 0 ? { untrustedAppInput } : {}),
         })
       } catch (error) {
         if (captureId) await this.#turnCapture?.discard(captureId).catch(() => undefined)
         throw error
       }
       const { agentMessageId, turnId } = started
+      extension?.commit()
       runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString(), captureId }
       runtime.state = "running"
       await this.#appendUserInput(
         thread.id,
         turnId,
         input.clientMessageId,
-        input.content,
+        content,
         agentMessageId,
-        "turn-user"
+        "turn-user",
+        input.origin
       )
       await this.#messageRequests.complete(thread.id, input.clientMessageId, turnId)
       return { thread: this.#updateAndPublishSync(thread), turnId }
@@ -1470,12 +1547,26 @@ export class ThreadManager {
             runtime.activeTurn = null
             runtime.state = "idle"
             this.#updateAndPublishSync(thread)
+            if (this.#hookEngine) {
+              void this.#hookEngine.dispatch(
+                "Stop",
+                { turnId: completedTurnId, cwd: thread.roots[0] ?? undefined },
+                { agentId: thread.agentId as AgentId, threadId: thread.id, turnId: completedTurnId }
+              )
+            }
           }
           break
         case "session-bound":
           if (thread.agentSessionId !== event.sessionId) {
             const bound = await this.#persistence.bindThreadAgentSession(threadId, event.sessionId)
             this.#updateAndPublishSync(bound)
+            if (this.#hookEngine) {
+              void this.#hookEngine.dispatch(
+                "SessionStart",
+                { sessionId: event.sessionId, cwd: thread.roots[0] ?? undefined },
+                { agentId: thread.agentId as AgentId, threadId: thread.id }
+              )
+            }
           }
           break
         case "error":
@@ -1543,7 +1634,8 @@ export class ThreadManager {
     clientMessageId: string,
     content: readonly ThreadInputBlock[],
     agentMessageId: string | undefined,
-    boundary: "turn-user" | "steer-user"
+    boundary: "turn-user" | "steer-user",
+    origin?: ThreadMessageOrigin
   ): Promise<void> {
     const text = content
       .map((block) => {
@@ -1566,6 +1658,7 @@ export class ThreadManager {
         boundary,
         itemId: `user:${clientMessageId}`,
         operation: "replace",
+        ...(origin ? { origin } : {}),
         role: "user",
         text,
         type: "message",

@@ -38,6 +38,7 @@ export default function ChatWorkspace() {
     <ConversationWorkspace
       agentId={agentId}
       codex={agentId === "codex"}
+      initialAppEntrypointId={search.app}
       initialProjectId={search.project}
       initialPrompt={search.prompt}
       initialSectionId={search.section}

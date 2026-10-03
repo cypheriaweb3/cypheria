@@ -116,6 +116,11 @@ import {
   type DesktopClientStorageDatabase,
 } from "./client-storage-database.js"
 import { registerIpcRoute } from "./ipc.js"
+import {
+  handleMcpAppSandboxRequest,
+  isAllowedSandboxNavigation,
+  MCP_APP_SANDBOX_SCHEME,
+} from "./mcp-app-sandbox.js"
 import { getOpenTargetApplication, listOpenTargets } from "./open-targets.js"
 import { resolveGeneratedImageProtocolPath } from "./renderer-protocol.js"
 import { DesktopServerManager } from "./server-manager.js"
@@ -242,6 +247,12 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
     },
     scheme: "cypheria",
+  },
+  {
+    // Each MCP App gets its own secure origin, so it has storage of its own and shares nothing
+    // with the renderer or other Apps.
+    privileges: { secure: true, standard: true },
+    scheme: MCP_APP_SANDBOX_SCHEME,
   },
 ])
 
@@ -458,6 +469,10 @@ const subscribeToDesktopThreadEvents = (client: CypheriaClient): void => {
       showNotification("Input needed", "A task is waiting for your response")
     }
   })
+}
+
+const registerMcpAppSandboxProtocol = (): void => {
+  protocol.handle(MCP_APP_SANDBOX_SCHEME, (request) => handleMcpAppSandboxRequest(request.url))
 }
 
 const registerRendererProtocol = (codexHome: string): void => {
@@ -973,6 +988,19 @@ const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> 
     if (isMainFrame) rendererReceivesDeepLinks = false
   })
 
+  // MCP Apps stay on their sandbox origin; their links go through `ui/open-link`.
+  window.webContents.on("will-frame-navigate", (event) => {
+    if (event.isMainFrame || isAllowedSandboxNavigation(event.url)) return
+    const origin = event.frame?.origin ?? ""
+    const parentOrigin = event.frame?.parent?.origin ?? ""
+    if (
+      origin.startsWith(`${MCP_APP_SANDBOX_SCHEME}://`) ||
+      parentOrigin.startsWith(`${MCP_APP_SANDBOX_SCHEME}://`)
+    ) {
+      event.preventDefault()
+    }
+  })
+
   const hostWebContentsId = window.webContents.id
   window.on("closed", () => {
     unregisterBrowserHost(hostWebContentsId)
@@ -1160,6 +1188,7 @@ const startDesktopApp = async (): Promise<void> => {
     app.dock?.setIcon(applicationIconPath)
   }
   registerRendererProtocol(runtimePaths.codexHome)
+  registerMcpAppSandboxProtocol()
   registerIpcHandlers(runtimePaths, desktopClient, desktopStorageDatabase)
   mainWindow = await createMainWindow(runtimePaths)
 }

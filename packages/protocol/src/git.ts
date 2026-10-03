@@ -486,6 +486,61 @@ export const GitPushRequestSchema = input(
     .strict()
 )
 
+/**
+ * How a pull request is created: GitHub's `gh` CLI signed in on this host, the GitHub or GitLab
+ * account linked in ChatGPT, or the provider's own page opened in the browser.
+ */
+export const GitPullRequestSourceSchema = z.enum(["github-cli", "connector", "browser"])
+export type GitPullRequestSource = z.infer<typeof GitPullRequestSourceSchema>
+
+/** Where a checkout's pull request would go, and what creating it would have to do first. */
+export const GitPullRequestTargetSchema = z
+  .object({
+    provider: z.enum(["github", "gitlab"]),
+    host: z.string().min(1),
+    /** The owner, or the GitLab group path. */
+    owner: z.string().min(1),
+    repository: z.string().min(1),
+    root: path,
+    branch: z.string().nullable(),
+    defaultBranch: z.string().nullable(),
+    upstream: z.string().nullable(),
+    ahead: z.number().int().nonnegative(),
+    hasChanges: z.boolean(),
+    /** The sources that can create it here, preferred first; the browser always can. */
+    sources: z.array(GitPullRequestSourceSchema).min(1),
+  })
+  .strict()
+export type GitPullRequestTarget = z.infer<typeof GitPullRequestTargetSchema>
+
+export const GitPullRequestTargetRequestSchema = input(
+  "git.pull-request-target.request",
+  z.object({ cwd: path }).strict()
+)
+/**
+ * Creates a pull request for a checkout: optionally on a new branch, after committing local
+ * changes and pushing, then attaches it to the Thread. A blank title or body is written from the
+ * branch's changes.
+ */
+export const GitPullRequestCreateRequestSchema = input(
+  "git.pull-request-create.request",
+  z
+    .object({
+      cwd: path,
+      threadId: z.string().min(1).optional(),
+      base: z.string().min(1).max(1024).optional(),
+      newBranch: z.string().min(1).max(1024).optional(),
+      includeLocalChanges: z.boolean(),
+      commitMessage: z.string().max(100_000).optional(),
+      title: z.string().max(1024).optional(),
+      body: z.string().max(100_000).optional(),
+      draft: z.boolean(),
+      /** Opens the provider's prefilled page instead of creating the pull request here. */
+      openInBrowser: z.boolean(),
+    })
+    .strict()
+)
+
 /** Managed worktrees of every repository, for the Worktrees settings page. */
 export const GitManagedWorktreesRequestSchema = input(
   "git.managed-worktrees.request",
@@ -718,6 +773,26 @@ export const GitGenerateTextResponseSchema = output(
   "git.generate-text.response",
   z.object({ title: z.string(), body: z.string() }).strict()
 )
+export const GitPullRequestTargetResponseSchema = output(
+  "git.pull-request-target.response",
+  z.object({ target: GitPullRequestTargetSchema.nullable() }).strict()
+)
+export const GitPullRequestCreateResponseSchema = output(
+  "git.pull-request-create.response",
+  z
+    .object({
+      url: z.string().url(),
+      /** Null when the browser page opens instead, or the provider did not say. */
+      number: z.number().int().positive().nullable(),
+      source: GitPullRequestSourceSchema,
+      /** The page to finish in the browser; the pull request does not exist yet. */
+      openedInBrowser: z.boolean(),
+      branch: z.string(),
+      /** The commit made from local changes, if any. */
+      commit: z.string().nullable(),
+    })
+    .strict()
+)
 export const GitPushResponseSchema = output(
   "git.push.response",
   z.object({ output: z.string() }).strict()
@@ -825,6 +900,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitCommitRequestSchema,
   GitGenerateTextRequestSchema,
   GitPushRequestSchema,
+  GitPullRequestTargetRequestSchema,
+  GitPullRequestCreateRequestSchema,
   GitManagedWorktreesRequestSchema,
   GitWorktreesRequestSchema,
   GitWorktreeCreateRequestSchema,
@@ -887,6 +964,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitCommitResponseSchema,
   GitGenerateTextResponseSchema,
   GitPushResponseSchema,
+  GitPullRequestTargetResponseSchema,
+  GitPullRequestCreateResponseSchema,
   GitManagedWorktreesResponseSchema,
   GitWorktreesResponseSchema,
   GitWorktreeCreateResponseSchema,

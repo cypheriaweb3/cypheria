@@ -45,6 +45,7 @@ export const samePullRequest = (left: string, right: string): boolean => {
 }
 
 export type DeepLinkActions = {
+  readonly openPluginApp: (pluginId: string, tool: string, path: string) => void
   readonly openReview: (request: ReviewFocusRequest) => void
   readonly openThread: (threadId: string, view: "review" | null) => void
 }
@@ -55,6 +56,10 @@ export const routeDeepLink = (raw: string, actions: DeepLinkActions): boolean =>
   if (!link) return false
   if (link.type === "thread") {
     actions.openThread(link.threadId, link.view)
+    return true
+  }
+  if (link.type === "plugin-app") {
+    actions.openPluginApp(link.pluginId, link.tool, link.path)
     return true
   }
   actions.openReview({
@@ -70,15 +75,15 @@ export const routeDeepLink = (raw: string, actions: DeepLinkActions): boolean =>
 
 /** Receives links other applications opened, including those that arrived before the window. */
 export const useDeepLinkListener = (actions: DeepLinkActions): void => {
-  const { openReview, openThread } = actions
+  const { openPluginApp, openReview, openThread } = actions
   useEffect(() => {
     const app = window.cypheria?.app
     if (!app) return
-    const route = (raw: string) => routeDeepLink(raw, { openReview, openThread })
+    const route = (raw: string) => routeDeepLink(raw, { openPluginApp, openReview, openThread })
     const stop = app.onDeepLink(route)
     void app.takeDeepLinks().then(({ links }) => {
       for (const link of links) route(link)
     })
     return stop
-  }, [openReview, openThread])
+  }, [openPluginApp, openReview, openThread])
 }

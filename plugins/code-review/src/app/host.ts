@@ -54,6 +54,8 @@ export const host = {
     hostRequest<CodeReviewWatch>("cypheria/codeReview/watch/get", target),
   setWatch: (target: WatchTarget, enabled: boolean) =>
     hostRequest<CodeReviewWatch>("cypheria/codeReview/watch/set", { ...target, enabled }),
+  visit: (item: CodeReviewSidebarItem, accountKey: string) =>
+    hostRequest<{ pinned: boolean }>("cypheria/codeReview/visit", { accountKey, item }),
   pin: (item: CodeReviewSidebarItem, accountKey: string, pinned: boolean) =>
     hostRequest<{ pinned: boolean }>("cypheria/codeReview/pin", { accountKey, item, pinned }),
 }

@@ -188,6 +188,13 @@ export class CodexPluginProvider implements PluginProvider {
       description: plugin.description ?? ui?.longDescription ?? null,
       detailAvailable: true,
       mcpServers: plugin.mcpServers,
+      onboardingSkill:
+        plugin.onboardingSkill?.path && plugin.onboardingSkill.enabled
+          ? {
+              name: plugin.onboardingSkill.interface?.displayName ?? plugin.onboardingSkill.name,
+              path: plugin.onboardingSkill.path,
+            }
+          : null,
       privacyPolicyUrl: webUrl(ui?.privacyPolicyUrl),
       prompts: ui?.defaultPrompt ?? [],
       shareUrl: webUrl(plugin.shareUrl),

@@ -328,6 +328,71 @@ describe("ManagedThreadAdapter", () => {
     ).toBe(false)
   })
 
+  it("injects App content as untrusted_input before starting a Codex turn", async () => {
+    const handleCodex = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (respondToCodexConfigRead(message, context)) return
+        const reply = (type: string, payload: Record<string, unknown>) =>
+          context.send({
+            payload: { requestId: message.requestId, ...payload },
+            type,
+          } as unknown as AgentRuntimeServerMessage)
+        if (message.type === "agent.codex.thread.start.request") {
+          reply("agent.codex.thread.start.response", {
+            thread: { id: "codex-thread-1", turns: [] },
+          })
+        } else if (message.type === "agent.codex.thread.inject_items.request") {
+          reply("agent.codex.thread.inject_items.response", {})
+        } else if (message.type === "agent.codex.turn.start.request") {
+          reply("agent.codex.turn.start.response", {
+            turn: { id: "turn-1", items: [], status: "inProgress" },
+          })
+        }
+      }
+    )
+    const manager = {
+      codexDynamicTools: { resolveSpecs: async () => [] },
+      codexDeveloperInstructions: async () => "",
+      handleCodex,
+      ...appToolHooks,
+    } as unknown as AgentManager
+    const adapter = new ManagedThreadAdapter(manager, "codex")
+    const created = await adapter.create({ ...input("codex"), onEvent: () => undefined })
+    await adapter.startTurn({
+      agentId: "codex",
+      agentSessionId: created.sessionId,
+      clientMessageId: "message-1",
+      content: [{ text: "Use it", type: "text" }],
+      cwd: "/repo",
+      threadId: input("codex").threadId,
+      untrustedAppInput: [
+        {
+          images: [],
+          kind: "model_context",
+          server: "bits",
+          source: "mcp_app",
+          sourceId: "app",
+          text: "part=m6",
+          title: "Bits",
+        },
+      ],
+    })
+    const sent = handleCodex.mock.calls
+      .map(([message]) => message)
+      .filter(({ type }) => String(type).startsWith("agent.codex.t"))
+    const inject = sent.findIndex(({ type }) => type === "agent.codex.thread.inject_items.request")
+    const start = sent.findIndex(({ type }) => type === "agent.codex.turn.start.request")
+    expect(inject).toBeGreaterThan(-1)
+    expect(inject).toBeLessThan(start)
+    expect(sent[inject]).toMatchObject({
+      items: [
+        { call_id: "untrusted_input_message-1", name: "untrusted_input", type: "function_call" },
+        { call_id: "untrusted_input_message-1", type: "function_call_output" },
+      ],
+      threadId: "codex-thread-1",
+    })
+  })
+
   it("preserves Codex permission, question, and elicitation response details", async () => {
     const events: ThreadHarnessEvent[] = []
     const responses: Record<string, unknown>[] = []

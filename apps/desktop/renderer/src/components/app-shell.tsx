@@ -79,6 +79,7 @@ import {
   Settings,
   SquarePen,
   Trash2,
+  Webhook,
 } from "lucide-react"
 import {
   type ComponentProps,
@@ -119,6 +120,7 @@ import {
   DesktopSidebarProvider as SidebarProvider,
   DesktopSidebarTrigger as SidebarTrigger,
 } from "./desktop-sidebar"
+import { ExtensionElicitations } from "./extensions/extension-elicitations.js"
 import { HarnessIcon } from "./harness-icon"
 import { createInMemorySearch, resolveAvailableHarnessId } from "./harness-selection"
 import { buildSettingsNavigationRows } from "./settings-navigation-model"
@@ -174,6 +176,12 @@ const settingsItems = [
     href: "/settings/plugins",
     icon: <Boxes className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.plugins", message: "Plugins" }),
+  },
+  {
+    group: "integrations",
+    href: "/settings/hooks",
+    icon: <Webhook className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.hooks", message: "Hooks" }),
   },
   {
     group: "archived",
@@ -339,6 +347,13 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   deepLinkThreadRef.current = activeThreadId
   const deepLinkActions = useMemo(
     () => ({
+      openPluginApp: (pluginId: string, tool: string, path: string) => {
+        void appNavigate({
+          params: { pluginId, tool },
+          search: path === "/" ? {} : { path },
+          to: "/plugins/$pluginId/app/$tool",
+        })
+      },
       openReview: (request: ReviewFocusRequest) => {
         const threadId = request.threadId ?? deepLinkThreadRef.current ?? null
         clientStateStore.set(reviewFocusAtom, { ...request, threadId })
@@ -374,6 +389,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <TooltipProvider>
+      <ExtensionElicitations />
       <SidebarProvider
         className="h-screen w-screen overflow-hidden bg-background"
         data-settings={isSettings ? "true" : undefined}

@@ -9,6 +9,7 @@ import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
   createCodeReviewPersistenceService,
+  createCodeReviewPrPersistenceService,
   createPluginMarketplacePersistenceService,
   createProjectThreadPersistenceService,
   createSchedulePersistenceService,
@@ -17,6 +18,7 @@ import {
   createThreadLifecyclePersistenceService,
   createThreadMessageRequestPersistenceService,
   createThreadTimelinePersistenceService,
+  createWorkspaceThreadPersistenceService,
   type OpenDatabaseResult,
   openCypheriaDatabase,
   PINNED_SECTION_ID,
@@ -34,6 +36,8 @@ import {
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
   type CypheriaBinaryFrame,
+  type ExtensionClientMessage,
+  type ExtensionServerMessage,
   encodeFileTransferFrame,
   FILE_TRANSFER_MAX_DATA_BYTES,
   type GitClientMessage,
@@ -43,8 +47,6 @@ import {
   type IntegrationServerMessage,
   type MagpieClientMessage,
   type MagpieServerMessage,
-  type McpAppClientMessage,
-  type McpAppServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -96,15 +98,23 @@ import { CodeReviewTools } from "./code-review/tools.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
+import { BundledMcpHost } from "./extensions/bundled-host.js"
+import { readCodeReviewAppHtml } from "./extensions/code-review-app.js"
+import { CODEX_APPS_SERVER, CodexMcpHost } from "./extensions/codex-host.js"
+import { ExtensionService } from "./extensions/service.js"
 import { GitService } from "./git/git-service.js"
+import { GitHubCli } from "./git/github-cli.js"
+import { PullRequestCreateService } from "./git/pull-request-create-service.js"
 import { HarnessService } from "./harness-service.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
-import { bundledMarketplaceDirectory } from "./integration/plugin-utils.js"
+import {
+  BUNDLED_MARKETPLACE_NAME,
+  bundledMarketplaceDirectory,
+} from "./integration/plugin-utils.js"
 import { IntegrationService } from "./integration-service.js"
 import { MagpieManager } from "./magpie/magpie-manager.js"
 import { MagpieService } from "./magpie/magpie-service.js"
-import { McpAppService, readCodeReviewAppHtml } from "./mcp-apps/service.js"
 import { NetworkProxyStore } from "./network-proxy-store.js"
 import { ProjectThreadService } from "./project-thread-service.js"
 import { RelayConnection } from "./relay-connection.js"
@@ -131,6 +141,10 @@ import {
 } from "./thread/thread-attachment-service.js"
 import { ThreadManager } from "./thread/thread-manager.js"
 import { WorkspaceFileError, WorkspaceFileService } from "./thread/workspace-file-service.js"
+import {
+  type WorkspaceThreadClientMessage,
+  WorkspaceThreadService,
+} from "./thread/workspace-thread-service.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 import { ServerWeb3Service } from "./web3-service.js"
 
@@ -172,7 +186,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly codeReviewTools: CodeReviewTools
   readonly codeReviewHost: CodeReviewHostService
   readonly privateReviews: PrivateReviews
-  readonly mcpApps: McpAppService
+  readonly extensions: ExtensionService
   readonly integrations: IntegrationService
   readonly codexHarness: CodexHarnessService
   readonly harnesses: HarnessService
@@ -180,6 +194,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly magpieManager: MagpieManager
   readonly magpie: MagpieService
   readonly threadAttachments: ThreadAttachmentService
+  readonly workspaceThreads: WorkspaceThreadService
   readonly threadManager: ThreadManager
   readonly inputFiles: InputFileService
   readonly workspaceFiles: WorkspaceFileService
@@ -287,6 +302,12 @@ export class CypheriaServer implements HttpAppHost {
     this.inputFiles = new InputFileService(this.runtime.paths.cypheriaHome)
     this.composerReferences = new ComposerReferenceService({
       integrations: this.integrations,
+      // Plugins' `mentions/search` tools add their items to the `@` menu.
+      mentions: {
+        providers: () => this.extensions.mentionProviders(),
+        resolve: (input) => this.extensions.resolveMention(input),
+        search: (query) => this.extensions.searchMentions({ query }),
+      },
       getThread: (threadId) => this.threadManager.get(threadId),
       listThreads: async () => {
         const page = await this.threadManager.list({ limit: 100 })
@@ -317,10 +338,25 @@ export class CypheriaServer implements HttpAppHost {
       projects: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
       worktreeExists: (worktreeId) => this.git.worktreeExists(worktreeId),
+      threadCheckout: async (threadId) => {
+        const cwd = (await projectThreadPersistence.getThread(threadId))?.roots[0]
+        if (!cwd) return null
+        const repository = await this.git.discover(cwd)
+        return {
+          headBranch: (await this.git.branchContext(cwd)).current,
+          root: repository.root,
+        }
+      },
+    })
+    this.workspaceThreads = new WorkspaceThreadService({
+      persistence: createWorkspaceThreadPersistenceService(this.database.db),
+      projects: projectThreadPersistence,
+      publish: (message) => this.registry.broadcast(message),
     })
     this.threadManager = new ThreadManager({
       adapterFor: (agentId, threadId) => this.agentManager.adapterFor(agentId, threadId),
       assertAgentCallable: (agentId) => this.agentManager.assertCallable(agentId),
+      hookEngine: this.integrations.hookEngine,
       lifecycle: createThreadLifecyclePersistenceService(this.database.db),
       messageRequests: createThreadMessageRequestPersistenceService(this.database.db),
       persistence: projectThreadPersistence,
@@ -513,6 +549,7 @@ export class CypheriaServer implements HttpAppHost {
     })
     this.codeReviewHost = new CodeReviewHostService({
       backend: codeReviewBackend,
+      callTool: (name, args) => this.codeReviewTools.call(name, args),
       codexAccount: () => this.codexHarness.account(false),
       installedPlugins: async () => {
         const installed = (await this.agentManager.callCodex("plugin/installed", {
@@ -525,10 +562,13 @@ export class CypheriaServer implements HttpAppHost {
           )
         )
       },
+      publish: (message) => this.registry.broadcast(message),
+      savedPullRequests: createCodeReviewPrPersistenceService(this.database.db),
       settings: codeReviewSettings,
     })
-    this.mcpApps = new McpAppService({
+    const bundledPlugins = new BundledMcpHost({
       [CODE_REVIEW_SERVER]: {
+        pluginId: `code-review@${BUNDLED_MARKETPLACE_NAME}`,
         callTool: (name, args, signal) => this.codeReviewTools.call(name, args, signal),
         listTools: () => this.codeReviewTools.list(),
         readResource: async (uri) => {
@@ -561,6 +601,46 @@ export class CypheriaServer implements HttpAppHost {
         },
       },
     })
+    const codexHost = new CodexMcpHost({
+      agents: this.agentManager,
+      cwd: join(this.runtime.paths.cacheDir, "extension-host"),
+      elicit: (elicitation) => this.extensions.elicit(elicitation),
+      thread: (threadId) => this.threadManager.get(threadId).catch(() => null),
+      resume: async (threadId) => (await this.threadManager.resume(threadId)).thread,
+    })
+    this.git.setPullRequests(
+      new PullRequestCreateService({
+        attach: (threadId, url, checkout) =>
+          this.threadAttachments.attachPullRequest(threadId, url, checkout),
+        connectors: {
+          call: (input) =>
+            codexHost.callTool({
+              arguments: input.arguments,
+              meta: input.meta,
+              server: CODEX_APPS_SERVER,
+              session: input.threadId
+                ? { kind: "thread", threadId: input.threadId }
+                : { kind: "host" },
+              tool: input.tool,
+            }),
+          tools: () => codexHost.codexAppsTools(),
+        },
+        gh: new GitHubCli(),
+        git: this.git,
+      })
+    )
+    this.extensions = new ExtensionService({
+      broadcast: (message) => this.registry.broadcast(message),
+      hosts: [bundledPlugins, codexHost],
+      logger: this.logger.child({ service: "extensions" }),
+      threads: {
+        create: async (agentId) => (await this.threadManager.create({ agentId })).thread.id,
+        findItem: (threadId, itemId) => this.threadManager.findTimelineItem(threadId, itemId),
+        get: (threadId) => this.threadManager.get(threadId).catch(() => null),
+        startTurn: (input) => this.threadManager.startTurn(input),
+      },
+    })
+    this.threadManager.setExtensionInput(this.extensions.extensionInput)
     this.codexHarness = new CodexHarnessService(
       this.agentManager,
       this.configStore,
@@ -860,7 +940,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.integrations,
       SERVER_CAPABILITIES.magpie,
-      SERVER_CAPABILITIES.mcpApps,
+      SERVER_CAPABILITIES.extensions,
       SERVER_CAPABILITIES.codeReview,
       SERVER_CAPABILITIES.codexHarness,
       SERVER_CAPABILITIES.harnessManagement,
@@ -1137,6 +1217,10 @@ export class CypheriaServer implements HttpAppHost {
       await this.threadAttachments.handle(message as ThreadAttachmentClientMessage, send)
       return true
     }
+    if (message.type.startsWith("thread.workspace-thread.")) {
+      await this.workspaceThreads.handle(message as WorkspaceThreadClientMessage, send)
+      return true
+    }
     if (message.type.startsWith("thread.")) {
       await this.threadManager.handle(message as ThreadClientMessage, send, { clientKind })
       return true
@@ -1152,7 +1236,12 @@ export class CypheriaServer implements HttpAppHost {
     message: IntegrationClientMessage,
     send: (message: IntegrationServerMessage) => void
   ): Promise<boolean> {
-    return this.integrations.handle(message, send)
+    const handled = await this.integrations.handle(message, send)
+    // Plugin, marketplace, and MCP changes change what extensions Agents report.
+    if (!/\.(?:list|read|agents|config\.read)\.request$/u.test(message.type)) {
+      this.extensions.invalidate()
+    }
+    return handled
   }
 
   async handleCodexHarnessMessage(
@@ -1170,11 +1259,12 @@ export class CypheriaServer implements HttpAppHost {
     return this.harnesses.handle(message, sessionId, send)
   }
 
-  async handleMcpAppMessage(
-    message: McpAppClientMessage,
-    send: (message: McpAppServerMessage) => void
+  async handleExtensionMessage(
+    message: ExtensionClientMessage,
+    session: { readonly id: string; notify(message: ServerMessage): void },
+    send: (message: ExtensionServerMessage) => void
   ): Promise<boolean> {
-    return this.mcpApps.handle(message, send)
+    return this.extensions.handle(message, session, send)
   }
 
   async handleCodeReviewMessage(
@@ -1339,6 +1429,7 @@ export class CypheriaServer implements HttpAppHost {
 
   clientSessionClosed(sessionId: string): void {
     this.browserTools.sessionClosed(sessionId)
+    this.extensions.detach(sessionId)
     this.harnesses.closeSession(sessionId)
     this.terminals.closeSession(sessionId)
   }
@@ -1426,6 +1517,7 @@ export class CypheriaServer implements HttpAppHost {
     this.web3.stop()
     this.harnesses.stop()
     this.integrations.dispose()
+    await this.extensions.dispose()
     await this.privateReviews.dispose()
     await this.magpieManager.shutdown()
 

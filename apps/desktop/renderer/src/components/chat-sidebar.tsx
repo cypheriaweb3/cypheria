@@ -1,3 +1,4 @@
+import type { ExtensionEntrypoint } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -117,10 +118,13 @@ import {
   type SidebarSectionId,
   sidebarDragItemForRow,
 } from "./chat-sidebar-model.js"
+import { useExtensionCatalog } from "./extensions/catalog.js"
+import { ExtensionIcon } from "./extensions/extension-icon.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
 import { ProjectEditDialog } from "./project-edit-dialog"
 
 const THREAD_PAGE_SIZE = 30
+const extensionNavigationId = (entrypointId: string) => `extension:${entrypointId}`
 const sidebarDragSensors = [
   PointerSensor.configure({ preventActivation: () => false }),
   KeyboardSensor,
@@ -479,6 +483,24 @@ export function ChatSidebar({
     () => filterDevelopmentItems(virtualNavigationItems, isDesktopDevelopment()),
     []
   )
+  const extensionCatalog = useExtensionCatalog()
+  const globalEntrypoints = useMemo(
+    () =>
+      new Map(
+        (extensionCatalog?.entrypoints ?? [])
+          .filter((entry) => entry.type === "global" && entry.pluginId)
+          .map((entry) => [extensionNavigationId(entry.id), entry])
+      ),
+    [extensionCatalog]
+  )
+  // Plugin pages follow Code Review, as ChatGPT Desktop lists plugin entry points in its sidebar.
+  const navigationIds = useMemo(
+    () =>
+      visibleNavigationItems.flatMap(({ id }) =>
+        id === "code-review" ? [id, ...globalEntrypoints.keys()] : [id]
+      ),
+    [globalEntrypoints, visibleNavigationItems]
+  )
   const calculatedRows = useMemo(
     () =>
       buildChatSidebarRows({
@@ -486,7 +508,7 @@ export function ChatSidebar({
         expandedCustomSections,
         expandedProjects,
         expandedSections,
-        navigationIds: visibleNavigationItems.map(({ id }) => id),
+        navigationIds,
         pinnedHasMore,
         pinnedProjects: pinnedProjectGroups,
         pinnedThreads,
@@ -512,7 +534,7 @@ export function ChatSidebar({
       projectGroups,
       projectChatLimits,
       recentThreads,
-      visibleNavigationItems,
+      navigationIds,
       visibleProjectCount,
     ]
   )
@@ -804,6 +826,7 @@ export function ChatSidebar({
                         expandedCustomSections={expandedCustomSections}
                         expandedSections={expandedSections}
                         organizeByProject={organizeByProject}
+                        extensionEntrypoints={globalEntrypoints}
                         pendingCount={pendingCount}
                         projects={projects}
                         pinnedLoading={threadsLive.isLoading}
@@ -1144,6 +1167,8 @@ function SidebarDndRow({
 }
 
 type RowViewProps = Readonly<{
+  /** Plugin global entry points by their navigation ID. */
+  extensionEntrypoints: ReadonlyMap<string, ExtensionEntrypoint>
   catalogLoading: boolean
   catalogLoadIntent: "projects" | string | null
   chatSort: SidebarSort
@@ -1192,6 +1217,23 @@ function ChatSidebarRowView(props: RowViewProps) {
   const { i18n } = useLingui()
   const { row } = props
   if (row.kind === "navigation") {
+    const entrypoint = props.extensionEntrypoints.get(row.navigationId)
+    if (entrypoint?.pluginId) {
+      return (
+        <SidebarMenuButton
+          render={
+            <Link
+              params={{ pluginId: entrypoint.pluginId, tool: entrypoint.tool }}
+              to="/plugins/$pluginId/app/$tool"
+            />
+          }
+          tooltip={entrypoint.title}
+        >
+          <ExtensionIcon icon={entrypoint.icon} />
+          <span>{entrypoint.title}</span>
+        </SidebarMenuButton>
+      )
+    }
     const item = virtualNavigationItems.find(({ id }) => id === row.navigationId)
     if (!item) return null
     const Icon = item.icon

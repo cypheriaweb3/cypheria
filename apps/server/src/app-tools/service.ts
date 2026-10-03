@@ -149,7 +149,7 @@ export type AppToolAttachment = {
 }
 
 export type AppToolAttachments = {
-  attachPullRequest(threadId: string, url: string): Promise<AppToolAttachment>
+  attachPullRequest(threadId: string, url: string, checkout?: "thread"): Promise<AppToolAttachment>
   detachPullRequest(threadId: string, url: string): Promise<boolean>
   list(threadId: string): Promise<AppToolAttachment[]>
 }
@@ -511,9 +511,12 @@ export class AppToolService {
       case "list_artifacts":
         return ok(await this.#listArtifacts(context))
       case "attach_artifact": {
+        // The Agent attaches what it pushed from its working directory, so that checkout is the
+        // pull request's.
         const attachment = await this.#options.attachments.attachPullRequest(
           this.#caller(context),
-          this.#pullRequestUrl(args)
+          this.#pullRequestUrl(args),
+          "thread"
         )
         return ok({ artifact_type: "pull_request", identityKey: attachment.identityKey })
       }

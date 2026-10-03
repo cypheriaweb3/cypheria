@@ -20,6 +20,7 @@ export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
   git: DEFAULT_GIT_SETTINGS,
   codeReview: DEFAULT_CODE_REVIEW_SETTINGS,
   browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
+  extensions: { preferredFileViewers: {} },
   workspace: { projectlessRoot: null },
   server: {
     logging: {

@@ -223,9 +223,19 @@ msgstr "Always force push"
 msgid "An Agent set to a routing group has each request served by one of its members, by the group's routing."
 msgstr "An Agent set to a routing group has each request served by one of its members, by the group's routing."
 
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.answer"
+msgstr "Answer"
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "API port"
 msgstr "API port"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/model-context.tsx
+msgid "extension.context.label"
+msgstr "App context"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -303,6 +313,17 @@ msgid "chat.panel.artifacts"
 msgstr "Artifacts"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: entrypoint.title
+#: renderer/src/components/extensions/global-app-page.tsx
+msgid "extension.global.placeholder"
+msgstr "Ask about {0}"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/code-review.tsx
+msgid "codeReview.chat.placeholder"
+msgstr "Ask about this pull request"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.placeholderShort"
 msgstr "Ask anything…"
@@ -311,6 +332,21 @@ msgstr "Ask anything…"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.permissions.ask"
 msgstr "Ask for approval"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrSubmit"
+msgstr "Attach"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPr"
+msgstr "Attach existing pull request…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrTitle"
+msgstr "Attach pull request"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -456,6 +492,7 @@ msgstr "By project"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/create-pull-request-dialog.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "common.cancel"
 msgstr "Cancel"
@@ -541,6 +578,11 @@ msgstr "Checks pending"
 #: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.checksSuccessful"
 msgstr "Checks successful"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.choose"
+msgstr "Choose a chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -734,6 +776,11 @@ msgid "files.blame.commit"
 msgstr "Commit"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.includeLocalChanges"
+msgstr "Commit and include local changes"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 #: renderer/src/components/thread-git-actions.tsx
 msgid "git.review.commitAndPush"
@@ -807,8 +854,19 @@ msgstr "Confirm"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/elicitation-form.tsx
 msgid "common.continue"
 msgstr "Continue"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.continueGitHub"
+msgstr "Continue in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.continueGitLab"
+msgstr "Continue in GitLab"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
@@ -935,6 +993,16 @@ msgid "chat.worktree.description"
 msgstr "Create an isolated copy of {projectName} so this chat can work in parallel. Other project source folders are accessed directly. The selected branch is used as the starting point."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.draft"
+msgstr "Create as draft"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createDraft"
+msgstr "Create draft PR"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.createDraftPullRequest.ariaLabel"
 msgstr "Create draft pull requests"
@@ -943,6 +1011,26 @@ msgstr "Create draft pull requests"
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.createDraftPullRequest.label"
 msgstr "Create draft pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.gitlabTitle"
+msgstr "Create merge request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createMergeRequest"
+msgstr "Create merge request"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.title"
+msgstr "Create PR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.create"
+msgstr "Create PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
@@ -968,6 +1056,31 @@ msgstr "Create worktree"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.created"
 msgstr "Date created"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.createdMergeRequest"
+msgstr "Created merge request for {branch}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.created"
+msgstr "Created PR for {branch}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.githubAccount"
+msgstr "Creates it with the GitHub account linked in ChatGPT."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.cli"
+msgstr "Creates it with the GitHub CLI."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.gitlabAccount"
+msgstr "Creates it with the GitLab account linked in ChatGPT."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1002,6 +1115,8 @@ msgstr "Date"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/elicitation-form.tsx
+#: renderer/src/components/extensions/extension-elicitations.tsx
 msgid "chat.interaction.decline"
 msgstr "Decline"
 
@@ -1066,9 +1181,24 @@ msgid "chat.context.derived"
 msgstr "Derived"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.bodyField"
+msgstr "Description"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.detachPr"
+msgstr "Detach from chat"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.general.reviewDelivery.detached"
 msgstr "Detached"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prDetached"
+msgstr "Detached #{number} from this chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
@@ -1310,6 +1440,16 @@ msgid "navigation.finishTurnBeforeWorkspaceMove"
 msgstr "Finish the current turn before changing the workspace."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.githubBrowser"
+msgstr "Finishes in GitHub in your browser."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.source.gitlabBrowser"
+msgstr "Finishes in GitLab in your browser."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/code-review/host.ts
 msgid "codeReviewPlugin.fixChecks.prompt"
 msgstr "Fix the failing checks for {url}. Verify that the repository and checked-out branch match this pull request before editing. Read the check output, make the smallest safe change, run the relevant checks, then commit and push the fix."
@@ -1419,6 +1559,11 @@ msgid "chat.workspace.hideBottomPanel"
 msgstr "Hide bottom panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.minimize"
+msgstr "Hide chat"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/review-diff-display.tsx
 msgid "git.diff.hideGenerated"
 msgstr "Hide generated files"
@@ -1442,6 +1587,11 @@ msgstr "Hide terminal panel"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.dismissAgentComment.tooltip"
 msgstr "Hide this comment from the diff; it stays in the conversation"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrPlaceholder"
+msgstr "https://github.com/owner/repository/pull/1"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1588,6 +1738,16 @@ msgid "codeReview.sidebar.options.layout"
 msgstr "Layout"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.titlePlaceholder"
+msgstr "Leave empty to generate"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.bodyPlaceholder"
+msgstr "Leave empty to generate"
+
+#. js-lingui-explicit-id
 #: renderer/src/browser/browser-settings-section.tsx
 msgid "settings.browser.agentToolsDescription"
 msgstr "Lets Agents open and control browser tabs in their own conversation, including signed-in pages and dApp tabs. Wallet signing still follows your policies and approvals."
@@ -1709,6 +1869,11 @@ msgid "codeReview.sidebar.mergedBadge"
 msgstr "Merged"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "extension.global.composer"
+msgstr "Message"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.message.actions"
 msgstr "Message actions"
@@ -1726,6 +1891,11 @@ msgstr "Model"
 #: renderer/src/components/gateway/gateway-usage-section.tsx
 msgid "Model"
 msgstr "Model"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.prMore"
+msgstr "More pull request actions"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1783,6 +1953,11 @@ msgid "navigation.networks"
 msgstr "Networks"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.newBranch"
+msgstr "New branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.newBranch"
 msgstr "New branch name"
@@ -1796,6 +1971,16 @@ msgstr "New chat"
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.newChat"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.untitled"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.newChat"
 msgstr "New chat"
 
 #. js-lingui-explicit-id
@@ -1856,6 +2041,11 @@ msgstr "No changes in this source"
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noChats"
+msgstr "No chats yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.noRecent"
 msgstr "No chats yet"
 
 #. js-lingui-explicit-id
@@ -2059,14 +2249,14 @@ msgid "thread.git.prOpen"
 msgstr "Open"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/extension-elicitations.tsx
+msgid "extension.form.openLink"
+msgstr "Open"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.empty"
 msgstr "Open a panel tab to inspect task context"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/thread-git-actions.tsx
-msgid "thread.git.createPrPrompt"
-msgstr "Open a pull request for the current branch."
 
 #. js-lingui-explicit-id
 #: renderer/src/browser/browser-pane.tsx
@@ -2119,6 +2309,16 @@ msgid "chat.markdown.openFile"
 msgstr "Open in Files"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.openFull"
+msgstr "Open in full chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.openGitHub"
+msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/thread-files-panel.tsx
 msgid "files.openInGitHub"
 msgstr "Open in GitHub"
@@ -2132,6 +2332,11 @@ msgstr "Open in GitHub"
 #: renderer/src/components/code-review/sidebar.tsx
 msgid "codeReview.menu.github"
 msgstr "Open in GitHub"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.openGitLab"
+msgstr "Open in GitLab"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
@@ -2387,6 +2592,11 @@ msgid "settings.git.pullRequestMergeMethod.label"
 msgstr "Pull request merge method"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.attachPrUrl"
+msgstr "Pull request or merge request URL"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.pullRequestWatch.instructions.ariaLabel"
 msgstr "Pull request watch instructions"
@@ -2395,6 +2605,11 @@ msgstr "Pull request watch instructions"
 #: renderer/src/components/codex-summary.tsx
 msgid "chat.summary.pullRequests"
 msgstr "Pull requests"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.unsupported"
+msgstr "Pull requests need an origin remote on github.com or gitlab.com."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -2438,8 +2653,18 @@ msgid "chat.reasoningEffort"
 msgstr "Reasoning effort"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/code-review/sidebar.tsx
+msgid "codeReview.sidebar.section.recents"
+msgstr "Recent"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "navigation.recentChats"
+msgstr "Recent chats"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.recent"
 msgstr "Recent chats"
 
 #. js-lingui-explicit-id
@@ -2479,6 +2704,7 @@ msgstr "remote"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/extensions/model-context.tsx
 msgid "common.remove"
 msgstr "Remove"
 
@@ -2841,6 +3067,11 @@ msgid "chat.prompt.send"
 msgstr "Send"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "extension.global.send"
+msgstr "Send"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.sendShortcut"
 msgstr "Send shortcut"
@@ -2849,6 +3080,12 @@ msgstr "Send shortcut"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.sendComments"
 msgstr "Send to Agent"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: item.origin.title
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.fromApp"
+msgstr "Sent by {0}"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -2868,6 +3105,11 @@ msgstr "Set when Cypheria alerts you that it's finished"
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.title"
+msgstr "Settings"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/plugin-extension-settings.tsx
+msgid "extension.settings.title"
 msgstr "Settings"
 
 #. js-lingui-explicit-id
@@ -2896,9 +3138,19 @@ msgid "settings.workspace.bottomPanelControl.toggle"
 msgstr "Show bottom panel control in the app title bar"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.expand"
+msgstr "Show chat"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.contextUsage"
 msgstr "Show context window usage"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/tool-call-app.tsx
+msgid "extension.app.expand"
+msgstr "Show fullscreen"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-files-panel.tsx
@@ -2909,6 +3161,11 @@ msgstr "Show git blame"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.menuBar"
 msgstr "Show in menu bar"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/tool-call-app.tsx
+msgid "extension.app.collapse"
+msgstr "Show inline"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-summary.tsx
@@ -2982,6 +3239,11 @@ msgid "settings.general.notificationSoundDescription"
 msgstr "Sound for task completion, permission requests, and questions"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/file-viewers.tsx
+msgid "extension.fileViewer.builtin"
+msgstr "Source"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
 #: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.project.sourceFolders"
@@ -3039,6 +3301,12 @@ msgid "settings.general.standaloneChatDescription"
 msgstr "Start new chats outside of any project"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: entrypoint.title
+#: renderer/src/components/extensions/extension-app-panel.tsx
+msgid "chat.panel.extension.noThread"
+msgstr "Start the chat to open {0}"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.files.empty"
 msgstr "No files were produced"
@@ -3079,6 +3347,7 @@ msgstr "Stop"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
+#: renderer/src/components/workspace-chat.tsx
 msgid "chat.prompt.stop"
 msgstr "Stop"
 
@@ -3196,6 +3465,11 @@ msgid "navigation.archiveChatDescription"
 msgstr "The chat will move to Archived chats."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.newBranchHint"
+msgstr "The checkout is on its base branch, so the pull request needs its own branch."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.currentDirectoryWillChange"
 msgstr "The current working directory will change. This affects future commands and Agent actions."
@@ -3243,9 +3517,19 @@ msgid "chat.panel.pullRequest.empty"
 msgstr "This chat has no pull request"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-chat.tsx
+msgid "workspaceChat.waiting"
+msgstr "This chat is waiting for your answer."
+
+#. js-lingui-explicit-id
 #: renderer/src/chat-markdown-host.tsx
 msgid "chat.markdown.fileUnavailable"
 msgstr "This file is not available"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/extensions/elicitation-form.tsx
+msgid "extension.form.unsupported"
+msgstr "This form asks for input Cypheria cannot collect yet."
 
 #. js-lingui-explicit-id
 #: renderer/src/browser/browser-pane.tsx
@@ -3258,9 +3542,19 @@ msgid "settings.archived.deleteConfirm.description"
 msgstr "This permanently deletes the chat and cannot be undone."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/extensions/global-app-page.tsx
+msgid "extension.global.unavailable"
+msgstr "This plugin page is unavailable. Check that the plugin is installed and enabled."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProjectDescription"
 msgstr "This removes the project from Cypheria without deleting its files or chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.titleField"
+msgstr "Title"
 
 #: renderer/src/components/gateway/gateway-usage-section.tsx
 msgid "Today"
@@ -3330,6 +3624,11 @@ msgstr "Unable to load worktrees"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.uncommitted"
 msgstr "Uncommitted"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/thread-git-actions.tsx
+msgid "thread.git.undo"
+msgstr "Undo"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-files-panel.tsx
@@ -3453,6 +3752,11 @@ msgstr "Version"
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.view"
+msgstr "View"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/create-pull-request-dialog.tsx
+msgid "createPr.view"
 msgstr "View"
 
 #. js-lingui-explicit-id

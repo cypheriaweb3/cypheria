@@ -47,6 +47,7 @@ import { combineGitNumstats, parseGitNumstat } from "./git-numstat.js"
 import { GitReviewUndoStore } from "./git-review-undo-store.js"
 import { GitTurnDiffService } from "./git-turn-diff-service.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
+import type { PullRequestCreateService } from "./pull-request-create-service.js"
 
 export type GitRepository = {
   readonly commonGitDir: string
@@ -87,6 +88,7 @@ const auditedOperations = new Set<GitClientMessage["type"]>([
   "git.unstage.request",
   "git.commit.request",
   "git.push.request",
+  "git.pull-request-create.request",
   "git.worktree-create.request",
   "git.worktree-job-start.request",
   "git.worktree-job-cancel.request",
@@ -171,6 +173,7 @@ export class GitService {
     ThreadAttachmentService,
     "attachPullRequest" | "attachWorktree" | "detachWorktree"
   > | null
+  #pullRequests: PullRequestCreateService | null = null
   readonly #discoveryCache = new Map<string, { repository: GitRepository; expiresAt: number }>()
   readonly #watchers = new Map<
     string,
@@ -432,6 +435,12 @@ export class GitService {
         case "git.push.request":
           value = { output: await this.push(message.payload.cwd, message.payload) }
           break
+        case "git.pull-request-target.request":
+          value = { target: await this.#requirePullRequests().target(message.payload.cwd) }
+          break
+        case "git.pull-request-create.request":
+          value = await this.#requirePullRequests().create(message.payload)
+          break
         case "git.worktrees.request":
           value = await this.worktrees(message.payload.cwd)
           break
@@ -522,13 +531,25 @@ export class GitService {
                   ? "GIT_STALE_SNAPSHOT"
                   : error instanceof GitCommandError
                     ? "GIT_COMMAND_FAILED"
-                    : "GIT_INVALID_REQUEST",
+                    : error instanceof Error && error.name === "PullRequestCreateError"
+                      ? "GIT_PULL_REQUEST_FAILED"
+                      : "GIT_INVALID_REQUEST",
             message: error instanceof Error ? error.message : String(error),
           },
         },
       } as GitServerMessage)
     }
     return true
+  }
+
+  /** Pull request creation, which builds on this service and is attached once both exist. */
+  setPullRequests(service: PullRequestCreateService): void {
+    this.#pullRequests = service
+  }
+
+  #requirePullRequests(): PullRequestCreateService {
+    if (!this.#pullRequests) throw new Error("Pull request creation is unavailable")
+    return this.#pullRequests
   }
 
   async discover(cwd: string): Promise<GitRepository> {
@@ -1905,6 +1926,17 @@ export class GitService {
       ).stdout.trim()
     }
     await this.#executor.run(repository.root, ["branch", "--", branch, ...(start ? [start] : [])])
+    return branch
+  }
+
+  /** Creates a branch at HEAD and switches to it, keeping the working tree's changes. */
+  async switchToNewBranch(cwd: string, name: string): Promise<string> {
+    const repository = await this.discover(cwd)
+    const branch = validateOperand(name.trim(), "branch")
+    await this.#executor.run(repository.root, ["check-ref-format", "--branch", branch], {
+      readOnly: true,
+    })
+    await this.#executor.run(repository.root, ["switch", "--create", branch])
     return branch
   }
 

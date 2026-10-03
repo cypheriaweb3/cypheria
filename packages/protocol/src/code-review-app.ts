@@ -4,6 +4,7 @@ import {
   CODE_REVIEW_GITHUB_HOST_OPERATIONS,
   CODE_REVIEW_GITLAB_OPERATIONS,
   CodeReviewSettingsSchema,
+  CodeReviewSidebarItemSchema,
 } from "./code-review.ts"
 
 /**
@@ -20,20 +21,6 @@ export const CodeReviewAppPullRequestSchema = z
     number: z.number().int().positive(),
   })
   .strict()
-
-export const CodeReviewSidebarItemSchema = z
-  .object({
-    url: z.string().max(4096),
-    title: z.string().trim().min(1).max(1024),
-    authorLogin: z.string().max(256).nullish(),
-    authorAvatarUrl: z.string().max(4096).nullish(),
-    updatedAt: z.string().nullish(),
-    status: z
-      .enum(["approved", "review_required", "changes_requested", "draft", "merged", "closed"])
-      .nullish(),
-  })
-  .strict()
-export type CodeReviewSidebarItem = z.infer<typeof CodeReviewSidebarItemSchema>
 
 export const CodeReviewSidebarSectionIdSchema = z.enum([
   "waiting_for_review",
@@ -151,6 +138,13 @@ export const CODE_REVIEW_APP_REQUESTS = {
   "cypheria/codeReview/watch/set": CodeReviewWatchTargetSchema.extend({
     enabled: z.boolean(),
   }).strict(),
+  /**
+   * The App opened a pull request: the host records it among the recent ones and says whether it
+   * is pinned.
+   */
+  "cypheria/codeReview/visit": z
+    .object({ item: CodeReviewSidebarItemSchema, accountKey: z.string().min(1) })
+    .strict(),
   "cypheria/codeReview/pin": z
     .object({
       item: CodeReviewSidebarItemSchema,
@@ -185,5 +179,7 @@ export {
   CodeReviewSettingsSchema,
   type CodeReviewSetup,
   CodeReviewSetupSchema,
+  type CodeReviewSidebarItem,
+  CodeReviewSidebarItemSchema,
   DEFAULT_CODE_REVIEW_SETTINGS,
 } from "./code-review.ts"

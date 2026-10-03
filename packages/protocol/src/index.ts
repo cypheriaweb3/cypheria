@@ -23,6 +23,13 @@ import {
   DEFAULT_CODE_REVIEW_SETTINGS,
 } from "./code-review.ts"
 import {
+  EXTENSION_CLIENT_SCHEMAS,
+  EXTENSION_RESPONSE_TYPES,
+  EXTENSION_SERVER_SCHEMAS,
+  type ExtensionClientMessage,
+  type ExtensionServerMessage,
+} from "./extension.ts"
+import {
   GIT_CLIENT_SCHEMAS,
   GIT_RESPONSE_TYPES,
   GIT_SERVER_SCHEMAS,
@@ -58,13 +65,6 @@ import {
   type MagpieClientMessage,
   type MagpieServerMessage,
 } from "./magpie.ts"
-import {
-  MCP_APP_CLIENT_SCHEMAS,
-  MCP_APP_RESPONSE_TYPES,
-  MCP_APP_SERVER_SCHEMAS,
-  type McpAppClientMessage,
-  type McpAppServerMessage,
-} from "./mcp-app.ts"
 import {
   CodexPermissionsModeSchema,
   PROJECT_THREAD_CLIENT_SCHEMAS,
@@ -115,13 +115,14 @@ export * from "./code-review.ts"
 export * from "./code-review-app.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
+export * from "./extension.ts"
 export * from "./file-transfer-binary.ts"
 export * from "./git.ts"
 export * from "./harness.ts"
 export * from "./harness-codex.ts"
 export * from "./integration.ts"
 export * from "./magpie.ts"
-export * from "./mcp-app.ts"
+export * from "./openai-mcp-extensions.ts"
 export * from "./project-thread.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
@@ -150,7 +151,7 @@ export const SERVER_CAPABILITIES = {
   web3: "web3",
   integrations: "integrations",
   magpie: "magpie",
-  mcpApps: "mcp-apps",
+  extensions: "extensions",
   codeReview: "code-review",
   config: "server.config",
   diagnostics: "diagnostics",
@@ -515,6 +516,12 @@ export const NetworkProxyTestResultSchema = z
   .strict()
 export type NetworkProxyTestResult = z.infer<typeof NetworkProxyTestResultSchema>
 
+/** File viewers chosen by file extension; `builtin` is Cypheria's own viewer. */
+export const PREFERRED_BUILTIN_FILE_VIEWER = "builtin"
+export const PreferredFileViewersSchema = z
+  .record(z.string().trim().toLowerCase().min(1).max(64), z.string().min(1).max(4096))
+  .refine((value) => Object.keys(value).length <= 500, "Too many preferred file viewers")
+
 export const PersistedServerConfigSchema = z
   .object({
     version: z.literal(1),
@@ -539,6 +546,16 @@ export const PersistedServerConfigSchema = z
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     codeReview: CodeReviewSettingsSchema.default(DEFAULT_CODE_REVIEW_SETTINGS),
     browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),
+    extensions: z
+      .object({
+        /**
+         * The viewer a person chose for files by extension, such as `tar.gz` or `stl`: a file
+         * entry point ID, or `builtin` for Cypheria's own viewer.
+         */
+        preferredFileViewers: PreferredFileViewersSchema.default({}),
+      })
+      .strict()
+      .default({ preferredFileViewers: {} }),
     workspace: z
       .object({ projectlessRoot: z.string().trim().min(1).nullable() })
       .strict()
@@ -614,6 +631,10 @@ export const PersistedServerConfigPatchSchema = z
     git: GitSettingsSchema.partial().strict().optional(),
     codeReview: CodeReviewSettingsSchema.partial().strict().optional(),
     browserTools: BrowserToolsSettingsSchema.partial().strict().optional(),
+    extensions: z
+      .object({ preferredFileViewers: PreferredFileViewersSchema.optional() })
+      .strict()
+      .optional(),
     workspace: z
       .object({ projectlessRoot: z.string().trim().min(1).nullable().optional() })
       .strict()
@@ -774,7 +795,7 @@ export type SessionInboundMessage =
   | TerminalClientMessage
   | ThreadClientMessage
   | MagpieClientMessage
-  | McpAppClientMessage
+  | ExtensionClientMessage
   | CodeReviewClientMessage
   | Web3ClientMessage
 
@@ -798,7 +819,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ...TERMINAL_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
   ...MAGPIE_CLIENT_SCHEMAS,
-  ...MCP_APP_CLIENT_SCHEMAS,
+  ...EXTENSION_CLIENT_SCHEMAS,
   ...CODE_REVIEW_CLIENT_SCHEMAS,
   ...WEB3_CLIENT_SCHEMAS,
 ])
@@ -893,7 +914,7 @@ export type SessionOutboundMessage =
   | TerminalServerMessage
   | ThreadServerMessage
   | MagpieServerMessage
-  | McpAppServerMessage
+  | ExtensionServerMessage
   | CodeReviewServerMessage
   | Web3ServerMessage
 
@@ -921,7 +942,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...TERMINAL_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
   ...MAGPIE_SERVER_SCHEMAS,
-  ...MCP_APP_SERVER_SCHEMAS,
+  ...EXTENSION_SERVER_SCHEMAS,
   ...CODE_REVIEW_SERVER_SCHEMAS,
   ...WEB3_SERVER_SCHEMAS,
 ])
@@ -964,7 +985,7 @@ const clientResponseTypes = new Set<string>([
   ...TERMINAL_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
   ...MAGPIE_RESPONSE_TYPES,
-  ...MCP_APP_RESPONSE_TYPES,
+  ...EXTENSION_RESPONSE_TYPES,
   ...CODE_REVIEW_RESPONSE_TYPES,
   ...WEB3_RESPONSE_TYPES,
 ])

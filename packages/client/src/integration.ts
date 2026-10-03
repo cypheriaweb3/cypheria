@@ -32,6 +32,17 @@ export interface SkillActions {
     options?: RequestOptions
   ): Promise<void>
 }
+export interface HookActions {
+  list(
+    input: Payload<"integration.hook.list.request">,
+    options?: RequestOptions
+  ): Promise<Value<"integration.hook.list.response">>
+  setEnabled(
+    input: Payload<"integration.hook.set-enabled.request">,
+    options?: RequestOptions
+  ): Promise<void>
+  trust(input: Payload<"integration.hook.trust.request">, options?: RequestOptions): Promise<void>
+}
 export interface McpActions {
   add(input: Payload<"integration.mcp.add.request">, options?: RequestOptions): Promise<void>
   list(
@@ -112,6 +123,7 @@ export interface CodexAppActions {
 }
 export interface IntegrationActions {
   readonly apps: CodexAppActions
+  readonly hooks: HookActions
   readonly marketplaces: MarketplaceActions
   readonly mcp: McpActions
   readonly plugins: PluginActions
@@ -139,6 +151,12 @@ export const createIntegrationActions = (client: ServerClient): IntegrationActio
         request("integration.codex.app.list.request", { forceRefresh }, options),
       setEnabled: (appId, enabled, options) =>
         mutation("integration.codex.app.set-enabled.request", { appId, enabled }, options),
+    },
+    hooks: {
+      list: (input, options) => request("integration.hook.list.request", input, options),
+      setEnabled: (input, options) =>
+        mutation("integration.hook.set-enabled.request", input, options),
+      trust: (input, options) => mutation("integration.hook.trust.request", input, options),
     },
     marketplaces: {
       add: (input, options) => request("integration.marketplace.add.request", input, options),

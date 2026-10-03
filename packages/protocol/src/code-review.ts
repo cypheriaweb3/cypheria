@@ -145,7 +145,6 @@ export const CodeReviewSettingsSchema = z
     localReviewInstructions: z.string().max(100_000),
     sidebarSections: z.array(CodeReviewSidebarSectionSchema).max(5),
     sidebarLayout: z.enum(["compact", "detailed"]),
-    activityNotifications: z.boolean(),
   })
   .strict()
 export type CodeReviewSettings = z.infer<typeof CodeReviewSettingsSchema>
@@ -155,10 +154,36 @@ export const DEFAULT_CODE_REVIEW_SETTINGS: CodeReviewSettings = {
   gitlabConnectorId: null,
   githubLinkTarget: "code-review-tab",
   localReviewInstructions: "",
-  sidebarSections: ["waiting_for_review", "needs_my_review", "needs_my_teams_review"],
+  sidebarSections: ["recents", "waiting_for_review", "needs_my_review", "needs_my_teams_review"],
   sidebarLayout: "detailed",
-  activityNotifications: false,
 }
+
+/** A pull request as the Code Review sidebar lists it. */
+export const CodeReviewSidebarItemSchema = z
+  .object({
+    url: z.string().max(4096),
+    title: z.string().trim().min(1).max(1024),
+    authorLogin: z.string().max(256).nullish(),
+    authorAvatarUrl: z.string().max(4096).nullish(),
+    updatedAt: z.string().nullish(),
+    status: z
+      .enum(["approved", "review_required", "changes_requested", "draft", "merged", "closed"])
+      .nullish(),
+  })
+  .strict()
+export type CodeReviewSidebarItem = z.infer<typeof CodeReviewSidebarItemSchema>
+
+/** The pull requests a provider account pinned, and the ones it opened most recently. */
+export const CodeReviewPullRequestListSchema = z.enum(["pinned", "recent"])
+export type CodeReviewPullRequestList = z.infer<typeof CodeReviewPullRequestListSchema>
+
+/** A pull request a list keeps, with when it was saved there, in milliseconds. */
+export const CodeReviewPullRequestSchema = CodeReviewSidebarItemSchema.extend({
+  savedAt: z.number().int().nonnegative(),
+}).strict()
+export type CodeReviewPullRequest = z.infer<typeof CodeReviewPullRequestSchema>
+
+const CodeReviewAccountKeySchema = z.string().min(1).max(1024)
 
 const request = <T extends string, S extends z.ZodType>(type: T, payload: S) =>
   z.object({ type: z.literal(type), requestId: RequestIdSchema, payload }).strict()
@@ -210,6 +235,49 @@ export const CodeReviewProviderRequestSchema = request(
   ])
 )
 
+/** Calls one of the `code-review` server's tools outside the App, such as finding a Thread's PR. */
+export const CodeReviewToolCallRequestSchema = request(
+  "codeReview.tool.call.request",
+  z
+    .object({
+      arguments: z.record(z.string(), z.unknown()),
+      name: z.string().startsWith("pull_requests."),
+    })
+    .strict()
+)
+
+export const CodeReviewPullRequestsListRequestSchema = request(
+  "codeReview.pullRequests.list.request",
+  z
+    .object({ list: CodeReviewPullRequestListSchema, accountKey: CodeReviewAccountKeySchema })
+    .strict()
+)
+/**
+ * Saves a pull request at the top of a list. `updateOnly` refreshes one the list already keeps,
+ * such as with a newer title, without moving it.
+ */
+export const CodeReviewPullRequestsSaveRequestSchema = request(
+  "codeReview.pullRequests.save.request",
+  z
+    .object({
+      list: CodeReviewPullRequestListSchema,
+      accountKey: CodeReviewAccountKeySchema,
+      item: CodeReviewSidebarItemSchema,
+      updateOnly: z.boolean().optional(),
+    })
+    .strict()
+)
+export const CodeReviewPullRequestsRemoveRequestSchema = request(
+  "codeReview.pullRequests.remove.request",
+  z
+    .object({
+      list: CodeReviewPullRequestListSchema,
+      accountKey: CodeReviewAccountKeySchema,
+      url: z.string().max(4096),
+    })
+    .strict()
+)
+
 export const CodeReviewSetupGetResponseSchema = response(
   "codeReview.setup.get.response",
   CodeReviewSetupSchema
@@ -218,20 +286,62 @@ export const CodeReviewProviderResponseSchema = response(
   "codeReview.provider.response",
   z.object({ value: z.unknown() }).strict()
 )
+export const CodeReviewToolCallResponseSchema = response(
+  "codeReview.tool.call.response",
+  z
+    .object({
+      content: z.array(z.unknown()),
+      isError: z.boolean(),
+      structuredContent: z.record(z.string(), z.unknown()).optional(),
+    })
+    .strict()
+)
+
+export const CodeReviewPullRequestsListResponseSchema = response(
+  "codeReview.pullRequests.list.response",
+  z.object({ items: z.array(CodeReviewPullRequestSchema) }).strict()
+)
+export const CodeReviewPullRequestsSaveResponseSchema = response(
+  "codeReview.pullRequests.save.response",
+  z.object({ item: CodeReviewPullRequestSchema.nullable() }).strict()
+)
+export const CodeReviewPullRequestsRemoveResponseSchema = response(
+  "codeReview.pullRequests.remove.response",
+  z.object({ removed: z.boolean() }).strict()
+)
+/** A list changed for an account, from any client. */
+export const CodeReviewPullRequestsChangedNotificationSchema = z
+  .object({
+    type: z.literal("codeReview.pullRequests.changed.notification"),
+    payload: z
+      .object({ list: CodeReviewPullRequestListSchema, accountKey: CodeReviewAccountKeySchema })
+      .strict(),
+  })
+  .strict()
 
 export const CODE_REVIEW_CLIENT_SCHEMAS = [
   CodeReviewSetupGetRequestSchema,
   CodeReviewProviderRequestSchema,
+  CodeReviewToolCallRequestSchema,
+  CodeReviewPullRequestsListRequestSchema,
+  CodeReviewPullRequestsSaveRequestSchema,
+  CodeReviewPullRequestsRemoveRequestSchema,
 ] as const
 
 export const CODE_REVIEW_SERVER_SCHEMAS = [
   CodeReviewSetupGetResponseSchema,
   CodeReviewProviderResponseSchema,
+  CodeReviewToolCallResponseSchema,
+  CodeReviewPullRequestsListResponseSchema,
+  CodeReviewPullRequestsSaveResponseSchema,
+  CodeReviewPullRequestsRemoveResponseSchema,
+  CodeReviewPullRequestsChangedNotificationSchema,
 ] as const
 
-export const CODE_REVIEW_RESPONSE_TYPES = CODE_REVIEW_SERVER_SCHEMAS.map(
-  (schema) => schema.shape.type.value
-)
+export const CODE_REVIEW_RESPONSE_TYPES = CODE_REVIEW_SERVER_SCHEMAS.flatMap((schema) => {
+  const type = schema.shape.type.value
+  return type.endsWith(".response") ? [type] : []
+})
 
 export type CodeReviewClientMessage = z.infer<(typeof CODE_REVIEW_CLIENT_SCHEMAS)[number]>
 export type CodeReviewServerMessage = z.infer<(typeof CODE_REVIEW_SERVER_SCHEMAS)[number]>

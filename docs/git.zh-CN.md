@@ -19,7 +19,7 @@ flowchart LR
   CodeReview[代码审查 App] --> Backend[OpenAI 后端]
 ```
 
-`apps/server` 负责 Git 执行、仓库和工作树状态、校验及审计。`@cypheria/protocol` 校验公开消息，`@cypheria/client` 将能力提供给 Desktop。Electron main 只处理打开本地文件或 URL 等操作系统动作。renderer 不运行 Git。Pull Request 和合并请求不属于 Git 服务：[代码审查](code-review.zh-CN.md)通过 OpenAI 后端读写它们。
+`apps/server` 负责 Git 执行、仓库和工作树状态、校验及审计。`@cypheria/protocol` 校验公开消息，`@cypheria/client` 将能力提供给 Desktop。Electron main 只处理打开本地文件或 URL 等操作系统动作。renderer 不运行 Git。[代码审查](code-review.zh-CN.md)通过 OpenAI 后端读写已有的 Pull Request 和合并请求；Git 服务只在[创建 PR 流程](#创建拉取请求)的最后创建它们。
 
 本地仓库与托管工作树能力不依赖具体 Agent，并统一使用 Cypheria Thread ID。远程客户端可以调用 Server 能力，操作的是该 Server 主机的文件系统；此设计不运行云端 checkout。
 
@@ -28,7 +28,8 @@ flowchart LR
 | 操作 | 选用的后端与条件 |
 | --- | --- |
 | 仓库、分支、Review、提交、推送和工作树操作 | Server 内的主机 Git；除可用性检查和初始化外，操作需要可访问的本地仓库。 |
-| GitHub Pull Request 与 GitLab 合并请求 | 通过 OpenAI 后端的[代码审查](code-review.zh-CN.md)，需要 ChatGPT 登录以及在 ChatGPT 中连接 GitHub 或 GitLab。没有 `gh` 或 `glab` 后端。 |
+| 读取和审查 GitHub Pull Request 与 GitLab 合并请求 | 通过 OpenAI 后端的[代码审查](code-review.zh-CN.md)，需要 ChatGPT 登录以及在 ChatGPT 中连接 GitHub 或 GitLab。它们没有 `gh` 或 `glab` 后端。 |
+| 创建 Pull Request 或合并请求 | 已安装并登录 github.com 的 GitHub `gh` CLI；否则通过 Codex 的 `codex_apps` connector 工具，使用在 ChatGPT 中关联的 GitHub 或 GitLab 账户；否则在浏览器中打开提供方的预填页面。 |
 
 本地 Git 使用 `.git` 仓库和主机 Git 安装，不需要托管平台账户。Pull Request 功能需要[代码审查](code-review.zh-CN.md#前提条件)中的 ChatGPT 前提条件；缺少时这些功能保持不可用并说明原因，本地 Git 照常工作。
 
@@ -37,6 +38,19 @@ flowchart LR
 Review 汇集已暂存、未暂存、未提交、分支、提交及最后一轮来源。Server 固定基于提交的比较，并为可变文件提供 revision。执行段落操作前重新读取 revision；过期操作失败并刷新面板。补丁应用支持暂存与未暂存目标、反向与二进制补丁、可选原子检查和三方应用；批量结果区分已应用、跳过、冲突、过期和失败。撤销改动前会保存可恢复副本；文件在撤销后再次变化时，Undo 会拒绝恢复。
 
 本地 Git 写入经过 Server 执行器与审计边界。初始审计写入失败会阻止操作。提交成功后若推送失败，提交仍可单独重试推送。提交文案通过受管本地 Codex runtime 及保存的指令生成。显式“生成”操作会产生可编辑草稿；提交时字段为空也可触发生成。
+
+## 创建拉取请求
+
+对话标题中的创建 PR 会为 Thread 的检出创建 Pull Request，与 ChatGPT Desktop 的创建 PR 对话框相同。它支持位于 github.com 和 gitlab.com 的 origin。`git.pull-request-target` 报告 origin 仓库、当前分支、上游分支和默认分支、是否有本地更改，以及可用的创建来源（首选的排在前面）。随后 `git.pull-request-create` 执行一个经过审计的流程：
+
+1. 检出位于其基础分支时，带着本地更改切换到新分支。
+2. 需要时提交本地更改；提交信息为空时根据这些更改生成。
+3. 把分支推送到 `origin` 并设置上游，除非上游已经包含所有提交。
+4. 标题或描述为空时根据分支的更改生成；没有生成标题时，使用最后一个提交的标题或分支名。GitLab 草稿会加上 `Draft:` 前缀。
+5. 通过第一个可用来源创建 Pull Request；被要求时，或没有其他来源时，打开提供方的预填页面。
+6. 把创建的 Pull Request 连同其 Git 根目录和分支附加到 Thread。
+
+同一个仓库同时只运行一个创建流程。某一步失败会停止流程，并说明已经完成了什么，例如提交成功但推送失败。向关联账户发出、结果未知的请求绝不会重试；会请用户先到提供方确认再重试。`gh` 报告分支已有 Pull Request 时，改为附加那一个。
 
 ## 工作树与持久状态
 
@@ -49,6 +63,8 @@ Review 汇集已暂存、未暂存、未提交、分支、提交及最后一轮�
 | 工作树快照与同步备份 | 托管元数据及 Git 中的 `refs/cypheria/*`，用于恢复和受保护的 Undo。 |
 | 最后一轮 tree 与 Review 撤销副本 | `CYPHERIA_HOME` 下的 Server 运行数据；跨进程重启保留，详见 [Desktop](desktop.zh-CN.md)。 |
 | 选定的 Review 来源 | Desktop 客户端状态；只影响展示，不要求各客户端一致。 |
+| 工作区 Thread 与代码审查已固定和最近的 Pull Request | Server 持久状态 `workspace_threads` 和 `code_review_prs`，所有客户端共享。 |
+| 折叠的代码审查侧边栏分区 | Desktop 客户端状态。 |
 | 仓库发现缓存与文件系统监视器 | 只存在于 Server 内存。修改和监视事件会使发现结果失效并通知 Desktop；不支持监视时仍有定期读取。 |
 | GitHub 与 GitLab 连接 | ChatGPT 账户状态，通过 OpenAI 后端读取；见[代码审查](code-review.zh-CN.md)。 |
 

@@ -18,11 +18,11 @@ describe("Cypheria client facade", () => {
       "artifacts",
       "browser",
       "codeReview",
+      "extensions",
       "git",
       "harnesses",
       "integrations",
       "magpie",
-      "mcpApps",
       "on",
       "projectThread",
       "projects",
@@ -86,6 +86,7 @@ describe("Cypheria client facade", () => {
       "update",
       "updateConfig",
       "workspace",
+      "workspaceThreads",
     ])
     expect(api.agent).not.toHaveProperty("acp")
     expect(api.agent).not.toHaveProperty("codex")

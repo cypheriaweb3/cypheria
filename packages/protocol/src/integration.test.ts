@@ -141,4 +141,65 @@ describe("integration protocol", () => {
       })
     ).toThrow()
   })
+
+  it("parses hook list, set-enabled, and trust messages", () => {
+    const listReq = parseSessionInboundMessage({
+      payload: { agentId: "codex", cwd: "/test" },
+      requestId: "req_hook_list",
+      type: "integration.hook.list.request",
+    })
+    expect(listReq.type).toBe("integration.hook.list.request")
+
+    const setEnabledReq = parseSessionInboundMessage({
+      payload: { agentId: "codex", enabled: false, key: "user:pre_tool_use:0:0" },
+      requestId: "req_hook_enable",
+      type: "integration.hook.set-enabled.request",
+    })
+    expect(setEnabledReq.type).toBe("integration.hook.set-enabled.request")
+
+    const trustReq = parseSessionInboundMessage({
+      payload: { agentId: "codex", key: "user:pre_tool_use:0:0", trustedHash: "hash123" },
+      requestId: "req_hook_trust",
+      type: "integration.hook.trust.request",
+    })
+    expect(trustReq.type).toBe("integration.hook.trust.request")
+
+    const listRes = parseSessionOutboundMessage({
+      payload: {
+        ok: true,
+        value: {
+          errors: [],
+          hooks: [
+            {
+              additionalContextLimit: 2500,
+              async: false,
+              command: "python3 test.py",
+              currentHash: "hash123",
+              cwd: "/test",
+              displayOrder: 0,
+              enabled: true,
+              eventName: "PreToolUse",
+              handlerType: "command",
+              harness: { agentId: "codex", nativeId: "user:pre_tool_use:0:0" },
+              isManaged: false,
+              key: "user:pre_tool_use:0:0",
+              matcher: "^Bash$",
+              mcpServer: null,
+              mcpTool: null,
+              pluginId: null,
+              source: "user",
+              sourcePath: "/home/user/.codex/hooks.json",
+              statusMessage: "Checking bash",
+              timeoutSec: 30,
+              trustStatus: "trusted",
+            },
+          ],
+          warnings: [],
+        },
+      },
+      requestId: "req_hook_list",
+      type: "integration.hook.list.response",
+    })
+    expect(listRes.type).toBe("integration.hook.list.response")
+  })
 })

@@ -35,14 +35,19 @@ export {
   openCypheriaDatabase,
 } from "./client.js"
 export {
+  CODE_REVIEW_PR_LIMITS,
   CODE_REVIEW_QUEUE_LIMIT,
   CODE_REVIEW_RUNNING_LIMIT,
   type CodeReviewChatBinding,
   type CodeReviewKeys,
   type CodeReviewPersistenceService,
+  type CodeReviewPrPersistenceService,
+  type CodeReviewPrRecord,
+  type CodeReviewPullRequestList,
   type CodeReviewRecord,
   type CodeReviewStatus,
   createCodeReviewPersistenceService,
+  createCodeReviewPrPersistenceService,
   type StoredCodeReview,
 } from "./code-review.js"
 export {
@@ -153,3 +158,8 @@ export {
   type WalletPublicState,
   type WalletPublicStatePersistenceService,
 } from "./wallet.js"
+export {
+  createWorkspaceThreadPersistenceService,
+  type WorkspaceThreadPersistenceService,
+  type WorkspaceThreadRecord,
+} from "./workspace-thread.js"

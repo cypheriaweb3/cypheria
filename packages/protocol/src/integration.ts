@@ -85,6 +85,54 @@ export const McpServerViewSchema = z
   .strict()
 export type McpServerView = z.infer<typeof McpServerViewSchema>
 
+export const HookTrustStatusSchema = z.enum(["managed", "untrusted", "trusted", "modified"])
+export type HookTrustStatus = z.infer<typeof HookTrustStatusSchema>
+
+export const HookHandlerTypeSchema = z.enum(["command", "mcpTool", "prompt", "agent"])
+export type HookHandlerType = z.infer<typeof HookHandlerTypeSchema>
+
+export const HookSourceSchema = z.enum([
+  "system",
+  "user",
+  "project",
+  "mdm",
+  "sessionFlags",
+  "plugin",
+  "cloudRequirements",
+  "cloudManagedConfig",
+  "legacyManagedConfigFile",
+  "legacyManagedConfigMdm",
+  "unknown",
+])
+export type HookSource = z.infer<typeof HookSourceSchema>
+
+export const HookViewSchema = z
+  .object({
+    additionalContextLimit: z.number().int().nonnegative().nullable(),
+    async: z.boolean().nullable(),
+    command: z.string().nullable(),
+    currentHash: z.string(),
+    cwd: z.string(),
+    displayOrder: z.number(),
+    enabled: z.boolean(),
+    eventName: z.string().min(1),
+    handlerType: HookHandlerTypeSchema,
+    harness,
+    isManaged: z.boolean(),
+    key: z.string().min(1),
+    matcher: z.string().nullable(),
+    mcpServer: z.string().nullable(),
+    mcpTool: z.string().nullable(),
+    pluginId: z.string().nullable(),
+    source: HookSourceSchema,
+    sourcePath: z.string().min(1),
+    statusMessage: z.string().nullable(),
+    timeoutSec: z.number().int().nonnegative(),
+    trustStatus: HookTrustStatusSchema,
+  })
+  .strict()
+export type HookView = z.infer<typeof HookViewSchema>
+
 export const PluginViewSchema = z
   .object({
     availability: z.enum(["AVAILABLE", "DISABLED_BY_ADMIN"]),
@@ -174,6 +222,15 @@ export const PluginDetailViewSchema = z
     description: z.string().nullable(),
     detailAvailable: z.boolean(),
     mcpServers: z.array(z.string()),
+    /**
+     * The skill the plugin's manifest names in `extensions["com.openai"].onboardingSkill`, which
+     * Set up runs in a new chat. Reported by Agents that read it.
+     */
+    onboardingSkill: z
+      .object({ name: z.string(), path: z.string() })
+      .strict()
+      .nullable()
+      .optional(),
     privacyPolicyUrl: z.string().nullable(),
     prompts: z.array(z.string()),
     shareUrl: z.string().nullable(),
@@ -243,6 +300,30 @@ export const SkillListRequestSchema = request(
 export const SkillSetEnabledRequestSchema = request(
   "integration.skill.set-enabled.request",
   setEnabled
+)
+export const HookListRequestSchema = request(
+  "integration.hook.list.request",
+  agentListInput.extend({ cwd: z.string().min(1).optional() }).strict()
+)
+export const HookSetEnabledRequestSchema = request(
+  "integration.hook.set-enabled.request",
+  z
+    .object({
+      agentId: AgentIdSchema,
+      enabled: z.boolean(),
+      key: z.string().min(1),
+    })
+    .strict()
+)
+export const HookTrustRequestSchema = request(
+  "integration.hook.trust.request",
+  z
+    .object({
+      agentId: AgentIdSchema,
+      key: z.string().min(1),
+      trustedHash: z.string().min(1),
+    })
+    .strict()
 )
 export const McpListRequestSchema = request("integration.mcp.list.request", agentListInput)
 export const McpAddRequestSchema = request(
@@ -354,6 +435,21 @@ export const SkillSetEnabledResponseSchema = response(
   "integration.skill.set-enabled.response",
   mutation
 )
+export const HookListResponseSchema = response(
+  "integration.hook.list.response",
+  z
+    .object({
+      errors: z.array(z.object({ message: z.string(), path: z.string().nullable() }).strict()),
+      hooks: z.array(HookViewSchema),
+      warnings: z.array(z.string()),
+    })
+    .strict()
+)
+export const HookSetEnabledResponseSchema = response(
+  "integration.hook.set-enabled.response",
+  mutation
+)
+export const HookTrustResponseSchema = response("integration.hook.trust.response", mutation)
 export const McpListResponseSchema = response(
   "integration.mcp.list.response",
   z.object({ servers: z.array(McpServerViewSchema) }).strict()
@@ -521,6 +617,9 @@ export const CodexAppConnectResponseSchema = response(
 export const INTEGRATION_CLIENT_SCHEMAS = [
   SkillListRequestSchema,
   SkillSetEnabledRequestSchema,
+  HookListRequestSchema,
+  HookSetEnabledRequestSchema,
+  HookTrustRequestSchema,
   McpListRequestSchema,
   McpAddRequestSchema,
   McpSetEnabledRequestSchema,
@@ -544,6 +643,9 @@ export const INTEGRATION_CLIENT_SCHEMAS = [
 export const INTEGRATION_SERVER_SCHEMAS = [
   SkillListResponseSchema,
   SkillSetEnabledResponseSchema,
+  HookListResponseSchema,
+  HookSetEnabledResponseSchema,
+  HookTrustResponseSchema,
   McpListResponseSchema,
   McpAddResponseSchema,
   McpSetEnabledResponseSchema,

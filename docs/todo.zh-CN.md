@@ -38,13 +38,15 @@ title: 当前路线图
   - 在 harness 支持时添加 Skill recording。
   - 完成 loading、empty、error、disabled、update、advisory 和 permission states。
   - 在打包 Electron build 中验证 authenticated connector authorization。
-  - 按推出顺序实现 [Plugin Extensions](plugin-extensions.zh-CN.md)，并把 Code Review 迁移到新的 `extensions` API。
+  - 完成 [Plugin Extensions 限制](plugin-extensions.zh-CN.md#限制)中的各项：Claude 工具调用的只读 App 与对 Claude 隐藏仅供 App 使用的工具、Expo 与 CLI 托管、表单上传，以及 implicit resource 选择。
+  - 在开发与打包的 Electron 构建中用 Bits & Bolts 插件端到端验证 Desktop App 沙箱：入口、global 页面的工作区 Thread、文件查看器、模型上下文、消息、设置、提及与表单。
   - 定义 Cypheria 原生 manifest，以及第三方 `cypheria/*` host 请求的权限模型。
   - 以 custom source 的形式添加 Pi 和 OpenCode 插件适配器，并支持 Claude 使用托管在 claude.ai 的 marketplace。
 
 ## 本地 Git 与拉取请求
 
 - [ ] 使用真实 ChatGPT 账户对照 OpenAI 后端验证代码审查：GitHub 和 GitLab 连接（包括多个账户）、收件箱分区、详情读取、写入、检查和私密审查，并确认 GitLab 的响应结构。
+- [ ] 端到端验证创建 PR：使用已登录的 `gh`，使用在 ChatGPT 中关联的 GitHub 和 GitLab 账户（确认 `github.create_pull_request` 与 `gitlab.create_merge_request` 的参数和结果结构），以及通过浏览器页面。
 
 ## 内置浏览器
 

@@ -1,16 +1,9 @@
 import { ChatPullRequestPanel } from "@cypheria/ui/components/chat"
 import { Trans } from "@lingui/react/macro"
-import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 
-import { ensureCypheriaClient } from "../../cypheria-client.js"
-import { McpAppFrame } from "../mcp-app-frame.js"
-import {
-  CODE_REVIEW_APP_URI,
-  CODE_REVIEW_SERVER,
-  parsePullRequestUrl,
-  useCodeReviewExtensions,
-} from "./host.js"
+import { McpAppHost } from "../mcp-app-host.js"
+import { CODE_REVIEW_SERVER, parsePullRequestUrl, useCodeReviewExtensions } from "./host.js"
 import { useThreadPullRequest } from "./thread-pull-request.js"
 
 /**
@@ -18,21 +11,10 @@ import { useThreadPullRequest } from "./thread-pull-request.js"
  * shows, opened from its `thread` entry point for the Thread's pull request.
  */
 export function ThreadPullRequestPanel({
-  cwd,
   threadId,
   url,
-}: Readonly<{ cwd: string | null; threadId: string | null; url: string | null }>) {
-  const status = useQuery({
-    enabled: Boolean(cwd),
-    queryFn: async () => (await ensureCypheriaClient()).git.status(cwd as string),
-    queryKey: ["git", cwd, "status"],
-    retry: false,
-  })
-  const found = useThreadPullRequest({
-    branch: status.data?.branch ?? null,
-    cwd: cwd ?? "",
-    threadId,
-  })
+}: Readonly<{ threadId: string | null; url: string | null }>) {
+  const found = useThreadPullRequest({ threadId })
   const shown = url ?? found.data?.url ?? null
   const parsed = shown ? parsePullRequestUrl(shown) : null
   const extensions = useCodeReviewExtensions({
@@ -40,15 +22,24 @@ export function ThreadPullRequestPanel({
     ...(threadId ? { threadId } : {}),
   })
   const pullRequestKey = parsed ? JSON.stringify(parsed.pullRequest) : null
-  const toolArguments = useMemo(
+  const target = useMemo(
     () =>
       pullRequestKey
-        ? { initialView: "pull_request", pullRequest: JSON.parse(pullRequestKey) as unknown }
+        ? {
+            arguments: {
+              initialView: "pull_request",
+              pullRequest: JSON.parse(pullRequestKey) as unknown,
+            },
+            kind: "tool" as const,
+            server: CODE_REVIEW_SERVER,
+            tool: "pull_requests.open",
+            ...(threadId ? { threadId } : {}),
+          }
         : null,
-    [pullRequestKey]
+    [pullRequestKey, threadId]
   )
 
-  if (!toolArguments) {
+  if (!target) {
     return (
       <ChatPullRequestPanel>
         <div className="flex h-full items-center justify-center px-6 text-center text-muted-foreground text-sm">
@@ -63,14 +54,7 @@ export function ThreadPullRequestPanel({
   }
   return (
     <ChatPullRequestPanel>
-      <McpAppFrame
-        extensions={extensions}
-        resourceUri={CODE_REVIEW_APP_URI}
-        server={CODE_REVIEW_SERVER}
-        toolArguments={toolArguments}
-        toolName="pull_requests.open"
-        {...(threadId ? { threadId } : {})}
-      />
+      <McpAppHost extensions={extensions} target={target} />
     </ChatPullRequestPanel>
   )
 }

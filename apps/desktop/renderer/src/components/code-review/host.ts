@@ -13,13 +13,13 @@ import { useMemo } from "react"
 import type { z } from "zod"
 
 import { browserTabsStore } from "../../browser/store.js"
-import { clientStateStore, codeReviewPinsAtom } from "../../client-state.js"
 import { ensureCypheriaClient } from "../../cypheria-client.js"
-import type { McpAppExtensionHandler, McpAppNotifier } from "../mcp-app-frame.js"
+import type { McpAppExtensionHandler, McpAppNotifier } from "../mcp-app-host.js"
+import { setWorkspaceThread, startWorkspaceThread } from "../workspace-chat.js"
+import { recordPullRequestVisit, setPullRequestPinned } from "./pull-request-lists.js"
 import { readPullRequestWatch, setPullRequestWatch } from "./watch.js"
 
 export const CODE_REVIEW_SERVER = "code-review"
-export const CODE_REVIEW_APP_URI = "ui://pull-requests/app"
 
 /** The sections the Code Review App hands the host, which the Code Review sidebar draws. */
 export const codeReviewSidebarAtom = atom<CodeReviewSidebarState | null>(null)
@@ -46,6 +46,12 @@ export const pullRequestIdentityKey = (value: string): string | null => {
   } catch {
     return null
   }
+}
+
+/** The workspace chat Code Review shows beside a pull request. */
+export const codeReviewWorkspaceKey = (url: string): string | null => {
+  const key = pullRequestIdentityKey(url)
+  return key ? `code-review:${key}` : null
 }
 
 /** A pull request URL as the App names it: host, owner, repository, and number. */
@@ -124,7 +130,7 @@ const readSettings = async (): Promise<CodeReviewSettings> =>
 
 /**
  * The Cypheria host side of the Code Review App: what the official desktop's bridge serves, built
- * on Server requests, Desktop navigation, and Desktop-local pins.
+ * on Server requests and Desktop navigation.
  */
 export const useCodeReviewExtensions = (options: {
   surface: "global" | "thread" | "settings"
@@ -163,7 +169,11 @@ export const useCodeReviewExtensions = (options: {
       "cypheria/codeReview/openChat": async (params) => {
         const input = parse("cypheria/codeReview/openChat", params)
         const text = prompt(input, await readSettings().catch(() => null))
-        await navigate({ search: { prompt: text }, to: "/" })
+        // On the Code Review page the chat starts beside the pull request, as ChatGPT Desktop's
+        // workspace does; elsewhere it opens on the conversation page.
+        const workspaceKey = surface === "global" ? codeReviewWorkspaceKey(input.url) : null
+        if (workspaceKey) await startWorkspaceThread(workspaceKey, text)
+        else await navigate({ search: { prompt: text }, to: "/" })
         return { threadId: null }
       },
       "cypheria/codeReview/openLink": async (params) => {
@@ -180,7 +190,10 @@ export const useCodeReviewExtensions = (options: {
       },
       "cypheria/codeReview/openThread": async (params) => {
         const { threadId: target } = parse("cypheria/codeReview/openThread", params)
-        await navigate({ search: { thread: target }, to: "/" })
+        const workspaceKey =
+          surface === "global" && selectedUrl ? codeReviewWorkspaceKey(selectedUrl) : null
+        if (workspaceKey) await setWorkspaceThread(workspaceKey, target)
+        else await navigate({ search: { thread: target }, to: "/" })
         return {}
       },
       "cypheria/codeReview/watch/get": async (params) => {
@@ -199,14 +212,12 @@ export const useCodeReviewExtensions = (options: {
       },
       "cypheria/codeReview/pin": async (params) => {
         const { accountKey, item, pinned } = parse("cypheria/codeReview/pin", params)
-        await clientStateStore.set(codeReviewPinsAtom, (pins) => {
-          const others = pins.filter(
-            (pin) =>
-              !(pin.accountKey === accountKey && pin.url.toLowerCase() === item.url.toLowerCase())
-          )
-          return pinned ? [{ ...item, accountKey }, ...others].slice(0, 1200) : others
-        })
-        return { pinned }
+        return { pinned: await setPullRequestPinned(accountKey, item, pinned) }
+      },
+      "cypheria/codeReview/visit": async (params) => {
+        const { accountKey, item } = parse("cypheria/codeReview/visit", params)
+        if (surface !== "global") return { pinned: false }
+        return { pinned: await recordPullRequestVisit(accountKey, item) }
       },
       "cypheria/codeReview/provider": async (params) => {
         const request = parse("cypheria/codeReview/provider", params)

@@ -1,3 +1,8 @@
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import { describe, expect, it } from "vitest"
 
 import { createAgentRegistryPersistenceService } from "./agent.js"
@@ -44,5 +49,51 @@ describe("database baseline migration", () => {
       rows: [],
     })
     database.close()
+  })
+
+  it("moves Code Review runs recorded before 0011 into code_review_runs", async () => {
+    const source = fileURLToPath(new URL("../drizzle", import.meta.url))
+    const folder = mkdtempSync(join(tmpdir(), "cypheria-migrations-"))
+    const database = createInMemoryDatabase()
+    try {
+      cpSync(source, folder, { recursive: true })
+      const journalPath = join(folder, "meta", "_journal.json")
+      const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
+        entries: { idx: number }[]
+      }
+      writeFileSync(
+        journalPath,
+        JSON.stringify({ ...journal, entries: journal.entries.filter((entry) => entry.idx <= 10) })
+      )
+      await applyDatabaseMigrations(database.client, { migrationsFolder: folder })
+      await database.client.execute(
+        `INSERT INTO code_reviews (account_key, pull_request_key, run_id, status, review)
+         VALUES ('account', 'github:github.com:o/r#1', 'run-1', 'completed', '{"runId":"run-1"}')`
+      )
+
+      await applyDatabaseMigrations(database.client)
+
+      const rows = await database.client.execute(
+        "SELECT account_key, pr_key, run_id, status FROM code_review_runs"
+      )
+      expect(rows.rows.map((row) => ({ ...row }))).toEqual([
+        {
+          account_key: "account",
+          pr_key: "github:github.com:o/r#1",
+          run_id: "run-1",
+          status: "completed",
+        },
+      ])
+      const tables = await database.client.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'code_review%'"
+      )
+      expect(tables.rows.map(({ name }) => name).sort()).toEqual([
+        "code_review_prs",
+        "code_review_runs",
+      ])
+    } finally {
+      database.close()
+      rmSync(folder, { force: true, recursive: true })
+    }
   })
 })

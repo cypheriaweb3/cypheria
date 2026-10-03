@@ -82,7 +82,7 @@ Server manages Claude plugins by running the managed Claude CLI's `claude plugin
 - After a change, Server reloads plugins in running Claude sessions unless that would invalidate a session's prompt cache; held sessions pick the change up when they restart.
 - Component details, such as skills and MCP servers, are available for installed plugins and for plugins that live inside their marketplace. Other uninstalled plugins show only their catalog entry.
 
-Cypheria-native plugins are planned to use the same UI contract as other plugins: MCP servers whose MCP Apps and extensions are hosted by the Server for every client, as designed in [Plugin Extensions](plugin-extensions.md). There is no separate Desktop contribution API. Server code runs in a controlled child process, and UI runs in sandboxed frames with scoped host requests rather than Node.js, filesystem, database, or secret access.
+Plugins contribute UI through MCP Apps and the OpenAI MCP Extensions, described in [Plugin Extensions](plugin-extensions.md). Cypheria-native plugins are planned to use the same contract. There is no separate Desktop contribution API. Server code runs in a controlled child process, and UI runs in sandboxed frames with scoped host requests rather than Node.js, filesystem, database, or secret access.
 
 ## Marketplace sources
 
@@ -130,6 +130,25 @@ Code Review uses the GitHub and GitLab connections the user makes here, read thr
 Desktop opens an App's install URL in the system browser. When focus returns, it refreshes App and MCP availability; the external page does not send a trusted local completion callback.
 
 Apps are not renamed into a universal Agent feature. If another harness later offers an equivalent capability, it receives its own harness extension and terminology.
+
+## Hooks
+
+Hooks provide automated command execution and security guards across Agent lifecycles.
+
+### Discovery and sources
+
+- **User hooks:** defined in `~/.cypheria/hooks.json`. Applied universally across all threads.
+- **Project hooks:** defined in `<repo>/.cypheria/hooks.json`. Scoped to workspaces under that repository.
+- **Plugin hooks:** declared in `<plugin_dir>/hooks/hooks.json` or within `plugin.json`'s `hooks` object.
+
+### Trust model
+
+Project-level hooks require explicit trust. The Server calculates a SHA-256 hash of `<repo>/.cypheria/hooks.json`. When the file is first discovered or modified, its trust status transitions to `untrusted` or `modified`, and the hook is skipped during dispatch until the user explicitly trusts it via the UI (`Settings -> Hooks`) or API.
+
+### Execution boundary and deduplication
+
+- **Codex harness:** When the active agent is Codex, plugin-level hooks are not executed in Cypheria's upper layer because Codex natively discovers and runs plugin hooks. Codex native hook runs are collected and reported through `hook/completed`. User-level and project-level Cypheria hooks are always executed by Cypheria.
+- **Other harnesses (Claude, Pi, OpenCode, ACP):** Cypheria's native `HookEngine` executes enabled plugin-level hooks directly for lifecycles like `UserPromptSubmit`, `SessionStart`, `SessionEnd`, and `Stop`.
 
 ## Caching and refresh
 

@@ -253,5 +253,7 @@ export const dismissedAgentCommentsAtom = (threadId: string): ClientStateAtom<st
   return created
 }
 
-/** Pull requests pinned to the Code Review sidebar. */
-export const codeReviewPinsAtom = atomFor(clientSettingDefinitions.codeReviewPins)
+/** Code Review sidebar sections this client shows collapsed. */
+export const codeReviewSidebarCollapsedAtom = atomFor(
+  clientSettingDefinitions.codeReviewSidebarCollapsed
+)

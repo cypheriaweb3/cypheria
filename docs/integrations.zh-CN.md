@@ -82,7 +82,7 @@ Server 通过运行受管 Claude CLI 的 `claude plugin … --json` 命令管理
 - 变更后，Server 会在运行中的 Claude 会话里重新加载插件，除非这会使会话的 prompt cache 失效；被保留的会话在重启后生效。
 - 已安装的插件，以及位于其 marketplace 内部的插件，可以查看 skills、MCP server 等组件详情；其他未安装插件只显示 catalog 条目。
 
-Cypheria 原生插件计划与其他插件使用同一 UI 契约：由 Server 为所有客户端托管其 MCP Apps 与 extensions 的 MCP server，设计见 [Plugin Extensions](plugin-extensions.zh-CN.md)。不另设 Desktop contribution API。Server 代码运行在受控子进程中，UI 运行在沙箱 frame 中，只获得受限的 host 请求，而不是 Node.js、文件系统、数据库或密钥权限。
+插件通过 MCP Apps 与 OpenAI MCP Extensions 提供 UI，见 [Plugin Extensions](plugin-extensions.zh-CN.md)。Cypheria 原生插件计划使用同一契约。不另设 Desktop contribution API。Server 代码运行在受控子进程中，UI 运行在沙箱 frame 中，只获得受限的 host 请求，而不是 Node.js、文件系统、数据库或密钥权限。
 
 ## Marketplace 来源
 
@@ -130,6 +130,25 @@ Apps 遵循 OpenAI App Server/connector 模型，只属于 Codex harness 扩展�
 Desktop 在系统浏览器中打开 App 安装页面。窗口重新获得焦点后，会刷新 App 和 MCP 的可用状态；外部页面不会向本地发送可信的完成回调。
 
 Apps 不会被改名为通用 Agent 功能。如果其他 harness 未来提供类似能力，应获得自己的 harness extension 与术语。
+
+## Hooks
+
+Hooks 为 Agent 提供了跨生命周期的自动化脚本执行与安全防护拦截。
+
+### 发现与来源
+
+- **用户级 Hooks：** 定义在 `~/.cypheria/hooks.json`，在所有会话中全局生效。
+- **项目级 Hooks：** 定义在 `<repo>/.cypheria/hooks.json`，作用于该仓库目录下的工作区。
+- **插件级 Hooks：** 声明在 `<plugin_dir>/hooks/hooks.json` 或 `plugin.json` 的 `hooks` 字段中。
+
+### 信任模型
+
+项目级 Hook 实行显式信任机制。Server 计算 `<repo>/.cypheria/hooks.json` 的 SHA-256 哈希值。当文件首次被发现或内容被篡改时，其信任状态变为 `untrusted` 或 `modified`，在用户于设置界面（`Settings -> Hooks`）或 API 显式确认 Trust 之前跳过执行。
+
+### 执行边界与去重策略
+
+- **Codex Harness：** 当底层 Agent 为 Codex 时，Cypheria 顶层不执行插件级 Hook，由 Codex 底层原生加载并执行该插件的 Hook。Codex 原生 Hook 的执行记录通过 `hook/completed` 统一归集。用户级与项目级 Cypheria Hook 始终由 Cypheria 执行。
+- **其他 Harness（Claude、Pi、OpenCode、ACP）：** Cypheria 原生 `HookEngine` 直接执行已启用的插件级 Hook，为非 Codex 智能体提供统一的 `UserPromptSubmit`、`SessionStart`、`SessionEnd` 和 `Stop` 等生命周期守护能力。
 
 ## 缓存与刷新
 

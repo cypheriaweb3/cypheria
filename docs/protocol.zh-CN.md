@@ -72,7 +72,9 @@ Agent capabilities 会说明创建 Thread 后能否修改 cwd 与 roots。Codex 
 
 列表接口有上限并使用 cursor 分页。Mutation response 返回 Server 权威值，供客户端校正乐观更新。
 
-Thread Attachments 是 Server 共享资源，不是 prompt 内容块或客户端偏好。`thread.attachment.list/add/remove` 管理 pull request 与托管 worktree 关系，`thread.attachment.owners.list` 提供反向查询，upsert/delete notifications 使各客户端保持同步。Pull request URL 由 Server 规范化为稳定的 provider/repository identity。该契约使用 Cypheria Thread ID，适用于所有 Agent，不依赖 harness session ID。
+Thread Attachments 是 Server 共享资源，不是 prompt 内容块或客户端偏好。`thread.attachment.list/add/remove` 管理 pull request 与托管 worktree 关系，`thread.attachment.owners.list` 提供反向查询，upsert/delete notifications 使各客户端保持同步。Pull request URL 由 Server 规范化为稳定的 provider/repository identity。Pull request 附件可以携带其检出的 `root` 和 `headBranch`；Agent 附加的 pull request 会记录 Thread 的工作目录和当前分支，不带检出再次附加时会保留已记录的检出。该契约使用 Cypheria Thread ID，适用于所有 Agent，不依赖 harness session ID。
+
+`thread.workspace-thread.get/set` 读取和设置工作区页面在其 App 旁显示的聊天：插件全局页面的键是 `mcp-app:<入口>`，代码审查中 pull request 的键是 `code-review:<pull request 标识>`；null 表示在那里开始新聊天。`thread.workspace-thread.updated.notification` 通知所有客户端，删除 Thread 会清除该记录。
 
 ## Canonical Timeline
 
@@ -181,9 +183,10 @@ Server 以请求 ID 关联并审计 Git 修改请求的开始和结果。审计�
 `git.worktree-job-start/read/cancel/retry` 返回有界的内存中创建状态（`queued`、`creating`、`setting-up`、`ready`、`failed` 或 `cancelled`）及 setup 输出。每个托管 worktree 都有一个供 Thread Attachments 使用的稳定 UUID；非托管 worktree 不提供 ID。选定起点解析为源 HEAD 时，创建可复制已暂存、未暂存和未跟踪改动；远端起点在启用时会 best-effort 刷新上游。选定的环境配置须为仓库内的普通 JSON 文件，包含 `version: 1`、非空 `name` 和 `setup.script`，可用 `setup.darwin.script` 或 `setup.linux.script` 覆盖。Server 将文件复制到工作树，把工作树内路径写入专属 Git config，并在新工作树中运行脚本，注入 `CODEX_SOURCE_TREE_PATH` 和 `CODEX_WORKTREE_PATH`。setup 失败会保留工作树供重试或明确跳过；创建失败会清理新分配的工作树。
 `git.worktree-move-thread.request` 可选择在源与目标 HEAD 相同且目标干净时复制本地改动。`git.synced-branch-state/sync/undo` 支持将托管 detached worktree 的变更受保护地同步到选定的本地分支。同步可通过临时 index 和合成提交纳入未提交文件，且不改变工作树 index；它会拒绝脏的源 checkout 或已在外部移动的分支，先前的分支提交保存在 `refs/cypheria/worktree-sync/*`，并更新 checkout 与元数据。撤销要求同步后的分支未再次变化。setup 只捕获少量白名单工具链环境变量的变化，将 `codex-shell-environment.json` 写入 worktree Git 目录；Server 在 Codex 线程启动、恢复和 fork 时通过 `shell_environment_policy.set` 传入捕获值，并保留这些值供恢复。
 `git.availability`、`git.remotes`、`git.branch-exists` 和 `git.branch-commits` 提供有界的本地查询；远端身份不包含 URL 凭据。`git.apply-patch` 支持暂存、未暂存及组合目标、反向与二进制补丁、可选原子检查，以及使用临时 index 的未暂存三方应用。`git.apply-changes` 在找到 merge base 后，将源 tree 应用到固定的目标 HEAD。两者返回已应用、跳过及冲突的路径。`git.clone-state.request` 返回浅克隆与部分克隆状态。`git.worktree-starting-ref.request` 将选定分支或修订解析为固定提交。Git config 读写请求只允许操作工作树专属配置中的 `codex.localEnvironmentConfigPath`；启用工作树配置前，读取返回 null。`git.apply-review-sections.request` 按顺序执行最多 100 个固定文件修订的 Review 操作，逐项返回已应用、跳过、过期、冲突或失败结果，调用方可保留成功项并只刷新失败项。Server 短暂缓存仓库发现，并在 Git 修改或文件系统监视事件发生时失效。它广播 `git.repository-changed.notification`，让 Desktop 刷新 Git 和 PR 查询；不支持原生监视时，定期读取仍可作为后备。
-`git.managed-worktrees.request` 按仓库根目录分组列出所有托管工作树，以及每个工作树的所属 Thread 和是否活跃，供工作树设置页使用。拉取请求和合并请求不属于 `git` 能力。
+`git.managed-worktrees.request` 按仓库根目录分组列出所有托管工作树，以及每个工作树的所属 Thread 和是否活跃，供工作树设置页使用。
+`git.pull-request-target.request` 和 `git.pull-request-create.request` 执行[创建 PR 流程](git.zh-CN.md#创建拉取请求)：前者报告检出的拉取请求会去往哪里、哪些来源可以创建它；后者创建分支、提交、推送、创建并附加它，在失败的那一步以 `GIT_PULL_REQUEST_FAILED` 失败。读取和审查拉取请求不属于 `git` 能力。
 
-`client.mcpApps` 覆盖 `mcp-apps` 能力：针对 Server 承载的 MCP App 提供 `mcpApp.tools.list`、`mcpApp.tool.call` 和 `mcpApp.resource.read`。工具结果携带 `structuredContent` 和 `_meta`。资源读取每次最多返回 200,000 个字符，尚有剩余时返回 `nextOffset`，客户端据此分段读取较大的 App。`client.codeReview` 覆盖 `code-review` 能力：`codeReview.setup.get` 报告 ChatGPT 登录状态及 GitHub、GitLab 连接，`codeReview.provider` 为 App 的宿主请求执行固定列表中的某个 GitLab 或 GitHub 后端操作。工具、App 和宿主扩展见[代码审查](code-review.zh-CN.md)。
+`client.extensions` 覆盖 `extensions` 能力：插件 extension catalog、MCP App 实例及其请求、模型上下文、结构化设置、提及，以及 extension 调用产生的表单；消息列表见 [Plugin Extensions](plugin-extensions.zh-CN.md#协议)。App 文档以每段最多 200,000 个字符分段到达，因此中继的消息上限不会截断它。`client.codeReview` 覆盖 `code-review` 能力：`codeReview.setup.get` 报告 ChatGPT 登录状态及 GitHub、GitLab 连接，`codeReview.provider` 为 App 的宿主请求执行固定列表中的某个 GitLab 或 GitHub 后端操作，`codeReview.tool.call` 为没有 App 的宿主界面调用某个 `pull_requests.*` 工具，`codeReview.pullRequests.list/save/remove` 保存提供方账户已固定和最近打开的拉取请求，并以 `codeReview.pullRequests.changed.notification` 通知变更。工具、App 和宿主扩展见[代码审查](code-review.zh-CN.md)。
 
 ## 浏览器 Host 与 Agent 浏览器工具
 

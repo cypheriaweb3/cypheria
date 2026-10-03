@@ -12,6 +12,8 @@ import {
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   type CypheriaBinaryFrame,
+  type ExtensionClientMessage,
+  type ExtensionServerMessage,
   encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
@@ -21,8 +23,6 @@ import {
   type IntegrationServerMessage,
   type MagpieClientMessage,
   type MagpieServerMessage,
-  type McpAppClientMessage,
-  type McpAppServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -88,9 +88,10 @@ export type SessionHost = {
     message: ScheduleClientMessage,
     send: (message: ScheduleServerMessage) => void
   ): Promise<boolean>
-  handleMcpAppMessage?(
-    message: McpAppClientMessage,
-    send: (message: McpAppServerMessage) => void
+  handleExtensionMessage?(
+    message: ExtensionClientMessage,
+    session: { readonly id: string; notify(message: ServerMessage): void },
+    send: (message: ExtensionServerMessage) => void
   ): Promise<boolean>
   handleCodeReviewMessage?(
     message: CodeReviewClientMessage,
@@ -413,10 +414,12 @@ export class ClientSession {
           break
         }
         if (
-          message.type.startsWith("mcpApp.") &&
-          this.#host.handleMcpAppMessage &&
-          (await this.#host.handleMcpAppMessage(message as McpAppClientMessage, (response) =>
-            this.sendTo(source, response)
+          message.type.startsWith("extension.") &&
+          this.#host.handleExtensionMessage &&
+          (await this.#host.handleExtensionMessage(
+            message as ExtensionClientMessage,
+            { id: this.id, notify: (notification) => this.send(notification) },
+            (response) => this.sendTo(source, response)
           ))
         ) {
           break

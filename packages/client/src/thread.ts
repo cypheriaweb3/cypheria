@@ -9,6 +9,7 @@ import type {
   ThreadTimelinePage,
   ThreadView,
   WorkspaceFileReadResult,
+  WorkspaceThread,
 } from "@cypheria/protocol"
 import { decodeFileTransferFrame } from "@cypheria/protocol"
 
@@ -97,6 +98,7 @@ export interface ThreadActions {
     options?: RequestOptions
   ): Promise<ThreadView>
   readonly attachments: ThreadAttachmentActions
+  readonly workspaceThreads: WorkspaceThreadActions
   readonly files: ThreadFileActions
   readonly paths: ThreadPathActions
   readonly inputFiles: ThreadInputFileActions
@@ -199,10 +201,27 @@ export type ThreadAttachmentEvent = Extract<
   }
 >
 
+/** The chat each workspace page, such as a plugin's global page, shows beside its App. */
+export interface WorkspaceThreadActions {
+  get(workspaceKey: string, options?: RequestOptions): Promise<WorkspaceThread>
+  /** Shows a chat on the page; null starts a new one there. */
+  set(
+    workspaceKey: string,
+    threadId: string | null,
+    options?: RequestOptions
+  ): Promise<WorkspaceThread>
+  subscribe(handler: (chat: WorkspaceThread) => void): () => void
+}
+
 export interface ThreadAttachmentActions {
+  /** Attaches a pull request; `root` and `headBranch` name the checkout it was opened from. */
   addPullRequest(
     threadId: string,
     url: string,
+    input?: {
+      readonly root?: string
+      readonly headBranch?: string
+    },
     options?: RequestOptions
   ): Promise<ThreadAttachmentRecord>
   addWorktree(
@@ -441,10 +460,18 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     sync: (input, options) => request("thread.workspace.sync.request", input, options),
   }
   const attachments: ThreadAttachmentActions = {
-    addPullRequest: (threadId, url, options) =>
+    addPullRequest: (threadId, url, input = {}, options) =>
       request(
         "thread.attachment.add.request",
-        { attachment: { attachmentType: "pull_request", url }, threadId },
+        {
+          attachment: {
+            attachmentType: "pull_request",
+            url,
+            ...(input.root ? { root: input.root } : {}),
+            ...(input.headBranch ? { headBranch: input.headBranch } : {}),
+          },
+          threadId,
+        },
         options
       ),
     addWorktree: (threadId, worktreeId, options) =>
@@ -478,11 +505,23 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     },
   }
 
+  const workspaceThreads: WorkspaceThreadActions = {
+    get: (workspaceKey, options) =>
+      request("thread.workspace-thread.get.request", { workspaceKey }, options),
+    set: (workspaceKey, threadId, options) =>
+      request("thread.workspace-thread.set.request", { threadId, workspaceKey }, options),
+    subscribe: (handler) =>
+      client.on("thread.workspace-thread.updated.notification", (message) =>
+        handler(message.payload)
+      ),
+  }
+
   return {
     archive: (threadId, options) => request("thread.archive.request", { threadId }, options),
     archiveMany: (threadIds, options) =>
       request("thread.archive_many.request", { threadIds: [...threadIds] }, options),
     attachments,
+    workspaceThreads,
     cancelTurn: (threadId, turnId, options) =>
       request(
         "thread.turn.cancel.request",

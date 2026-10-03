@@ -16,18 +16,21 @@ import {
 } from "./agent-manager.js"
 import { type ArtifactActions, createArtifactActions } from "./artifact.js"
 import { type BrowserActions, createBrowserActions } from "./browser.js"
+import {
+  type CodeReviewActions,
+  CodeReviewRequestError,
+  createCodeReviewActions,
+} from "./code-review.js"
+import {
+  createExtensionActions,
+  type ExtensionActions,
+  type ExtensionSettingsView,
+} from "./extension.js"
 import { createGitActions, type GitActions } from "./git.js"
 import { createHarnessActions, type HarnessActions } from "./harness.js"
 import { type CodexHarnessActions, createCodexHarnessActions } from "./harness-codex.js"
 import { createIntegrationActions, type IntegrationActions } from "./integration.js"
 import { createMagpieActions, type MagpieActions } from "./magpie.js"
-import {
-  type CodeReviewActions,
-  CodeReviewRequestError,
-  createCodeReviewActions,
-  createMcpAppActions,
-  type McpAppActions,
-} from "./mcp-app.js"
 import {
   createProjectThreadActions,
   type ProjectActions,
@@ -123,8 +126,8 @@ export interface CypheriaApi {
   readonly sections: SectionActions
   readonly schedules: ScheduleActions
   readonly magpie: MagpieActions
-  /** MCP App resources and tools, read and called through the Server. */
-  readonly mcpApps: McpAppActions
+  /** Plugin Extensions: the catalog, MCP App instances, model context, settings, and mentions. */
+  readonly extensions: ExtensionActions
   /** Code Review's host operations: provider connections and host-run provider requests. */
   readonly codeReview: CodeReviewActions
   readonly settings: SettingsActions
@@ -190,7 +193,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
   const magpie = createMagpieActions(serverClient)
-  const mcpApps = createMcpAppActions(serverClient)
+  const extensions = createExtensionActions(serverClient)
   const codeReview = createCodeReviewActions(serverClient)
   const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
@@ -209,7 +212,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     integrations,
     git,
     magpie,
-    mcpApps,
+    extensions,
     codeReview,
     projectThread,
     projects: projectThread.projects,
@@ -275,10 +278,11 @@ export type {
   BrowserActions,
   CodeReviewActions,
   CodexHarnessActions,
+  ExtensionActions,
+  ExtensionSettingsView,
   HarnessActions,
   IntegrationActions,
   MagpieActions,
-  McpAppActions,
   ProjectActions,
   ProjectThreadActions,
   ScheduleActions,

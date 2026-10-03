@@ -1,3 +1,4 @@
+import type { CodeReviewSidebarItem } from "@cypheria/protocol/code-review-app"
 import { Button } from "@cypheria/ui/components/button"
 import {
   DropdownMenu,
@@ -12,7 +13,7 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { ChevronDownIcon, LinkIcon, MessageCircleIcon, PinIcon, SettingsIcon } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 
 import { callTool, ReadFailure } from "../bridge.js"
 import { accountKey, type DetailRequest, usePrivateReview, usePullRequest } from "../data.js"
@@ -46,6 +47,30 @@ export function PullRequestDetail({
   const [pinned, setPinned] = useState(false)
   const privateReview = usePrivateReview(request)
   const client = useQueryClient()
+  const visited = pullRequest.data
+  const visit = visited
+    ? JSON.stringify({
+        authorAvatarUrl: visited.authorAvatarUrl,
+        authorLogin: visited.authorLogin,
+        title: visited.title,
+        url: visited.url,
+      })
+    : null
+  const visitAccount = accountKey(request.account)
+  // Opening a pull request on the Code Review page records it among the recent ones.
+  useEffect(() => {
+    if (surface !== "global" || !visit) return
+    let current = true
+    void host
+      .visit(JSON.parse(visit) as CodeReviewSidebarItem, visitAccount)
+      .then((result) => {
+        if (current) setPinned(result.pinned)
+      })
+      .catch(() => undefined)
+    return () => {
+      current = false
+    }
+  }, [surface, visit, visitAccount])
   const startReview = useMutation({
     mutationFn: (force: boolean) =>
       callTool("pull_requests.startReview", {

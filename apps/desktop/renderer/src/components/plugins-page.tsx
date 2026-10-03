@@ -42,6 +42,7 @@ import {
   Sparkles,
   Trash2,
   Users,
+  Wand2,
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { z } from "zod"
@@ -55,6 +56,7 @@ import type {
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { integrationApi, type PluginAgent } from "../integration-api.js"
+import { PluginExtensionSettings } from "./extensions/plugin-extension-settings.js"
 import {
   openAiPluginCategories,
   openAiPopularPlugins,
@@ -385,6 +387,19 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const tryPrompt = (prompt: string) => {
     void navigate({ to: "/", search: { prompt } })
   }
+  /** Runs the plugin's onboarding skill in a new chat, as the extensions specification asks. */
+  const setUp = useMutation({
+    mutationFn: async (skill: { name: string; path: string }) => {
+      const client = await ensureCypheriaClient()
+      const created = await client.threads.create({ agentId: agent })
+      await client.threads.startTurn({
+        clientMessageId: crypto.randomUUID(),
+        content: [{ id: skill.path, kind: "skill", label: skill.name, type: "reference" }],
+        threadId: created.thread.id,
+      })
+      await navigate({ search: { thread: created.thread.id }, to: "/" })
+    },
+  })
   const mutation = useMutation({
     mutationFn: async (action: {
       type: "install" | "uninstall" | "toggle"
@@ -895,6 +910,19 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                         {copied ? "Copied" : "Copy link"}
                       </Button>
                     )}
+                    {selected.installed && selected.enabled && detail?.onboardingSkill ? (
+                      <Button
+                        disabled={setUp.isPending}
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          detail.onboardingSkill && setUp.mutate(detail.onboardingSkill)
+                        }
+                      >
+                        <Wand2 className="size-4" />
+                        {setUp.isPending ? "Setting up…" : "Set up"}
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
                       className="bg-foreground text-background hover:bg-foreground/85"
@@ -1085,6 +1113,11 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                     </div>
                   </Section>
                 )}
+                {selected.installed ? (
+                  <PluginExtensionSettings
+                    pluginId={`${selected.name}@${selected.marketplaceName}`}
+                  />
+                ) : null}
                 <Section title="Information">
                   <dl className="grid grid-cols-[140px_1fr] gap-y-3 text-sm">
                     {[

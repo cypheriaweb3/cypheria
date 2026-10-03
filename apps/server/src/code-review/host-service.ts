@@ -1,10 +1,20 @@
 import type {
-  CodeReviewClientMessage,
-  CodeReviewGitLabInstance,
-  CodeReviewServerMessage,
-  CodeReviewSettings,
-  CodeReviewSetup,
+  CodeReviewPrPersistenceService,
+  CodeReviewPrRecord,
+  CodeReviewPullRequestList,
+} from "@cypheria/db"
+import {
+  type CodeReviewClientMessage,
+  type CodeReviewGitLabInstance,
+  type CodeReviewPullRequest,
+  type CodeReviewServerMessage,
+  type CodeReviewSettings,
+  type CodeReviewSetup,
+  CodeReviewSidebarItemSchema,
+  type ServerMessage,
 } from "@cypheria/protocol"
+
+import type { AppToolMcpResult } from "../app-tools/service.js"
 
 import {
   type CodeReviewBackend,
@@ -28,6 +38,30 @@ export type CodeReviewHostServiceOptions = {
   /** Plugin names installed in Cypheria's Codex, such as `github` and `gitlab`. */
   readonly installedPlugins: () => Promise<ReadonlySet<string>>
   readonly hostId?: string
+  /** Calls a `pull_requests.*` tool for a host surface that has no App open. */
+  readonly callTool?: (name: string, args: Record<string, unknown>) => Promise<AppToolMcpResult>
+  /** Pinned and recently opened pull requests, shared by every client. */
+  readonly savedPullRequests?: CodeReviewPrPersistenceService
+  readonly publish?: (message: ServerMessage) => void
+}
+
+/** The key a list stores a pull request URL under; URLs differ only in case for one PR. */
+const urlKey = (url: string): string => {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error("Pull request URL is invalid")
+  }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
+    throw new Error("Pull request URL must be an HTTPS URL without credentials")
+  }
+  return url.toLowerCase()
+}
+
+const savedItem = (record: CodeReviewPrRecord): CodeReviewPullRequest | null => {
+  const item = CodeReviewSidebarItemSchema.safeParse(record.item)
+  return item.success ? { ...item.data, savedAt: record.savedAt } : null
 }
 
 /** A connector link Code Review may act through. */
@@ -104,6 +138,16 @@ export class CodeReviewHostService {
     this.#hostId = options.hostId ?? "local"
   }
 
+  async #callTool(name: string, args: Record<string, unknown>) {
+    if (!this.#options.callTool) throw new Error("Code Review tools are unavailable")
+    const result = await this.#options.callTool(name, args)
+    return {
+      content: [...result.content],
+      isError: result.isError,
+      ...(result.structuredContent ? { structuredContent: result.structuredContent } : {}),
+    }
+  }
+
   async handle(
     request: CodeReviewClientMessage,
     send: (message: CodeReviewServerMessage) => void
@@ -113,7 +157,33 @@ export class CodeReviewHostService {
       const value =
         request.type === "codeReview.setup.get.request"
           ? await this.setup()
-          : { value: await this.provider(request.payload) }
+          : request.type === "codeReview.tool.call.request"
+            ? await this.#callTool(request.payload.name, request.payload.arguments)
+            : request.type === "codeReview.pullRequests.list.request"
+              ? {
+                  items: await this.listPullRequests(
+                    request.payload.list,
+                    request.payload.accountKey
+                  ),
+                }
+              : request.type === "codeReview.pullRequests.save.request"
+                ? {
+                    item: await this.savePullRequest(
+                      request.payload.list,
+                      request.payload.accountKey,
+                      request.payload.item,
+                      request.payload.updateOnly ?? false
+                    ),
+                  }
+                : request.type === "codeReview.pullRequests.remove.request"
+                  ? {
+                      removed: await this.removePullRequest(
+                        request.payload.list,
+                        request.payload.accountKey,
+                        request.payload.url
+                      ),
+                    }
+                  : { value: await this.provider(request.payload) }
       send({
         payload: { ok: true, value },
         requestId: request.requestId,
@@ -136,6 +206,53 @@ export class CodeReviewHostService {
       } as CodeReviewServerMessage)
     }
     return true
+  }
+
+  #saved(): CodeReviewPrPersistenceService {
+    if (!this.#options.savedPullRequests) throw new Error("Saved pull requests are unavailable")
+    return this.#options.savedPullRequests
+  }
+
+  #changed(list: CodeReviewPullRequestList, accountKey: string): void {
+    this.#options.publish?.({
+      payload: { accountKey, list },
+      type: "codeReview.pullRequests.changed.notification",
+    })
+  }
+
+  async listPullRequests(
+    list: CodeReviewPullRequestList,
+    accountKey: string
+  ): Promise<CodeReviewPullRequest[]> {
+    return (await this.#saved().list(list, accountKey))
+      .map(savedItem)
+      .filter((item) => item !== null)
+  }
+
+  async savePullRequest(
+    list: CodeReviewPullRequestList,
+    accountKey: string,
+    item: CodeReviewPullRequest | Omit<CodeReviewPullRequest, "savedAt">,
+    updateOnly: boolean
+  ): Promise<CodeReviewPullRequest | null> {
+    const { savedAt: _savedAt, ...value } = item as CodeReviewPullRequest
+    const stored = CodeReviewSidebarItemSchema.parse(value)
+    const record = await this.#saved().save(list, accountKey, urlKey(stored.url), stored, {
+      updateOnly,
+    })
+    if (!record) return null
+    this.#changed(list, accountKey)
+    return savedItem(record)
+  }
+
+  async removePullRequest(
+    list: CodeReviewPullRequestList,
+    accountKey: string,
+    url: string
+  ): Promise<boolean> {
+    const removed = await this.#saved().remove(list, accountKey, urlKey(url))
+    if (removed) this.#changed(list, accountKey)
+    return removed
   }
 
   /** Runs one whitelisted provider operation for the App, as the official host bridge does. */

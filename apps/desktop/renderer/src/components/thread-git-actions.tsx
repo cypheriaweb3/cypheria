@@ -1,5 +1,13 @@
 import { Button } from "@cypheria/ui/components/button"
+import { ButtonGroup } from "@cypheria/ui/components/button-group"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@cypheria/ui/components/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,15 +18,19 @@ import {
 } from "@cypheria/ui/components/dropdown-menu"
 import { BranchIcon } from "@cypheria/ui/components/icons"
 import { Input } from "@cypheria/ui/components/input"
+import { Label } from "@cypheria/ui/components/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@cypheria/ui/components/popover"
+import { toast } from "@cypheria/ui/components/toast"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { ChevronDown } from "lucide-react"
 import { useId, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
-import { useThreadPullRequest } from "./code-review/thread-pull-request.js"
+import { type ThreadPullRequest, useThreadPullRequest } from "./code-review/thread-pull-request.js"
+import { CreatePullRequestDialog } from "./create-pull-request-dialog.js"
 import { commitChanges, hasCommittableChanges } from "./git-commit-actions.js"
 
 /**
@@ -48,6 +60,8 @@ export function ThreadGitActions({
   const [includeUnstaged, setIncludeUnstaged] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [attaching, setAttaching] = useState(false)
   const status = useQuery({
     queryFn: async () => (await ensureCypheriaClient()).git.status(cwd),
     queryKey: ["git", cwd, "status"],
@@ -55,7 +69,7 @@ export function ThreadGitActions({
     retry: false,
   })
   const branch = status.data?.branch ?? null
-  const pullRequest = useThreadPullRequest({ branch, cwd, threadId })
+  const pullRequest = useThreadPullRequest({ threadId })
   if (!status.data) return null
 
   const entries = status.data.entries
@@ -83,6 +97,32 @@ export function ThreadGitActions({
       setMessage("")
     })
   const pr = pullRequest.data
+  /** Detaches the pull request, with an undo that attaches it again with its checkout. */
+  const detach = async (owner: string, target: ThreadPullRequest) => {
+    const client = await ensureCypheriaClient()
+    try {
+      await client.threads.attachments.remove(owner, "pull_request", target.identityKey)
+    } catch (cause) {
+      toast.add({
+        description: cause instanceof Error ? cause.message : String(cause),
+        type: "error",
+      })
+      return
+    }
+    toast.add({
+      actionProps: {
+        children: i18n._(msg({ id: "thread.git.undo", message: "Undo" })),
+        onClick: () =>
+          void client.threads.attachments
+            .addPullRequest(owner, target.url, target.checkout)
+            .catch(() => undefined),
+      },
+      title: i18n._({
+        ...msg({ id: "thread.git.prDetached", message: "Detached #{number} from this chat" }),
+        values: { number: target.number },
+      }),
+    })
+  }
 
   return (
     <div className="flex shrink-0 items-center gap-1" data-slot="thread-git-actions">
@@ -244,27 +284,127 @@ export function ThreadGitActions({
                 <Trans id="thread.git.addPrToChat">Add to chat</Trans>
               </DropdownMenuItem>
             ) : null}
+            {threadId ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => void detach(threadId, pr)}>
+                  <Trans id="thread.git.detachPr">Detach from chat</Trans>
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : branch && pullRequest.isSuccess && onAddToChat ? (
-        <Button
-          onClick={() =>
-            onAddToChat(
-              i18n._(
-                msg({
-                  id: "thread.git.createPrPrompt",
-                  message: "Open a pull request for the current branch.",
-                })
-              )
-            )
-          }
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <Trans id="thread.git.createPr">Create PR</Trans>
-        </Button>
+      ) : !pullRequest.isFetching ? (
+        <ButtonGroup>
+          <Button onClick={() => setCreating(true)} size="sm" type="button" variant="outline">
+            <Trans id="thread.git.createPr">Create PR</Trans>
+          </Button>
+          {threadId ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    aria-label={i18n._(
+                      msg({ id: "thread.git.prMore", message: "More pull request actions" })
+                    )}
+                    size="icon-sm"
+                    type="button"
+                    variant="outline"
+                  />
+                }
+              >
+                <ChevronDown className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setAttaching(true)}>
+                  <Trans id="thread.git.attachPr">Attach existing pull request…</Trans>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </ButtonGroup>
+      ) : null}
+      <CreatePullRequestDialog
+        cwd={cwd}
+        open={creating}
+        threadId={threadId}
+        onOpenChange={setCreating}
+      />
+      {threadId ? (
+        <AttachPullRequestDialog open={attaching} threadId={threadId} onOpenChange={setAttaching} />
       ) : null}
     </div>
+  )
+}
+
+/** Attaches a pull request a person pastes; the Server checks its URL. */
+function AttachPullRequestDialog({
+  open,
+  onOpenChange,
+  threadId,
+}: Readonly<{ open: boolean; onOpenChange: (open: boolean) => void; threadId: string }>) {
+  const { i18n } = useLingui()
+  const inputId = useId()
+  const [url, setUrl] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const attach = async () => {
+    if (!url.trim() || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await (await ensureCypheriaClient()).threads.attachments.addPullRequest(threadId, url.trim())
+      setUrl("")
+      onOpenChange(false)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            <Trans id="thread.git.attachPrTitle">Attach pull request</Trans>
+          </DialogTitle>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void attach()
+          }}
+        >
+          <Label htmlFor={inputId}>
+            <Trans id="thread.git.attachPrUrl">Pull request or merge request URL</Trans>
+          </Label>
+          <Input
+            autoFocus
+            disabled={busy}
+            id={inputId}
+            placeholder={i18n._(
+              msg({
+                id: "thread.git.attachPrPlaceholder",
+                message: "https://github.com/owner/repository/pull/1",
+              })
+            )}
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+          />
+          {error ? (
+            <p className="text-destructive text-xs" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button disabled={busy || !url.trim()} type="submit">
+              <Trans id="thread.git.attachPrSubmit">Attach</Trans>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

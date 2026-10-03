@@ -20,6 +20,8 @@ import {
   createWebSocketProtocols,
   decodeCypheriaBinaryFrame,
   decodeWSOutboundMessage,
+  type ExtensionClientMessage,
+  type ExtensionServerMessage,
   encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
@@ -31,8 +33,6 @@ import {
   isClientResponseMessage,
   type MagpieClientMessage,
   type MagpieServerMessage,
-  type McpAppClientMessage,
-  type McpAppServerMessage,
   type NetworkProxySettings,
   type NetworkProxySnapshot,
   type NetworkProxyTestResult,
@@ -635,18 +635,18 @@ export class ServerClient {
     return message as MagpieServerMessage
   }
 
-  async requestMcpApp(
-    type: McpAppClientMessage["type"],
+  async requestExtension(
+    type: ExtensionClientMessage["type"],
     payload: unknown,
     options?: RequestOptions
-  ): Promise<McpAppServerMessage> {
+  ): Promise<ExtensionServerMessage> {
     const message = await this.#request(
-      { payload, requestId: this.#nextRequestId("mcp-app"), type } as McpAppClientMessage,
+      { payload, requestId: this.#nextRequestId("extension"), type } as ExtensionClientMessage,
       type.replace(/\.request$/, ".response"),
       options,
-      SERVER_CAPABILITIES.mcpApps
+      SERVER_CAPABILITIES.extensions
     )
-    return message as McpAppServerMessage
+    return message as ExtensionServerMessage
   }
 
   async requestCodeReview(

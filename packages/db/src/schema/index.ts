@@ -1,7 +1,12 @@
 export { agentRegistry } from "./agent.js"
 export { auditLogs, runtimeMetadata, settings, workspaces } from "./base.js"
 export { dappOrigins, dappPermissions, solanaDappPermissions } from "./browser.js"
-export { codeReviewStatuses, codeReviews } from "./code-review.js"
+export {
+  codeReviewPrs,
+  codeReviewPullRequestLists,
+  codeReviewRuns,
+  codeReviewStatuses,
+} from "./code-review.js"
 export { dappNetworkContexts, networkRpcEndpoints, networks } from "./network.js"
 export { pluginMarketplaces } from "./plugin.js"
 export {
@@ -33,3 +38,4 @@ export {
   walletHdSchemes,
   wallets,
 } from "./wallet.js"
+export { workspaceThreads } from "./workspace-thread.js"

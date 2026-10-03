@@ -1,14 +1,16 @@
-import type { McpAppToolResult } from "@cypheria/protocol"
 import { useQuery } from "@tanstack/react-query"
 import { z } from "zod"
 
 import { ensureCypheriaClient } from "../../cypheria-client.js"
 import { useThreadAttachments } from "../../thread-attachments.js"
-import { CODE_REVIEW_SERVER } from "./host.js"
 
 /** A Thread's pull request as its header shows it. */
 export type ThreadPullRequest = {
   readonly url: string
+  /** Its Thread Attachment identity. */
+  readonly identityKey: string
+  /** The attachment's checkout, which undoing a detach restores. */
+  readonly checkout: { readonly root?: string; readonly headBranch?: string }
   readonly number: number
   readonly provider: "github" | "gitlab"
   readonly state: "open" | "closed" | "merged" | null
@@ -16,7 +18,11 @@ export type ThreadPullRequest = {
   readonly ciStatus: "failing" | "none" | "passing" | "pending" | null
 }
 
-const structured = (result: McpAppToolResult) => {
+const structured = (result: {
+  content: unknown[]
+  isError: boolean
+  structuredContent?: Record<string, unknown>
+}) => {
   if (result.isError) {
     const text = result.content.find(
       (item): item is { type: "text"; text: string } =>
@@ -28,32 +34,8 @@ const structured = (result: McpAppToolResult) => {
 }
 
 const callTool = async (name: string, args: Record<string, unknown>) =>
-  structured(
-    await (await ensureCypheriaClient()).mcpApps.callTool({
-      arguments: args,
-      name,
-      server: CODE_REVIEW_SERVER,
-    })
-  )
+  structured(await (await ensureCypheriaClient()).codeReview.callTool(name, args))
 
-const AccountSchema = z.object({
-  currentUser: z.object({
-    status: z.literal("success"),
-    account: z.object({ hostname: z.string(), login: z.string() }).passthrough(),
-  }),
-})
-const SearchSchema = z.object({
-  items: z.array(
-    z
-      .object({
-        url: z.string(),
-        state: z.enum(["open", "closed", "merged"]),
-        isDraft: z.boolean(),
-        pullRequest: z.object({ number: z.number() }).passthrough(),
-      })
-      .passthrough()
-  ),
-})
 const SummarySchema = z
   .object({
     status: z.string(),
@@ -64,68 +46,48 @@ const SummarySchema = z
   .passthrough()
 
 /**
- * The pull request a Thread works on: the one attached to the Thread, or else the open GitHub pull
- * request of its branch, found through Code Review with the account the user linked in ChatGPT.
+ * The pull request a Thread works on: the one most recently attached to it. As in ChatGPT
+ * Desktop, a Thread without a pull request attachment shows none; nothing is inferred from its
+ * branch.
  */
-export const useThreadPullRequest = (input: {
-  cwd: string
-  threadId: string | null
-  branch: string | null
-}) => {
+export const useThreadPullRequest = (input: { threadId: string | null }) => {
   const attachments = useThreadAttachments("pull_request")
   const attached = (attachments.data ?? [])
     .filter((attachment) => attachment.threadId === input.threadId)
-    .sort((left, right) => right.createdAt - left.createdAt)[0]
-  const attachedUrl =
-    attached && typeof (attached.payload as { url?: unknown }).url === "string"
-      ? (attached.payload as { url: string }).url
-      : null
+    .reduce<(typeof attachments.data & object)[number] | null>(
+      (latest, attachment) =>
+        latest === null || attachment.updatedAt >= latest.updatedAt ? attachment : latest,
+      null
+    )
+  const payload = attached?.payload as
+    | { url?: unknown; root?: unknown; headBranch?: unknown }
+    | undefined
+  const url = typeof payload?.url === "string" ? payload.url : null
+  const identityKey = attached?.identityKey ?? null
+  const root = typeof payload?.root === "string" ? payload.root : null
+  const headBranch = typeof payload?.headBranch === "string" ? payload.headBranch : null
   return useQuery({
-    enabled: Boolean(attachedUrl || input.branch),
+    enabled: url !== null,
     queryFn: async (): Promise<ThreadPullRequest | null> => {
-      const client = await ensureCypheriaClient()
-      let url = attachedUrl
-      if (!url && input.branch) {
-        const remote = (await client.git.remotes(input.cwd).catch(() => [])).find(
-          (entry) => entry.name === "origin"
-        )
-        if (!remote || remote.host === "gitlab.com") return null
-        const settings = (await client.settings.get()).config.codeReview
-        const connection =
-          settings.githubConnection?.hostname === remote.host ? settings.githubConnection : null
-        const account = AccountSchema.safeParse(
-          await callTool("pull_requests.account", {
-            hostname: remote.host,
-            ...(connection
-              ? {
-                  connection: {
-                    accountLinkId: connection.accountLinkId,
-                    connectorId: connection.connectorId,
-                  },
-                }
-              : {}),
-          }).catch(() => null)
-        )
-        if (!account.success) return null
-        const found = SearchSchema.parse(
-          await callTool("pull_requests.search", {
-            account: account.data.currentUser.account,
-            hostname: remote.host,
-            lifecycle: "all",
-            pageSize: 1,
-            rawQuery: `repo:${remote.repository} head:${input.branch}`,
-            relationship: "all",
-          })
-        ).items[0]
-        if (!found) return null
-        url = found.url
+      if (!url || !identityKey) return null
+      const checkout = {
+        ...(root ? { root } : {}),
+        ...(headBranch ? { headBranch } : {}),
       }
-      if (!url) return null
       const parsed = new URL(url)
       const gitlab = parsed.pathname.includes("/-/merge_requests/")
       const number = Number(parsed.pathname.split("/").filter(Boolean).at(-1))
       if (gitlab) {
-        return { ciStatus: null, isDraft: false, number, provider: "gitlab", state: null, url }
+        return {
+          checkout,
+          ciStatus: null,
+          identityKey,
+          isDraft: false,
+          number,
+          provider: "gitlab",
+          state: null,
+          url,
+        }
       }
       const [owner, repository] = parsed.pathname.split("/").filter(Boolean)
       const summary = SummarySchema.safeParse(
@@ -135,7 +97,9 @@ export const useThreadPullRequest = (input: {
       )
       const value = summary.success && summary.data.status === "success" ? summary.data : null
       return {
+        checkout,
         ciStatus: value?.ciStatus ?? null,
+        identityKey,
         isDraft: value?.isDraft ?? false,
         number,
         provider: "github",
@@ -146,10 +110,11 @@ export const useThreadPullRequest = (input: {
     queryKey: [
       "code-review",
       "thread-pull-request",
-      input.cwd,
       input.threadId,
-      input.branch,
-      attachedUrl,
+      identityKey,
+      url,
+      root,
+      headBranch,
     ],
     refetchInterval: 60_000,
     retry: false,
