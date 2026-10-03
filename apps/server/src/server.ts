@@ -116,6 +116,7 @@ import { IntegrationService } from "./integration-service.js"
 import { MagpieManager } from "./magpie/magpie-manager.js"
 import { MagpieService } from "./magpie/magpie-service.js"
 import { NetworkProxyStore } from "./network-proxy-store.js"
+import { NodeReplHostManager } from "./node-repl/host-manager.js"
 import { ProjectThreadService } from "./project-thread-service.js"
 import { RelayConnection } from "./relay-connection.js"
 import { loadOrCreateRelayKeyPair } from "./relay-key.js"
@@ -180,6 +181,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
   readonly browserTools: BrowserToolsService
+  readonly nodeReplHostManager: NodeReplHostManager
   readonly projectThread: ProjectThreadService
   readonly appTools: AppToolService
   readonly appToolGrants = new AppToolGrants()
@@ -235,6 +237,16 @@ export class CypheriaServer implements HttpAppHost {
       audit: this.web3.audit,
       enabled: () => this.configStore.getSnapshot().config.browserTools.enabled,
     })
+    this.nodeReplHostManager = new NodeReplHostManager({
+      browserTools: this.browserTools,
+      logger: this.logger.child({ service: "node-repl" }),
+      resolveCodexPath: async () => {
+        const receipt = await this.agentManager.installer
+          .readCurrent("codex")
+          .catch(() => undefined)
+        return receipt?.command ?? "codex"
+      },
+    })
     this.registry = new ConnectionRegistry({
       helloTimeoutMs: this.config.sessionHelloTimeoutMs,
       host: this,
@@ -244,6 +256,7 @@ export class CypheriaServer implements HttpAppHost {
       logger: this.logger.child({ service: "agents" }),
       cacheDir: this.runtime.paths.cacheDir,
       cypheriaHome: this.runtime.paths.cypheriaHome,
+      nodeReplHostManager: this.nodeReplHostManager,
       persistence: createAgentRegistryPersistenceService(this.database.db),
       publish: (message) => {
         this.registry.broadcast(message)
@@ -1527,6 +1540,7 @@ export class CypheriaServer implements HttpAppHost {
     await this.extensions.dispose()
     await this.privateReviews.dispose()
     await this.magpieManager.shutdown()
+    await this.nodeReplHostManager.closeAll()
 
     const results = await Promise.allSettled([
       this.#closeHttpListener(),

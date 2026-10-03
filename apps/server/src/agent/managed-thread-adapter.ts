@@ -857,12 +857,17 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#ownerThreadId = input.threadId
     this.#cwd = input.cwd
     if (this.agentId === "codex") {
+      const nodeRepl = await this.#manager.nodeReplHostManager?.ensureHostService(
+        input.threadId,
+        input.cwd
+      )
       const response = await this.#request(input.threadId, {
         ...codexThreadStartParams({
           config: input.config,
           cwd: input.cwd,
           developerInstructions: await this.#manager.codexDeveloperInstructions(input.cwd),
           dynamicTools: await this.#manager.codexDynamicTools.resolveSpecs(),
+          nodeReplConfig: nodeRepl?.config as Record<string, unknown> | undefined,
           permissions: await this.#codexPermissions(input.config, input, "start"),
           workspaceRoots: input.workspaceRoots,
           worktreeConfig: await this.#manager.codexWorktreeConfig?.(input.cwd),
@@ -927,10 +932,15 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#config = input.config ?? this.#config
 
     if (this.agentId === "codex") {
+      const nodeRepl = await this.#manager.nodeReplHostManager?.ensureHostService(
+        input.sourceThreadId,
+        input.cwd
+      )
       const response = await this.#request(input.sourceThreadId, {
         ...codexThreadForkParams({
           config: this.#config,
           cwd: input.cwd,
+          nodeReplConfig: nodeRepl?.config as Record<string, unknown> | undefined,
           permissions: await this.#codexPermissions(this.#config, input, "start"),
           workspaceRoots: input.workspaceRoots,
           worktreeConfig: await this.#manager.codexWorktreeConfig?.(input.cwd),
@@ -1187,11 +1197,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#config = input.config ?? this.#config
     if (this.agentId === "codex") {
       if (!input.agentSessionId) return this.create({ ...input, config: this.#config })
+      const nodeRepl = await this.#manager.nodeReplHostManager?.ensureHostService(
+        input.threadId,
+        input.cwd
+      )
       const response = await this.#request(input.threadId, {
         ...codexThreadResumeParams({
           config: this.#config,
           cwd: input.cwd,
           developerInstructions: await this.#manager.codexDeveloperInstructions(input.cwd),
+          nodeReplConfig: nodeRepl?.config as Record<string, unknown> | undefined,
           permissions: await this.#codexPermissions(this.#config, input, "start"),
           threadId: input.agentSessionId,
           workspaceRoots: input.workspaceRoots,

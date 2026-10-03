@@ -26,6 +26,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `apps/expo` | Expo Router 基础和静态 web 导出 |
 | `apps/cli` | 非 TUI 协议客户端和本地 Server 生命周期命令 |
 | `apps/relay` | Go 加密 relay 数据平面 |
+| `apps/node-repl` | Go node_repl MCP 服务端与 supervisor，用于持久化沙箱 JavaScript 执行 |
 | `apps/website` | 部署于 Cloudflare Workers 的 TanStack Start 官网与 Fumadocs 文档站 |
 
 已实现包：
@@ -47,6 +48,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `plugins` | 内置的 `cypheria-bundled` marketplace：Codex 与 Claude 的 marketplace 文件，与其列出的插件放在一起 |
 | `plugins/cypheria-app-tools` | App tools 插件：manifest 与 MCP relay，无需构建 |
 | `plugins/code-review` | `code-review` 插件及其包：manifest、`src/server` 中的 MCP relay，以及 `src/app` 中的代码审查 MCP App，构建为 `dist/app.html` |
+| `plugins/browser` | 内置浏览器自动化插件：manifest、browser-client 运行时及技能 |
 
 在源码 checkout 中，Agent 从 `plugins/` 安装内置插件。Server 构建会在 `apps/server/dist/marketplace` 中组装 marketplace，并以与 `node plugins/code-review/scripts/build.mjs --plugin-dir <dir>` 相同的方式打包 `code-review`，因此安装后的插件只包含 manifest、relay 与构建后的 App。
 

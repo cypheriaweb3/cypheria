@@ -57,7 +57,7 @@ The bundled plugins are how Codex and Claude reach Cypheria's own tools. Each de
 
 - `cypheria-app-tools`, server `cypheria_app_tools`: the Thread, project, sidebar, worktree, handoff, and automation tools listed in [Agent harnesses](agent-harnesses.md#codex).
 - `code-review`, server `code-review`: the official plugin's 31 `pull_requests.*` tools and its MCP App `ui://pull-requests/app`. Only `pull_requests.checks` is visible to the model; it reads a GitHub pull request's checks or a GitLab merge request's pipelines through OpenAI's backend, without job logs. The other tools serve the App, which Desktop hosts as the Code Review page and the Thread pull request panel. Server serves the App resource and the tool list itself; see [Code Review](code-review.md).
-- `browser`, server `browser`: the 27 built-in browser automation tools (navigation, tab management, DOM snapshots, visual screenshots, selector and coordinate interaction, QR code scanning, asset extraction, and turn/deliverable/handoff lifecycle management).
+- `browser`: the built-in browser automation plugin. For Codex, it operates through `node-repl` and `browser-client.mjs` over a local Unix domain socket bridge, with `turn_ended` hooks for turn lifecycle and temporary tab cleanup. For Claude, it provides the browser automation MCP server.
 
 Agents do local Git work with `git` and `gh` in their own commands; the Server Git protocol stays a client contract and is not offered to the model, as in the official desktop.
 

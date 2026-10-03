@@ -35,6 +35,7 @@ import {
 import type { AgentAcpClientMessage, AgentAcpServerMessage } from "@cypheria/protocol/acp-adapter"
 import { ModelRuntime, type ModelRuntimeAuthOverrides } from "@earendil-works/pi-coding-agent"
 import type { Logger } from "pino"
+import type { NodeReplHostManager } from "../node-repl/host-manager.js"
 import type { ThreadHarnessAdapter } from "../thread/harness-adapter.js"
 import {
   authenticateAcp,
@@ -139,6 +140,7 @@ export type AgentManagerOptions = {
   prepareAppTools?: (agentId: AgentId) => Promise<void>
   networkBootstrap?: boolean
   installer?: Pick<AgentInstaller, "cleanupInterrupted" | "install" | "readCurrent" | "uninstall">
+  nodeReplHostManager?: NodeReplHostManager
 }
 
 export type AgentThreadCoordinator = {
@@ -308,6 +310,16 @@ export class AgentManager {
       cypheriaHome: options.cypheriaHome,
       toolchains: this.#toolchainsFor("opencode"),
     })
+    this.nodeReplHostManager = options.nodeReplHostManager
+  }
+
+  readonly nodeReplHostManager: NodeReplHostManager | undefined
+
+  get installer(): Pick<
+    AgentInstaller,
+    "cleanupInterrupted" | "install" | "readCurrent" | "uninstall"
+  > {
+    return this.#installer
   }
 
   /** Returns per-agent home-directory isolation env vars for each registry agent. */
@@ -429,6 +441,7 @@ export class AgentManager {
     this.#piRuntimes.delete(sessionId)
     if (pi) await (await pi.catch(() => undefined))?.stop()
     this.#codexRuntime?.detachSession(sessionId)
+    await this.nodeReplHostManager?.closeHostService(sessionId)
     for (const [key, controller] of this.#subscriptions) {
       if (key.startsWith(prefix)) {
         controller.abort()

@@ -9,18 +9,18 @@ import { BUNDLED_PLUGIN_NAMES } from "./plugin-utils.js"
 const root = fileURLToPath(new URL("../../../../plugins/", import.meta.url))
 const json = async (path: string) => JSON.parse(await readFile(`${root}${path}`, "utf8"))
 
-/** Each bundled plugin and the one MCP server it declares. */
+/** Each bundled plugin with an MCP server and the server it declares. */
 const SERVERS = {
-  browser: "browser",
   "code-review": "code-review",
   "cypheria-app-tools": "cypheria_app_tools",
-}
+} as const
+type McpPluginName = keyof typeof SERVERS
 /** Where each plugin keeps the relay its MCP server runs. */
-const RELAYS = {
-  browser: "mcp/server.mjs",
+const RELAYS: Record<McpPluginName, string> = {
   "code-review": "src/server/relay.mjs",
   "cypheria-app-tools": "mcp/server.mjs",
 }
+const MCP_PLUGIN_NAMES = Object.keys(SERVERS) as readonly McpPluginName[]
 
 describe("bundled Cypheria marketplace", () => {
   it("ships each plugin with a manifest for every supported Agent at the same version", async () => {
@@ -50,12 +50,12 @@ describe("bundled Cypheria marketplace", () => {
     }
   })
 
-  it("runs the same relay for each plugin's one MCP server", async () => {
+  it("runs the same relay for each MCP plugin's server", async () => {
     const relays = await Promise.all(
-      BUNDLED_PLUGIN_NAMES.map((name) => readFile(`${root}${name}/${RELAYS[name]}`, "utf8"))
+      MCP_PLUGIN_NAMES.map((name) => readFile(`${root}${name}/${RELAYS[name]}`, "utf8"))
     )
     expect(new Set(relays).size).toBe(1)
-    for (const name of BUNDLED_PLUGIN_NAMES) {
+    for (const name of MCP_PLUGIN_NAMES) {
       const server = SERVERS[name]
       const codex = await json(`${name}/.codex-mcp.json`)
       const claude = await json(`${name}/.claude-mcp.json`)
@@ -71,8 +71,23 @@ describe("bundled Cypheria marketplace", () => {
     }
   })
 
+  it("configures turn_ended hooks on node_repl for the browser plugin in Codex", async () => {
+    const codex = await json("browser/.codex-plugin/plugin.json")
+    expect(codex.hooks.hooks.Stop[0].hooks[0]).toEqual({
+      type: "mcp_tool",
+      server: "node_repl",
+      tool: "turn_ended",
+      input: {
+        hook_event_name: "${" + "hook_event_name}",
+        session_id: "${" + "session_id}",
+        turn_id: "${" + "turn_id}",
+      },
+    })
+    expect(codex.mcpServers).toBeUndefined()
+  })
+
   it("gives every Agent process the app tools token instead of the Server token", async () => {
-    for (const name of BUNDLED_PLUGIN_NAMES) {
+    for (const name of MCP_PLUGIN_NAMES) {
       const server = SERVERS[name]
       const codex = await json(`${name}/.codex-mcp.json`)
       const claude = await json(`${name}/.claude-mcp.json`)

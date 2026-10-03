@@ -98,4 +98,19 @@ describe("codexThreadConfig", () => {
       "features.request_permissions_tool": true,
     })
   })
+
+  it("injects node_repl into mcp_servers when nodeReplConfig is provided", () => {
+    const nodeReplConfig = {
+      command: "/path/to/node_repl",
+      env: { TEST: "1" },
+    }
+    expect(
+      codexThreadConfig({ ...base, config: { ...config, thinking: null }, nodeReplConfig })
+    ).toEqual({
+      "features.request_permissions_tool": true,
+      mcp_servers: {
+        node_repl: nodeReplConfig,
+      },
+    })
+  })
 })

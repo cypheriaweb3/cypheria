@@ -18,6 +18,8 @@ export type CodexLaunchInput = {
   readonly workspaceRoots?: readonly string[]
   /** Extra `config` overrides, such as the managed shell environment of a worktree. */
   readonly worktreeConfig?: Record<string, unknown>
+  /** Configuration for node_repl MCP server */
+  readonly nodeReplConfig?: Record<string, unknown>
 }
 
 /**
@@ -25,11 +27,19 @@ export type CodexLaunchInput = {
  * `config.toml`. Cypheria sends nothing about features, tools, or MCP here, because those come from
  * Codex's own configuration and the managed plugins.
  */
-export const codexThreadConfig = (input: CodexLaunchInput): Record<string, unknown> => ({
-  ...(input.worktreeConfig ?? {}),
-  ...(input.config.thinking ? { model_reasoning_effort: input.config.thinking } : {}),
-  [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
-})
+export const codexThreadConfig = (input: CodexLaunchInput): Record<string, unknown> => {
+  const mcpServers = {
+    ...((input.worktreeConfig?.mcp_servers as Record<string, unknown> | undefined) ?? {}),
+    ...(input.nodeReplConfig ? { node_repl: input.nodeReplConfig } : {}),
+  }
+
+  return {
+    ...(input.worktreeConfig ?? {}),
+    ...(input.config.thinking ? { model_reasoning_effort: input.config.thinking } : {}),
+    [CODEX_REQUEST_PERMISSIONS_TOOL]: true,
+    ...(Object.keys(mcpServers).length > 0 ? { mcp_servers: mcpServers } : {}),
+  }
+}
 
 const sharedFields = (input: CodexLaunchInput) => ({
   ...(input.config.model ? { model: input.config.model } : {}),

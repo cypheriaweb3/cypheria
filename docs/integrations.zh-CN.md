@@ -57,7 +57,7 @@ Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本�
 
 - `cypheria-app-tools`，server 为 `cypheria_app_tools`：[Agent harnesses](agent-harnesses.zh-CN.md#codex) 列出的 Thread、项目、侧边栏、worktree、handoff 和 automation 工具。
 - `code-review`，server 为 `code-review`：官方插件的 31 个 `pull_requests.*` 工具及其 MCP App `ui://pull-requests/app`。只有 `pull_requests.checks` 对模型可见；它通过 OpenAI 后端读取 GitHub 拉取请求的检查或 GitLab 合并请求的流水线，不含 job 日志。其他工具服务于该 App，Desktop 将其承载为代码审查页面和 Thread 拉取请求面板。App 资源和工具列表由 Server 自己提供；见[代码审查](code-review.zh-CN.md)。
-- `browser`，server 为 `browser`：27 个内置浏览器自动化工具（导航、标签页管理、DOM 快照、视觉截图、选择器与坐标交互、二维码识别、网页资源提取，以及 turn/deliverable/handoff 生命周期管理）。
+- `browser`：内置浏览器自动化插件。对于 Codex，它通过 `node-repl` 与 `browser-client.mjs` 经由本地 Unix domain socket 桥接运行，并借助 `turn_ended` hook 管理 turn 生命周期与临时标签页清理。对于 Claude，它提供浏览器自动化 MCP server。
 
 Agent 在自己的命令中用 `git` 和 `gh` 完成本地 Git 工作；Server Git 协议仍是客户端契约，不提供给模型，与官方桌面端一致。
 
