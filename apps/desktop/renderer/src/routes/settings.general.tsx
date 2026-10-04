@@ -4,7 +4,7 @@ import { Switch } from "@cypheria/ui/components/switch"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useAtomValue } from "jotai"
 import { type ReactNode, useState } from "react"
@@ -25,12 +25,12 @@ import {
   notificationsTurnModeAtom,
   openInTargetPreferenceAtom,
   preventSleepWhileRunningAtom,
-  projectlessWorkspaceRootAtom,
   showBottomPanelControlAtom,
   showContextWindowUsageAtom,
 } from "../client-state.js"
 import { LanguageSelector } from "../components/language-selector.js"
 import { SettingsFrame } from "../components/settings-frame"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 
 export const Route = createFileRoute("/settings/general")({ component: GeneralSettingsRoute })
 
@@ -52,7 +52,6 @@ function GeneralSettingsRoute() {
   const localeOverride = useAtomValue(localeOverrideAtom)
   const defaultTerminalLocation = useAtomValue(defaultTerminalLocationAtom)
   const showBottomPanelControl = useAtomValue(showBottomPanelControlAtom)
-  const projectlessWorkspaceRoot = useAtomValue(projectlessWorkspaceRootAtom)
   const openInTargetPreference = useAtomValue(openInTargetPreferenceAtom)
   const macMenuBarEnabled = useAtomValue(macMenuBarEnabledAtom)
   const preventSleepWhileRunning = useAtomValue(preventSleepWhileRunningAtom)
@@ -76,7 +75,6 @@ function GeneralSettingsRoute() {
   const workspaceLayout = { defaultTerminalLocation, showBottomPanelControl }
   const workspaceLayoutDisabled = false
   const preferences = {
-    projectlessWorkspaceRoot,
     openInTargetPreference,
     macMenuBarEnabled,
     preventSleepWhileRunning,
@@ -90,24 +88,13 @@ function GeneralSettingsRoute() {
     notificationSound,
   }
   const preferencesDisabled = false
-  type PreferenceUpdate = Partial<
-    Omit<ClientPreferencesSnapshot, "projectlessWorkspaceRoot"> & {
-      projectlessWorkspaceRoot: string | null
-    }
-  >
+  type PreferenceUpdate = Partial<ClientPreferencesSnapshot>
   const updatePreferences = async (update: PreferenceUpdate) => {
     setSaveError(null)
     try {
       const operations: Promise<unknown>[] = []
       for (const [key, value] of Object.entries(update)) {
         switch (key) {
-          case "projectlessWorkspaceRoot":
-            operations.push(
-              Promise.resolve(
-                clientStateStore.set(projectlessWorkspaceRootAtom, value as string | null)
-              )
-            )
-            break
           case "openInTargetPreference":
             operations.push(
               Promise.resolve(clientStateStore.set(openInTargetPreferenceAtom, value as string))
@@ -257,32 +244,7 @@ function GeneralSettingsRoute() {
                 </Trans>
               }
             >
-              <div className="flex items-center gap-2">
-                <input
-                  aria-label="Projectless task folder"
-                  className="w-72 rounded-md border border-border bg-background px-2 py-1 font-mono text-xs"
-                  placeholder="Default"
-                  defaultValue={preferences.projectlessWorkspaceRoot ?? ""}
-                  disabled={preferencesDisabled}
-                  key={preferences.projectlessWorkspaceRoot}
-                  onBlur={(event) => {
-                    if (event.target.value !== (preferences.projectlessWorkspaceRoot ?? ""))
-                      updatePreferences({ projectlessWorkspaceRoot: event.target.value || null })
-                  }}
-                />
-                <Button
-                  disabled={preferencesDisabled}
-                  onClick={async () => {
-                    const result = await window.cypheria?.app.pickDirectory()
-                    if (result?.path) updatePreferences({ projectlessWorkspaceRoot: result.path })
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Trans id="settings.general.chooseFolder">Choose…</Trans>
-                </Button>
-              </div>
+              <ProjectlessFolderControl />
             </SettingRow>
             <SettingRow
               title={
@@ -645,6 +607,58 @@ function SettingRow({
         <div className="mt-0.5 max-w-4xl text-xs text-muted-foreground">{description}</div>
       </div>
       <div className="shrink-0">{children}</div>
+    </div>
+  )
+}
+
+const serverConfigKey = ["settings", "server-config"] as const
+
+/**
+ * The folder tasks outside any project start in. It is a path on the Server's host, so it lives
+ * in Server configuration (`workspace.projectlessRoot`); empty uses the Server's default.
+ */
+function ProjectlessFolderControl() {
+  const queryClient = useQueryClient()
+  const config = useQuery({
+    queryFn: async () => (await ensureCypheriaClient()).server.config(),
+    queryKey: serverConfigKey,
+    retry: false,
+  })
+  const save = useMutation({
+    mutationFn: async (projectlessRoot: string | null) =>
+      (await ensureCypheriaClient()).server.patchConfig({ workspace: { projectlessRoot } }),
+    onSuccess: (snapshot) => queryClient.setQueryData(serverConfigKey, snapshot),
+  })
+  const current = config.data?.config.workspace.projectlessRoot ?? null
+  return (
+    <div className="grid justify-items-end gap-1">
+      <div className="flex items-center gap-2">
+        <input
+          aria-label="Projectless task folder"
+          className="w-72 rounded-md border border-border bg-background px-2 py-1 font-mono text-xs"
+          placeholder="~/Documents/Cypheria"
+          defaultValue={current ?? ""}
+          disabled={!config.data || save.isPending}
+          key={current}
+          onBlur={(event) => {
+            const next = event.target.value.trim() || null
+            if (next !== current) save.mutate(next)
+          }}
+        />
+        <Button
+          disabled={!config.data || save.isPending}
+          onClick={async () => {
+            const result = await window.cypheria?.app.pickDirectory()
+            if (result?.path) save.mutate(result.path)
+          }}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Trans id="settings.general.chooseFolder">Choose…</Trans>
+        </Button>
+      </div>
+      {save.error ? <p className="text-xs text-destructive">{save.error.message}</p> : null}
     </div>
   )
 }

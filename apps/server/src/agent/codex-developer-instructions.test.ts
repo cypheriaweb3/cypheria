@@ -23,14 +23,14 @@ const git: GitSettings = {
   ...DEFAULT_GIT_SETTINGS,
   branchPrefix: "codex/",
   commitInstructions: "Use Conventional Commits.",
-  prInstructions: "Link the issue in the description.",
+  pullRequestInstructions: "Link the issue in the description.",
 }
 
 const noGitSettings: GitSettings = {
   ...DEFAULT_GIT_SETTINGS,
   branchPrefix: "",
   commitInstructions: "",
-  prInstructions: "",
+  pullRequestInstructions: "",
 }
 
 const everything: CodexInstructionCapabilities = {

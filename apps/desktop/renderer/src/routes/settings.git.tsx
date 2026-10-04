@@ -72,7 +72,7 @@ function GitSettingsRoute() {
                   disabled={saving}
                   maxLength={100}
                   placeholder={i18n._(
-                    msg({ id: "settings.git.branchPrefix.placeholder", message: "codex/" })
+                    msg({ id: "settings.git.branchPrefix.placeholder", message: "cypheria/" })
                   )}
                   value={prefix}
                   onBlur={savePrefix}
@@ -172,33 +172,6 @@ function GitSettingsRoute() {
             />
             <SettingsRow
               control={
-                <Segmented
-                  label={i18n._(
-                    msg({ id: "settings.general.reviewDelivery.label", message: "Review delivery" })
-                  )}
-                  options={[
-                    {
-                      label: <Trans id="settings.general.reviewDelivery.inline">Inline</Trans>,
-                      value: "inline",
-                    },
-                    {
-                      label: <Trans id="settings.general.reviewDelivery.detached">Detached</Trans>,
-                      value: "detached",
-                    },
-                  ]}
-                  value={settings.reviewDelivery}
-                  onChange={(value) => void save({ reviewDelivery: value })}
-                />
-              }
-              description={
-                <Trans id="settings.general.reviewDelivery.description">
-                  Start /review in the current chat when possible or launch a separate review chat
-                </Trans>
-              }
-              label={<Trans id="settings.general.reviewDelivery.label">Review delivery</Trans>}
-            />
-            <SettingsRow
-              control={
                 <Switch
                   aria-label={i18n._(
                     msg({
@@ -206,8 +179,8 @@ function GitSettingsRoute() {
                       message: "Show pull request icons in the sidebar",
                     })
                   )}
-                  checked={settings.showSidebarPrIcons}
-                  onCheckedChange={(checked) => void save({ showSidebarPrIcons: checked })}
+                  checked={settings.showSidebarPullRequestIcons}
+                  onCheckedChange={(checked) => void save({ showSidebarPullRequestIcons: checked })}
                 />
               }
               label={
@@ -235,8 +208,8 @@ function GitSettingsRoute() {
             title={
               <Trans id="settings.git.pullRequestWatch.title">Watch and fix pull requests</Trans>
             }
-            value={settings.prWatchInstructions}
-            onSave={(value) => save({ prWatchInstructions: value })}
+            value={settings.pullRequestWatchInstructions}
+            onSave={(value) => save({ pullRequestWatchInstructions: value })}
           >
             <SettingsRow
               control={
@@ -247,8 +220,8 @@ function GitSettingsRoute() {
                       message: "Auto-merge when ready",
                     })
                   )}
-                  checked={settings.prWatchAutoMerge}
-                  onCheckedChange={(checked) => void save({ prWatchAutoMerge: checked })}
+                  checked={settings.pullRequestWatchAutoMerge}
+                  onCheckedChange={(checked) => void save({ pullRequestWatchAutoMerge: checked })}
                 />
               }
               description={
@@ -304,8 +277,8 @@ function GitSettingsRoute() {
               })
             )}
             title={<Trans id="settings.git.prInstructions.label">Pull request instructions</Trans>}
-            value={settings.prInstructions}
-            onSave={(value) => save({ prInstructions: value })}
+            value={settings.pullRequestInstructions}
+            onSave={(value) => save({ pullRequestInstructions: value })}
           />
         </>
       ) : null}

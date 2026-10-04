@@ -58,13 +58,13 @@ export const pullRequestWatchPrompt = (target: WatchTarget, settings: GitSetting
     "Report what changed, what was checked, and any remaining blocker.",
     `If the ${noun} is closed or merged, report that and stop this run. If no fix is needed, report its current status without changing files.`,
   ]
-  if (settings.prWatchAutoMerge)
+  if (settings.pullRequestWatchAutoMerge)
     lines.push(
       `When checks and reviews are satisfied and the head is unchanged, merge using ${settings.pullRequestMergeMethod}. Never merge while a blocker remains.`
     )
   else lines.push(`Do not merge the ${noun} automatically.`)
-  if (settings.prWatchInstructions.trim())
-    lines.push(`Additional watch instructions:\n${settings.prWatchInstructions.trim()}`)
+  if (settings.pullRequestWatchInstructions.trim())
+    lines.push(`Additional watch instructions:\n${settings.pullRequestWatchInstructions.trim()}`)
   return lines.join("\n\n")
 }
 

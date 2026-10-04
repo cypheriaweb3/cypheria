@@ -18,10 +18,11 @@ import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useId, useState } from "react"
+import { useEffect, useId, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { threadAttachmentQueryKey } from "../thread-attachments.js"
+import { useGitSettings } from "./git-settings.js"
 
 /**
  * Creates the pull request of a Thread's checkout, as ChatGPT Desktop's Create PR dialog does:
@@ -47,7 +48,13 @@ export function CreatePullRequestDialog({
   const [body, setBody] = useState("")
   const [newBranch, setNewBranch] = useState("")
   const [includeLocalChanges, setIncludeLocalChanges] = useState(true)
-  const [draft, setDraft] = useState(false)
+  // Starts from Settings → Git → Create draft pull requests each time the dialog opens.
+  const { settings: gitSettings } = useGitSettings()
+  const [draftChoice, setDraft] = useState<boolean | null>(null)
+  const draft = draftChoice ?? gitSettings?.createPullRequestAsDraft ?? false
+  useEffect(() => {
+    if (open) setDraft(null)
+  }, [open])
   const target = useQuery({
     enabled: open,
     queryFn: async () => (await ensureCypheriaClient()).git.pullRequestTarget(cwd),

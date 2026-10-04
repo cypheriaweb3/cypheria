@@ -410,7 +410,6 @@ export type NotificationSound = z.infer<typeof NotificationSoundSchema>
 
 export const ClientPreferencesSnapshotSchema = z
   .object({
-    projectlessWorkspaceRoot: z.string().min(1),
     openInTargetPreference: z.string().min(1),
     macMenuBarEnabled: z.boolean(),
     preventSleepWhileRunning: z.boolean(),
@@ -429,7 +428,6 @@ export type ClientPreferencesSnapshot = z.infer<typeof ClientPreferencesSnapshot
 export type ClientSettingDefinitions = Readonly<{
   appearance: ClientSettingDefinition<AppearanceSettingsWrite>
   localeOverride: ClientSettingDefinition<LanguageLocale | null>
-  projectlessWorkspaceRoot: ClientSettingDefinition<string | null>
   openInTargetPreference: ClientSettingDefinition<string>
   macMenuBarEnabled: ClientSettingDefinition<boolean>
   preventSleepWhileRunning: ClientSettingDefinition<boolean>
@@ -473,13 +471,6 @@ export const clientSettingDefinitions: ClientSettingDefinitions = {
     defaultValue: null as LanguageLocale | null,
     key: "localeOverride",
     schema: LanguageLocaleSchema.nullable(),
-    version: 1,
-  }),
-  projectlessWorkspaceRoot: defineClientSetting({
-    category: "general",
-    defaultValue: null as string | null,
-    key: "projectlessWorkspaceRoot",
-    schema: z.string().trim().min(1).nullable(),
     version: 1,
   }),
   openInTargetPreference: defineClientSetting({

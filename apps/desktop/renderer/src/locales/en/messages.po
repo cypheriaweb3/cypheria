@@ -732,7 +732,7 @@ msgstr "Codex normally picks up branch updates during regular Git activity. This
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.branchPrefix.placeholder"
-msgstr "codex/"
+msgstr "cypheria/"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/review-diff-display.tsx
@@ -1181,11 +1181,6 @@ msgid "thread.git.detachPr"
 msgstr "Detach from chat"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.detached"
-msgstr "Detached"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.prDetached"
 msgstr "Detached #{number} from this chat"
@@ -1618,11 +1613,6 @@ msgstr "Include unstaged changes"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.init"
 msgstr "Initialize repository"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.inline"
-msgstr "Inline"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2817,11 +2807,6 @@ msgid "git.review.commentBody"
 msgstr "Review comment"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.label"
-msgstr "Review delivery"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.untrackedOmitted.description"
 msgstr "Review skipped {count} untracked files to stay responsive. If they are generated, ignore or clean them up, then refresh."
@@ -3249,11 +3234,6 @@ msgstr "Stage section"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.staged"
 msgstr "Staged"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.description"
-msgstr "Start /review in the current chat when possible or launch a separate review chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx

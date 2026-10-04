@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { withAppPolicy } from "../mcp-app-host.js"
 import { parseElicitationSchema } from "./elicitation-form.js"
-import { fileHandlers } from "./workspace-context.js"
+import { fileHandlers, fileViewerExtension, pickFileViewer } from "./workspace-context.js"
 
 describe("fileHandlers", () => {
   it("orders handlers by their longest matching extension", () => {
@@ -16,6 +16,29 @@ describe("fileHandlers", () => {
       "gz",
     ])
     expect(fileHandlers("readme.md", handlers)).toEqual([])
+  })
+})
+
+describe("file viewer choice", () => {
+  const handlers = [
+    { extensions: ["gz"], id: "gz" },
+    { extensions: ["tar.gz"], id: "tar" },
+  ]
+
+  it("keys the choice by the longest extension a viewer matches", () => {
+    expect(fileViewerExtension("parts/Model.TAR.GZ", handlers)).toBe("tar.gz")
+    expect(fileViewerExtension("notes.txt", handlers)).toBeNull()
+  })
+
+  it("prefers the chosen viewer, then a built-in preview, then the longest match", () => {
+    const pick = (preferred: string | undefined, builtinPreviews = false) =>
+      pickFileViewer({ builtin: "builtin", builtinPreviews, handlers, preferred })
+    expect(pick("gz")).toBe("gz")
+    expect(pick("builtin")).toBe("builtin")
+    expect(pick(undefined, true)).toBe("builtin")
+    expect(pick(undefined)).toBe("gz")
+    // A viewer that is no longer installed falls back to the default order.
+    expect(pick("removed", true)).toBe("builtin")
   })
 })
 

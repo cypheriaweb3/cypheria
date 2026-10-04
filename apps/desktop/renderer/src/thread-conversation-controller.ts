@@ -29,7 +29,6 @@ export type ThreadConversationSnapshot = {
 
 export type ThreadConversationControllerOptions = {
   readonly agentId: AgentId
-  readonly cwd?: string
   readonly initialThreadId?: string
   readonly projectId?: string
   readonly sectionId?: string
@@ -65,7 +64,6 @@ export class ThreadConversationController {
   readonly #unsubscribers: Array<() => void> = []
   #client: CypheriaClient | null = null
   #creationTarget: ThreadConversationCreationTarget
-  #cwd: string | undefined
   #disposed = false
   #connectionGeneration = 0
   #epoch: string | null = null
@@ -77,12 +75,7 @@ export class ThreadConversationController {
   constructor(options: ThreadConversationControllerOptions) {
     this.#options = options
     this.#creationTarget = { projectId: options.projectId }
-    this.#cwd = options.cwd
     this.#snapshot = initialSnapshot(options.initialThreadId)
-  }
-
-  setCwd(cwd: string | undefined): void {
-    this.#cwd = cwd
   }
 
   setCreationTarget(target: ThreadConversationCreationTarget): void {

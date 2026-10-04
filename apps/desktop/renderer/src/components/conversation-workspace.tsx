@@ -186,7 +186,6 @@ import {
   gitReviewBaseAtom,
   gitReviewSourceAtom,
   panelLayoutAtom,
-  projectlessWorkspaceRootAtom,
   showBottomPanelControlAtom,
   showContextWindowUsageAtom,
   summaryAtom,
@@ -1038,7 +1037,6 @@ export function ConversationWorkspace({
     queryKey: sidebarQueryKeys.projects(),
   })
   const desktopPreferences = {
-    projectlessWorkspaceRoot: useAtomValue(projectlessWorkspaceRootAtom),
     followUpQueueMode: useAtomValue(followUpQueueModeAtom),
     composerPlainTextMode: useAtomValue(composerPlainTextModeAtom),
     composerEnterBehavior: useAtomValue(composerEnterBehaviorAtom),
@@ -1100,7 +1098,6 @@ export function ConversationWorkspace({
     () =>
       new ThreadConversationController({
         agentId,
-        cwd: project?.roots[0],
         initialThreadId,
         projectId: initialProjectId,
         sectionId: initialSectionId,
@@ -1324,12 +1321,6 @@ export function ConversationWorkspace({
   }, [])
 
   useEffect(() => {
-    controller.setCwd(
-      project?.roots[0] ?? desktopPreferences?.projectlessWorkspaceRoot ?? undefined
-    )
-  }, [controller, project?.roots, desktopPreferences?.projectlessWorkspaceRoot])
-
-  useEffect(() => {
     controller.setCreationTarget({
       projectId: initialProjectId,
       ...(!createWorktree && project?.roots[0] && selectedBranch
@@ -1532,8 +1523,7 @@ export function ConversationWorkspace({
     [diffs]
   )
 
-  const gitCwd =
-    snapshot.thread?.roots[0] ?? project?.roots[0] ?? desktopPreferences?.projectlessWorkspaceRoot
+  const gitCwd = snapshot.thread?.roots[0] ?? project?.roots[0]
 
   const sendReviewCommentsRef = useRef<(text: string) => void>(() => undefined)
   sendReviewCommentsRef.current = (text) =>

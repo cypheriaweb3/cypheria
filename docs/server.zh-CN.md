@@ -60,7 +60,7 @@ Server 只解析一次根目录，再把派生路径传给各服务。托管 ACP
 
 期望的共享配置存储在 `$CYPHERIA_HOME/config/config.json`，当前 Schema 版本为 1。产品尚未发布，因此它就是当前 baseline，不执行旧配置迁移。文件不存在时使用安全默认值且不主动写文件。Patch 会先作为完整文档校验，再以仅所有者可读写权限原子写入。
 
-该文档包含 listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web、日志、Git 设置及 Cypheria 管理的 Agent policy。`agents.codex.permissionsMode` 决定新建 Codex Thread 的权限模式，可取 `auto`、`guardian-approvals`、`full-access` 或 `agent-config`，默认值为 `auto`；它不会重写 Codex 原生配置。`agents.claude.pluginsEnabled`（默认 `true`）为 Claude 打开或关闭插件，因为 Claude 没有对应的原生设置；见 [Claude 插件管理](integrations.zh-CN.md#claude-插件管理)。Agent 原生设置只通过支持对应原生 API 的 adapter 读写。Codex 全局设置仍保存在隔离的原生 `config.toml` 中；不支持更新的 harness 显示为只读，而不会回退写入通用 Server 配置。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
+该文档按领域分组：`agents`（Cypheria 管理的 Agent policy）、`git`（Git、拉取请求与 worktree 设置）、`codeReview`、`computerUse`（Agent 可操作的界面）、`workspace`（无项目任务根目录，以及按扩展名选择的文件查看器）和 `server`（listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web 和日志）。键使用普通 camelCase 名称，拉取请求相关设置完整拼写为 `pullRequest`。`agents.codex.permissionsMode` 决定新建 Codex Thread 的权限模式，可取 `auto`、`guardian-approvals`、`full-access` 或 `agent-config`，默认值为 `auto`；它不会重写 Codex 原生配置。`agents.claude.pluginsEnabled`（默认 `true`）为 Claude 打开或关闭插件，因为 Claude 没有对应的原生设置；见 [Claude 插件管理](integrations.zh-CN.md#claude-插件管理)。Agent 原生设置只通过支持对应原生 API 的 adapter 读写。Codex 全局设置仍保存在隔离的原生 `config.toml` 中；不支持更新的 harness 显示为只读，而不会回退写入通用 Server 配置。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
 
 供 Agent 使用的单一网络代理独立保存在 `$CYPHERIA_HOME/config/network-proxy.json`，并使用仅所有者可读写权限。它支持继承系统环境、明确直连，以及手动 HTTP、HTTPS、SOCKS4 或 SOCKS5 配置。手动凭据保存在该文件中，但 snapshot 只暴露 `passwordConfigured`；保存或测试时省略 password 表示保留已存密码，字符串表示替换，`null` 表示清除。同一设置会注入每个 Agent 子进程与托管工具链环境，绝不修改全局 `process.env`；它不影响 Server HTTP、Git 或 Electron 浏览器。代理测试由 Server 执行。
 
@@ -78,11 +78,11 @@ Desktop 外观、布局、快捷键、窗口状态、更新偏好和操作系统
 | 变量 | 默认值 | 用途 |
 | --- | --- | --- |
 | `CYPHERIA_HOME` | `~/.cypheria` | 应用主目录 |
-| `CYPHERIA_LOG_LEVEL` | `info` | 控制台日志级别 |
-| `CYPHERIA_LOG_FILE_LEVEL` | `info` | 文件日志级别 |
-| `CYPHERIA_LOG_FILE_PATH` | `$CYPHERIA_HOME/logs/server.log` | 日志文件路径；相对路径从 `CYPHERIA_HOME` 解析 |
-| `CYPHERIA_LOG_ROTATE_SIZE_MB` | `10` | 单个日志文件的最大 MiB 数 |
-| `CYPHERIA_LOG_ROTATE_COUNT` | `3` | 保留的轮转文件数 |
+| `CYPHERIA_SERVER_LOG_LEVEL` | `info` | 控制台日志级别 |
+| `CYPHERIA_SERVER_LOG_FILE_LEVEL` | `info` | 文件日志级别 |
+| `CYPHERIA_SERVER_LOG_FILE_PATH` | `$CYPHERIA_HOME/logs/server.log` | 日志文件路径；相对路径从 `CYPHERIA_HOME` 解析 |
+| `CYPHERIA_SERVER_LOG_ROTATE_SIZE_MB` | `10` | 单个日志文件的最大 MiB 数 |
+| `CYPHERIA_SERVER_LOG_ROTATE_COUNT` | `3` | 保留的轮转文件数 |
 | `CYPHERIA_SERVER_HOST` | `127.0.0.1` | 监听地址 |
 | `CYPHERIA_SERVER_PORT` | `6768` | 监听端口；`0` 请求临时端口 |
 | `CYPHERIA_SERVER_TOKEN` | 未设置 | Bearer 凭证；非 loopback 监听时必需 |

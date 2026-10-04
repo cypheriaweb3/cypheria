@@ -709,12 +709,6 @@ const registerIpcHandlers = (
       try {
         const nextAppearance = await readAppearance(storageDatabase.keyValue)
         const nextPreferences = await readClientPreferences(storageDatabase.keyValue)
-        if (nextPreferences.projectlessWorkspaceRoot) {
-          await mkdir(nextPreferences.projectlessWorkspaceRoot, { recursive: true })
-        }
-        await client.server.patchConfig({
-          workspace: { projectlessRoot: nextPreferences.projectlessWorkspaceRoot },
-        })
         await stageNotificationSounds(nextPreferences)
         currentAppearanceSettings = nextAppearance
         applyNativeAppearanceToWindows(nextAppearance)
@@ -1238,12 +1232,6 @@ const startDesktopApp = async (): Promise<void> => {
   })
   await desktopClient.ensureConnected()
   currentPreferences = await readClientPreferences(desktopStorageDatabase.keyValue)
-  if (currentPreferences.projectlessWorkspaceRoot) {
-    await mkdir(currentPreferences.projectlessWorkspaceRoot, { recursive: true })
-  }
-  await desktopClient.server.patchConfig({
-    workspace: { projectlessRoot: currentPreferences.projectlessWorkspaceRoot },
-  })
   await stageNotificationSounds(currentPreferences).catch((error: unknown) => {
     console.warn("Could not stage notification sounds", error)
   })

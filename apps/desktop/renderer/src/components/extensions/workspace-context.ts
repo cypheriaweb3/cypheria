@@ -31,3 +31,38 @@ export const fileHandlers = <T extends { extensions: readonly string[] }>(
     .sort((a, b) => b.length - a.length)
     .map(({ handler }) => handler)
 }
+
+/** The longest extension of `name` a handler matches, which keys the person's viewer choice. */
+export const fileViewerExtension = (
+  name: string,
+  handlers: readonly { extensions: readonly string[] }[]
+): string | null => {
+  const lower = name.toLowerCase()
+  let longest: string | null = null
+  for (const extension of handlers.flatMap((handler) => handler.extensions)) {
+    const candidate = extension.toLowerCase()
+    if (lower.endsWith(`.${candidate}`) && candidate.length > (longest?.length ?? 0)) {
+      longest = candidate
+    }
+  }
+  return longest
+}
+
+/**
+ * The viewer a file opens in, as ChatGPT chooses it: the viewer the person chose for the
+ * extension while it is still installed, else Cypheria's own viewer when it previews the type,
+ * else the plugin viewer with the longest matching extension. `builtin` names Cypheria's viewer.
+ */
+export const pickFileViewer = (input: {
+  readonly handlers: readonly { id: string }[]
+  readonly preferred: string | undefined
+  readonly builtin: string
+  readonly builtinPreviews: boolean
+}): string => {
+  const { builtin, handlers, preferred } = input
+  if (preferred === builtin || handlers.some((handler) => handler.id === preferred)) {
+    return preferred as string
+  }
+  if (input.builtinPreviews) return builtin
+  return handlers[0]?.id ?? builtin
+}

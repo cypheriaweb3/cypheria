@@ -631,7 +631,7 @@ describe("AgentManager Codex developer instructions", () => {
       autoCreatePr: false,
       branchPrefix: "codex/",
       commitInstructions: "",
-      prInstructions: "",
+      pullRequestInstructions: "",
     } as never
     const manager = await create({
       gitSettings: () => git,

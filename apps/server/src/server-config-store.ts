@@ -96,7 +96,6 @@ export class ServerConfigStore {
       git: DEFAULT_GIT_SETTINGS,
       codeReview: DEFAULT_CODE_REVIEW_SETTINGS,
       computerUse: DEFAULT_COMPUTER_USE_SETTINGS,
-      extensions: { preferredFileViewers: {} },
       server: {
         logging: {
           level: runningConfig.logLevel,
@@ -128,7 +127,7 @@ export class ServerConfigStore {
         shutdownTimeoutMs: runningConfig.shutdownTimeoutMs,
         webApp: { directory: runningConfig.webAppDir, enabled: runningConfig.webAppEnabled },
       },
-      workspace: { projectlessRoot: null },
+      workspace: { fileViewers: {}, projectlessRoot: null },
       version: 1,
     }
     return new ServerConfigStore({

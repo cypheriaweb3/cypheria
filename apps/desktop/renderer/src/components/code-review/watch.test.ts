@@ -41,8 +41,8 @@ describe("pull request watch", () => {
     expect(manual).toContain("Do not merge the merge request automatically.")
     const automatic = pullRequestWatchPrompt(gitlab, {
       ...DEFAULT_GIT_SETTINGS,
-      prWatchAutoMerge: true,
-      prWatchInstructions: "Keep commits small.",
+      pullRequestWatchAutoMerge: true,
+      pullRequestWatchInstructions: "Keep commits small.",
     })
     expect(automatic).toContain(`merge using ${DEFAULT_GIT_SETTINGS.pullRequestMergeMethod}`)
     expect(automatic).toContain("Additional watch instructions:\nKeep commits small.")

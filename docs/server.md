@@ -60,7 +60,7 @@ The Server resolves this root once and passes derived paths to services. Managed
 
 Desired shared configuration is stored at `$CYPHERIA_HOME/config/config.json`, currently schema version 1. The product has not shipped, so this is the current baseline and no legacy configuration migration is performed. Missing configuration uses secure defaults without writing a file. Patches are validated as a complete document and written atomically with owner-only permissions.
 
-The document contains listener, CORS, message limits, session timeouts, shutdown, relay, embedded-web, logging, Git settings, and Cypheria-owned Agent policy. `agents.codex.permissionsMode` selects the permission mode for newly created Codex Threads and accepts `auto`, `guardian-approvals`, `full-access`, or `agent-config` and defaults to `auto`; it does not rewrite Codex native configuration. `agents.claude.pluginsEnabled` (default `true`) turns plugins on or off for Claude, which has no native setting for it; see [Claude plugin management](integrations.md#claude-plugin-management). Agent-native settings are read and written only through an adapter that supports the native API. Codex global settings remain in its isolated native `config.toml`; unsupported harnesses are read-only instead of falling back to generic Server configuration. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
+The document groups settings by domain: `agents` (Cypheria-owned Agent policy), `git` (Git, pull request, and worktree settings), `codeReview`, `computerUse` (the surfaces Agents may operate), `workspace` (the projectless task root and the file viewer chosen per extension), and `server` (listener, CORS, message limits, session timeouts, shutdown, relay, embedded web, and logging). Keys are plain camelCase names, and pull request settings spell out `pullRequest`. `agents.codex.permissionsMode` selects the permission mode for newly created Codex Threads and accepts `auto`, `guardian-approvals`, `full-access`, or `agent-config` and defaults to `auto`; it does not rewrite Codex native configuration. `agents.claude.pluginsEnabled` (default `true`) turns plugins on or off for Claude, which has no native setting for it; see [Claude plugin management](integrations.md#claude-plugin-management). Agent-native settings are read and written only through an adapter that supports the native API. Codex global settings remain in its isolated native `config.toml`; unsupported harnesses are read-only instead of falling back to generic Server configuration. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
 
 The single Agent network proxy is stored independently in `$CYPHERIA_HOME/config/network-proxy.json` with owner-only permissions. It supports system inheritance, explicit direct connection, and manual HTTP, HTTPS, SOCKS4, or SOCKS5 configuration. Manual credentials are persisted in that file, but snapshots expose only `passwordConfigured`; omitting a password while saving or testing preserves the stored password, a string replaces it, and `null` clears it. The same settings are injected into every Agent subprocess and managed toolchain environment without mutating global `process.env`. They do not affect Server HTTP, Git, or Electron browsing. Proxy tests execute on the Server.
 
@@ -78,11 +78,11 @@ Desktop appearance, layout, shortcuts, window state, update preferences, and ope
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `CYPHERIA_HOME` | `~/.cypheria` | Application home |
-| `CYPHERIA_LOG_LEVEL` | `info` | Console log threshold |
-| `CYPHERIA_LOG_FILE_LEVEL` | `info` | File log threshold |
-| `CYPHERIA_LOG_FILE_PATH` | `$CYPHERIA_HOME/logs/server.log` | File path; relative paths resolve from `CYPHERIA_HOME` |
-| `CYPHERIA_LOG_ROTATE_SIZE_MB` | `10` | Maximum size per log file in MiB |
-| `CYPHERIA_LOG_ROTATE_COUNT` | `3` | Rotated files retained |
+| `CYPHERIA_SERVER_LOG_LEVEL` | `info` | Console log threshold |
+| `CYPHERIA_SERVER_LOG_FILE_LEVEL` | `info` | File log threshold |
+| `CYPHERIA_SERVER_LOG_FILE_PATH` | `$CYPHERIA_HOME/logs/server.log` | File path; relative paths resolve from `CYPHERIA_HOME` |
+| `CYPHERIA_SERVER_LOG_ROTATE_SIZE_MB` | `10` | Maximum size per log file in MiB |
+| `CYPHERIA_SERVER_LOG_ROTATE_COUNT` | `3` | Rotated files retained |
 | `CYPHERIA_SERVER_HOST` | `127.0.0.1` | Listener host |
 | `CYPHERIA_SERVER_PORT` | `6768` | Listener port; `0` requests an ephemeral port |
 | `CYPHERIA_SERVER_TOKEN` | unset | Bearer credential; required for non-loopback binding |

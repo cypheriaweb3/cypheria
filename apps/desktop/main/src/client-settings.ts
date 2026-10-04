@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto"
-import { homedir } from "node:os"
-import { join } from "node:path"
 import type { KeyValueStorage } from "@cypheria/storage"
 import { readValidatedValue } from "@cypheria/storage"
 import {
@@ -81,7 +79,6 @@ export const readClientPreferences = async (
   storage: KeyValueStorage
 ): Promise<ClientPreferencesSnapshot> => {
   const [
-    projectlessWorkspaceRoot,
     openInTargetPreference,
     macMenuBarEnabled,
     preventSleepWhileRunning,
@@ -94,7 +91,6 @@ export const readClientPreferences = async (
     notificationsQuestionsEnabled,
     notificationSound,
   ] = await Promise.all([
-    readClientSetting(storage, clientSettingDefinitions.projectlessWorkspaceRoot),
     readClientSetting(storage, clientSettingDefinitions.openInTargetPreference),
     readClientSetting(storage, clientSettingDefinitions.macMenuBarEnabled),
     readClientSetting(storage, clientSettingDefinitions.preventSleepWhileRunning),
@@ -108,7 +104,6 @@ export const readClientPreferences = async (
     readClientSetting(storage, clientSettingDefinitions.notificationSound),
   ])
   return {
-    projectlessWorkspaceRoot: projectlessWorkspaceRoot ?? join(homedir(), "Documents", "Cypheria"),
     openInTargetPreference,
     macMenuBarEnabled,
     preventSleepWhileRunning,
@@ -133,7 +128,6 @@ const sideEffectKeys = new Set([
   clientSettingDefinitions.notificationsQuestionsEnabled.key,
   clientSettingDefinitions.notificationSound.key,
   clientSettingDefinitions.openInTargetPreference.key,
-  clientSettingDefinitions.projectlessWorkspaceRoot.key,
 ])
 
 export const clientSettingHasMainSideEffect = (key: string): boolean => sideEffectKeys.has(key)

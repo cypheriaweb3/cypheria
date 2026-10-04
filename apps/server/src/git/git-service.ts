@@ -2949,7 +2949,7 @@ export class GitService {
       const instructions =
         kind === "commit"
           ? this.#getSettings().commitInstructions
-          : this.#getSettings().prInstructions
+          : this.#getSettings().pullRequestInstructions
       const prompt = [
         kind === "commit"
           ? "Write a concise Git commit subject. Put it in title; body may be empty."

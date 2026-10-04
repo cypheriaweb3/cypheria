@@ -42,6 +42,19 @@ describe("ServerConfigStore", () => {
     expect(store.effective.port).toBe(9900)
   })
 
+  it("merges file viewer choices by extension without a restart", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "cypheria-server-file-viewers-"))
+    temporaryDirectories.push(configDir)
+    const store = await ServerConfigStore.open(configDir, {})
+    await store.patch({ workspace: { fileViewers: { STL: "cad-viewer" } } })
+    const snapshot = await store.patch({ workspace: { fileViewers: { "tar.gz": "builtin" } } })
+    expect(snapshot.config.workspace.fileViewers).toEqual({
+      stl: "cad-viewer",
+      "tar.gz": "builtin",
+    })
+    expect(snapshot.restartRequiredPaths).toEqual([])
+  })
+
   it("persists logging settings and requires a restart", async () => {
     const configDir = await mkdtemp(join(tmpdir(), "cypheria-server-logging-"))
     temporaryDirectories.push(configDir)
@@ -76,7 +89,7 @@ describe("ServerConfigStore", () => {
     const { git: _git, ...legacy } = DEFAULT_PERSISTED_SERVER_CONFIG
     await writeFile(resolveServerConfigPath(configDir), JSON.stringify(legacy))
     const store = await ServerConfigStore.open(configDir, {})
-    expect(store.getSnapshot().config.git.branchPrefix).toBe("codex/")
+    expect(store.getSnapshot().config.git.branchPrefix).toBe("cypheria/")
 
     const snapshot = await store.patch({
       git: { branchPrefix: "feature/", worktreeRoot: join(configDir, "trees") },
@@ -86,14 +99,6 @@ describe("ServerConfigStore", () => {
     const reopened = await ServerConfigStore.open(configDir, {})
     expect(reopened.getSnapshot().config.git.branchPrefix).toBe("feature/")
     expect(reopened.getSnapshot().config.git.worktreeRoot).toBe(join(configDir, "trees"))
-    const { reviewDelivery: _delivery, ...oldGit } = reopened.getSnapshot().config.git
-    await writeFile(
-      resolveServerConfigPath(configDir),
-      JSON.stringify({ ...DEFAULT_PERSISTED_SERVER_CONFIG, git: oldGit })
-    )
-    expect(
-      (await ServerConfigStore.open(configDir, {})).getSnapshot().config.git.reviewDelivery
-    ).toBe("inline")
   })
 
   it("validates the complete desired configuration before writing", async () => {

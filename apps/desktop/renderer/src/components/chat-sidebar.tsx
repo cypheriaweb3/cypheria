@@ -835,7 +835,9 @@ export function ChatSidebar({
                         hasPullRequestAttachment={
                           row.kind === "thread" && threadsWithPullRequests.has(row.thread.id)
                         }
-                        showPrIcons={gitSettings.data?.config.git.showSidebarPrIcons ?? true}
+                        showPrIcons={
+                          gitSettings.data?.config.git.showSidebarPullRequestIcons ?? true
+                        }
                         sections={sections}
                         onArchiveSection={setArchivingSection}
                         onCopyThread={(kind, thread) => {

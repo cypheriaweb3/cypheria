@@ -48,9 +48,6 @@ export const localeOverrideAtom = atomFor(
   clientSettingDefinitions.localeOverride,
   typeof window === "undefined" ? undefined : window.cypheria?.bootstrap.language.localeOverride
 )
-export const projectlessWorkspaceRootAtom = atomFor(
-  clientSettingDefinitions.projectlessWorkspaceRoot
-)
 export const openInTargetPreferenceAtom = atomFor(clientSettingDefinitions.openInTargetPreference)
 export const macMenuBarEnabledAtom = atomFor(clientSettingDefinitions.macMenuBarEnabled)
 export const preventSleepWhileRunningAtom = atomFor(

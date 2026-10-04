@@ -130,26 +130,28 @@ export function loadServerConfig(
       fromEnvironment("CYPHERIA_SERVER_HOST", "server.listen.host", (value) => value.trim()) ??
       configured.listen.host,
     logLevel:
-      fromEnvironment("CYPHERIA_LOG_LEVEL", "server.logging.level", (value) =>
+      fromEnvironment("CYPHERIA_SERVER_LOG_LEVEL", "server.logging.level", (value) =>
         LogLevelSchema.parse(value.trim())
       ) ?? logging.level,
     logFileLevel:
-      fromEnvironment("CYPHERIA_LOG_FILE_LEVEL", "server.logging.file.level", (value) =>
+      fromEnvironment("CYPHERIA_SERVER_LOG_FILE_LEVEL", "server.logging.file.level", (value) =>
         LogLevelSchema.parse(value.trim())
       ) ?? logging.file.level,
     logFilePath:
-      fromEnvironment("CYPHERIA_LOG_FILE_PATH", "server.logging.file.path", (value) =>
+      fromEnvironment("CYPHERIA_SERVER_LOG_FILE_PATH", "server.logging.file.path", (value) =>
         value.trim()
       ) ?? logging.file.path,
     logRotateSizeMb:
       fromEnvironment(
-        "CYPHERIA_LOG_ROTATE_SIZE_MB",
+        "CYPHERIA_SERVER_LOG_ROTATE_SIZE_MB",
         "server.logging.file.rotate.maxSizeMb",
         (value) => z.coerce.number().int().min(1).max(1024).parse(value)
       ) ?? logging.file.rotate.maxSizeMb,
     logRotateCount:
-      fromEnvironment("CYPHERIA_LOG_ROTATE_COUNT", "server.logging.file.rotate.maxFiles", (value) =>
-        z.coerce.number().int().min(1).max(20).parse(value)
+      fromEnvironment(
+        "CYPHERIA_SERVER_LOG_ROTATE_COUNT",
+        "server.logging.file.rotate.maxFiles",
+        (value) => z.coerce.number().int().min(1).max(20).parse(value)
       ) ?? logging.file.rotate.maxFiles,
     maxMessageBytes:
       fromEnvironment(

@@ -408,9 +408,7 @@ export const GitSettingsSchema = z
     createPullRequestAsDraft: z.boolean(),
     pullRequestMergeMethod: z.enum(["merge", "squash"]),
     reviewMode: z.enum(["full", "last-turn-only"]),
-    showSidebarPrIcons: z.boolean(),
-    /** Whether `/review` starts in the current chat or in a separate review chat. */
-    reviewDelivery: z.enum(["inline", "detached"]).default("inline"),
+    showSidebarPullRequestIcons: z.boolean(),
     worktreeRoot: z
       .string()
       .trim()
@@ -418,9 +416,9 @@ export const GitSettingsSchema = z
       .refine((path) => /^(?:\/|[A-Za-z]:[\\/]|\\\\)/u.test(path), "Worktree root must be absolute")
       .nullable(),
     commitInstructions: z.string().max(100_000),
-    prInstructions: z.string().max(100_000),
-    prWatchAutoMerge: z.boolean(),
-    prWatchInstructions: z.string().max(100_000),
+    pullRequestInstructions: z.string().max(100_000),
+    pullRequestWatchAutoMerge: z.boolean(),
+    pullRequestWatchInstructions: z.string().max(100_000),
     upstreamRefreshMode: z.enum(["never", "best-effort"]),
     worktreeAutoCleanupEnabled: z.boolean(),
     worktreeKeepCount: z.int().min(0).max(1000),
@@ -428,18 +426,17 @@ export const GitSettingsSchema = z
   .strict()
 export type GitSettings = z.infer<typeof GitSettingsSchema>
 export const DEFAULT_GIT_SETTINGS: GitSettings = {
-  branchPrefix: "codex/",
+  branchPrefix: "cypheria/",
   alwaysForcePush: false,
   createPullRequestAsDraft: true,
   pullRequestMergeMethod: "merge",
   reviewMode: "full",
-  showSidebarPrIcons: true,
-  reviewDelivery: "inline",
+  showSidebarPullRequestIcons: true,
   worktreeRoot: null,
   commitInstructions: "",
-  prInstructions: "",
-  prWatchAutoMerge: false,
-  prWatchInstructions: "",
+  pullRequestInstructions: "",
+  pullRequestWatchAutoMerge: false,
+  pullRequestWatchInstructions: "",
   upstreamRefreshMode: "best-effort",
   worktreeAutoCleanupEnabled: true,
   worktreeKeepCount: 15,
@@ -544,9 +541,12 @@ export const NetworkProxyTestResultSchema = z
   .strict()
 export type NetworkProxyTestResult = z.infer<typeof NetworkProxyTestResultSchema>
 
-/** File viewers chosen by file extension; `builtin` is Cypheria's own viewer. */
-export const PREFERRED_BUILTIN_FILE_VIEWER = "builtin"
-export const PreferredFileViewersSchema = z
+/**
+ * The viewer the person chose for files by extension, such as `tar.gz` or `stl`: a file entry
+ * point ID, or `builtin` for Cypheria's own viewer.
+ */
+export const BUILTIN_FILE_VIEWER = "builtin"
+export const FileViewersSchema = z
   .record(z.string().trim().toLowerCase().min(1).max(64), z.string().min(1).max(4096))
   .refine((value) => Object.keys(value).length <= 500, "Too many preferred file viewers")
 
@@ -574,20 +574,13 @@ export const PersistedServerConfigSchema = z
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     codeReview: CodeReviewSettingsSchema.default(DEFAULT_CODE_REVIEW_SETTINGS),
     computerUse: ComputerUseSettingsSchema.default(DEFAULT_COMPUTER_USE_SETTINGS),
-    extensions: z
+    workspace: z
       .object({
-        /**
-         * The viewer a person chose for files by extension, such as `tar.gz` or `stl`: a file
-         * entry point ID, or `builtin` for Cypheria's own viewer.
-         */
-        preferredFileViewers: PreferredFileViewersSchema.default({}),
+        projectlessRoot: z.string().trim().min(1).nullable(),
+        fileViewers: FileViewersSchema.default({}),
       })
       .strict()
-      .default({ preferredFileViewers: {} }),
-    workspace: z
-      .object({ projectlessRoot: z.string().trim().min(1).nullable() })
-      .strict()
-      .default({ projectlessRoot: null }),
+      .default({ fileViewers: {}, projectlessRoot: null }),
     server: z
       .object({
         logging: ServerLoggingSchema.default({
@@ -659,12 +652,12 @@ export const PersistedServerConfigPatchSchema = z
     git: GitSettingsSchema.partial().strict().optional(),
     codeReview: CodeReviewSettingsSchema.partial().strict().optional(),
     computerUse: ComputerUseSettingsSchema.partial().strict().optional(),
-    extensions: z
-      .object({ preferredFileViewers: PreferredFileViewersSchema.optional() })
-      .strict()
-      .optional(),
     workspace: z
-      .object({ projectlessRoot: z.string().trim().min(1).nullable().optional() })
+      .object({
+        projectlessRoot: z.string().trim().min(1).nullable().optional(),
+        /** Merged by extension, so a client sets one extension without replacing the others. */
+        fileViewers: FileViewersSchema.optional(),
+      })
       .strict()
       .optional(),
     server: z

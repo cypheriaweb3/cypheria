@@ -732,7 +732,7 @@ msgstr "Codex 通常会在常规 Git 操作中获取分支更新。此设置还�
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.branchPrefix.placeholder"
-msgstr "codex/"
+msgstr "cypheria/"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/review-diff-display.tsx
@@ -1181,11 +1181,6 @@ msgid "thread.git.detachPr"
 msgstr "从聊天中解除"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.detached"
-msgstr "单独"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.prDetached"
 msgstr "已从此聊天中解除 #{number}"
@@ -1618,11 +1613,6 @@ msgstr "包含未暂存的更改"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.init"
 msgstr "初始化仓库"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.inline"
-msgstr "内联"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2817,11 +2807,6 @@ msgid "git.review.commentBody"
 msgstr "评审评论"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.label"
-msgstr "审查结果呈现方式"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.untrackedOmitted.description"
 msgstr "为保持响应，Review 跳过了 {count} 个未跟踪文件。如果它们是生成的文件，请忽略或清理后刷新。"
@@ -3249,11 +3234,6 @@ msgstr "暂存段落"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.staged"
 msgstr "已暂存"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.general.reviewDelivery.description"
-msgstr "尽可能在当前聊天中启动 /review，或启动单独的审查聊天"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx

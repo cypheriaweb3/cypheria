@@ -18,10 +18,10 @@ describe("loadServerConfig", () => {
 
   it("parses environment overrides", () => {
     const config = loadServerConfig({
-      CYPHERIA_LOG_LEVEL: "debug",
-      CYPHERIA_LOG_FILE_LEVEL: "trace",
-      CYPHERIA_LOG_ROTATE_SIZE_MB: "25",
-      CYPHERIA_LOG_ROTATE_COUNT: "4",
+      CYPHERIA_SERVER_LOG_LEVEL: "debug",
+      CYPHERIA_SERVER_LOG_FILE_LEVEL: "trace",
+      CYPHERIA_SERVER_LOG_ROTATE_SIZE_MB: "25",
+      CYPHERIA_SERVER_LOG_ROTATE_COUNT: "4",
       CYPHERIA_SERVER_ALLOWED_ORIGINS: "https://one.example, https://two.example",
       CYPHERIA_SERVER_PORT: "7788",
       CYPHERIA_SERVER_WEB_ENABLED: "off",
@@ -37,8 +37,8 @@ describe("loadServerConfig", () => {
   })
 
   it("rejects invalid log levels and rotation limits", () => {
-    expect(() => loadServerConfig({ CYPHERIA_LOG_LEVEL: "verbose" })).toThrow()
-    expect(() => loadServerConfig({ CYPHERIA_LOG_ROTATE_COUNT: "0" })).toThrow()
+    expect(() => loadServerConfig({ CYPHERIA_SERVER_LOG_LEVEL: "verbose" })).toThrow()
+    expect(() => loadServerConfig({ CYPHERIA_SERVER_LOG_ROTATE_COUNT: "0" })).toThrow()
   })
 
   it("requires an endpoint when relay is enabled", () => {

@@ -104,7 +104,7 @@ Global 页面的 App 可以在页面还没有对话时附加上下文。上下�
 
 文件 resource 由 Server 从工作区响应，而不是由插件 server 响应：
 
-1. 文件名与文件入口匹配的文件标签页，显示扩展名匹配最长的 handler，内置的源文件视图一键可达。
+1. 文件名与文件入口匹配的文件标签页显示一个查看器栏，包含 Cypheria 自带的查看器和每个匹配的 handler。文件按以下顺序打开：用户为该扩展名选过的查看器；否则在 Cypheria 自带查看器能预览该类型时（图片、Markdown、SVG，以及 CSV 或 TSV 表格）用自带查看器；否则用扩展名匹配最长的 handler。选择查看器时，会以匹配最长的扩展名为键保存到 Server 配置（`workspace.fileViewers`，值为 handler 的入口 ID 或 `builtin`），按扩展名合并，客户端之间不会互相覆盖；所选 handler 已不存在时回到默认顺序。
 2. 打开时把不透明的 `cypheria-resource://<instance>/<token>` URI 绑定到该文件的规范路径，它必须是对话工作区根目录内的普通文件。指向根目录之外的符号链接会被拒绝。
 3. App 与入口工具收到 `{ file: { name, resourceUri } }`。
 4. `resources/read` 按 `_meta["openai/resource"].representation` 或文件内容返回 text 或 base64，并带有 `etag`（内容哈希）与 `writable: true`。

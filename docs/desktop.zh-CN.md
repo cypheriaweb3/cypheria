@@ -148,7 +148,7 @@ Codex 的独立 Summary 概览从会话标题栏打开，不再是右侧面板 t
 
 Electron 将 Desktop 私有偏好以版本 1 值保存到 `userData/kv.sqlite`。语义化 key 不添加产品或平台前缀。Appearance、`localeOverride`、General、Composer、Panel、Notifications、Sidebar、Git UI 与未读活动各自使用窄 Schema。Renderer 状态由 Jotai 管理；临时表单编辑值在确认前仍属于组件状态。Electron main 在创建窗口前读取 appearance 与 locale，并为相关 key 应用菜单、休眠、通知与声音副作用。选择目录或声音等 OS 操作继续使用窄 IPC。
 
-常规设置页将本地偏好分为 Permissions、General、Composer 和 Notifications。General 包含无项目任务默认目录（默认 `~/Documents/Cypheria`）、动态发现的本机文件打开应用、界面语言、菜单栏驻留、底部面板控件、终端位置和防止休眠。Composer 包含纯文本输入、上下文窗口用量、三种 Enter 发送模式和跟进消息行为。Notifications 包含任务完成提醒模式、权限与问题提醒，以及内置 Default 和 Classic、None、从 macOS 发现的声音和自选声音文件。选中声音时立即试听；选中 None 时停止试听。Codex 插件可用性在 Codex Settings 中配置并由 Codex 保存，见 [Codex 配置](codex-app-server-config.zh-CN.md)。
+常规设置页将本地偏好分为 Permissions、General、Composer 和 Notifications。General 包含无项目任务目录，它是 Server 主机上的路径，保存在 Server 配置的 `workspace.projectlessRoot`（留空时使用该主机的 `~/Documents/Cypheria`）、动态发现的本机文件打开应用、界面语言、菜单栏驻留、底部面板控件、终端位置和防止休眠。Composer 包含纯文本输入、上下文窗口用量、三种 Enter 发送模式和跟进消息行为。Notifications 包含任务完成提醒模式、权限与问题提醒，以及内置 Default 和 Classic、None、从 macOS 发现的声音和自选声音文件。选中声音时立即试听；选中 None 时停止试听。Codex 插件可用性在 Codex Settings 中配置并由 Codex 保存，见 [Codex 配置](codex-app-server-config.zh-CN.md)。
 
 共享 Agent、model、integration、Web3 和 Server 行为属于 Cypheria Server 配置或数据库。UI 偏好不会写入 Codex 配置。
 
@@ -164,7 +164,7 @@ Timeline 消息菜单由 Server 公布的逐边界 capability 决定。`turn-use
 
 Git、工作树和代码审查设置沿用官方桌面端的页面，并将其值保存在 Server 配置中。
 
-- **Git** 包括基于 Git 的 diff（仅最后一轮的审查模式）、分支前缀、合并方式、带租约的强制推送、草稿拉取请求、审查呈现方式（内联或独立）、监控并修复（自动合并与监控说明），以及提交和拉取请求说明。说明在停顿后自动保存。
+- **Git** 包括基于 Git 的 diff（仅最后一轮的审查模式）、分支前缀、合并方式、带租约的强制推送、草稿拉取请求（Create PR 对话框的默认值）、监控并修复（自动合并与监控说明），以及提交和拉取请求说明。说明在停顿后自动保存。
 - **工作树** 包括工作树根目录（Server 重启后生效）、每个新工作树创建前的上游刷新，以及自动删除及其上限；关闭自动删除需要确认。其下按仓库列出托管工作树及其关联的对话，可在某个工作树中新建聊天，并在没有聊天使用时删除工作树。
 - **代码审查** 承载代码审查 App 的设置；见[代码审查](code-review.zh-CN.md#desktop-界面)。
 

@@ -104,7 +104,7 @@ The chat's next message carries every App's context as text and images, each und
 
 File resources are answered by the Server from the workspace, not by the plugin's server:
 
-1. A file tab whose name matches a file entry point shows the handler with the longest matching extension, with the built-in source view one click away.
+1. A file tab whose name matches a file entry point shows a viewer bar with Cypheria's own viewer and each matching handler. It opens in the viewer the person chose for the file's extension, else in Cypheria's own viewer when it previews the type (images, Markdown, SVG, and CSV or TSV tables), else in the handler with the longest matching extension. Choosing a viewer saves it under the longest matching extension in Server configuration (`workspace.fileViewers`, a handler's entry point ID or `builtin`), merged by extension so clients never overwrite each other's choices; a choice whose handler is gone falls back to the default order.
 2. Opening it binds an opaque `cypheria-resource://<instance>/<token>` URI to the file's canonical path, which must be a regular file inside the chat's workspace roots. Symbolic links that leave the roots are refused.
 3. The App and the entry tool receive `{ file: { name, resourceUri } }`.
 4. `resources/read` returns text or base64, as `_meta["openai/resource"].representation` asks or by content, with `etag` (a content hash) and `writable: true`.

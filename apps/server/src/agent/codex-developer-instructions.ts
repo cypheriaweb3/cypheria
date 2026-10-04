@@ -263,7 +263,7 @@ export const codexGitSection = (settings: GitSettings): string => {
   const lines: string[] = []
   const branchPrefix = settings.branchPrefix.trim()
   const commit = settings.commitInstructions.trim()
-  const pullRequest = settings.prInstructions.trim()
+  const pullRequest = settings.pullRequestInstructions.trim()
   if (branchPrefix) {
     lines.push(
       `- Branch prefix: \`${branchPrefix}\`. Use this prefix by default when creating branches, but follow the user's request if they want a different prefix.`
