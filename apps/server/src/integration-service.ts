@@ -11,6 +11,7 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { codexAppToolScope } from "./codex-app-tool-scope.js"
 import { ClaudePluginProvider } from "./integration/claude-plugin-provider.js"
 import { CodexPluginProvider } from "./integration/codex-plugin-provider.js"
+import { HookEngine } from "./integration/hook-engine.js"
 import { PiMcpProvider } from "./integration/pi-mcp-provider.js"
 import {
   InMemoryPluginMarketplaceRegistry,
@@ -19,7 +20,6 @@ import {
 } from "./integration/plugin-hub.js"
 import type { PluginProvider } from "./integration/plugin-provider.js"
 import { webUrl } from "./integration/plugin-utils.js"
-import { HookEngine } from "./integration/hook-engine.js"
 
 const mcpConfigSchema = z.record(
   z.string(),

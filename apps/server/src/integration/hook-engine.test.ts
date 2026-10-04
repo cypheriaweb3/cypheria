@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
@@ -55,7 +55,7 @@ describe("HookEngine", () => {
 
     expect(result.status).toBe("completed")
     expect(result.runs).toHaveLength(1)
-    expect(result.runs[0]!.status).toBe("completed")
+    expect(result.runs[0]?.status).toBe("completed")
     expect(result.feedback).toContain("hello from user hook")
   })
 
@@ -81,7 +81,8 @@ describe("HookEngine", () => {
     // 1. Initially untrusted
     let list = await engine.listHooks({ cwd: workDir })
     expect(list.hooks).toHaveLength(1)
-    const hook = list.hooks[0]!
+    const hook = list.hooks[0]
+    if (!hook) throw new Error("expected a discovered hook")
     expect(hook.source).toBe("project")
     expect(hook.trustStatus).toBe("untrusted")
     expect(hook.currentHash).toBeTruthy()
@@ -98,7 +99,7 @@ describe("HookEngine", () => {
     await engine.trustHook(hook.key, hook.currentHash)
 
     list = await engine.listHooks({ cwd: workDir })
-    expect(list.hooks[0]!.trustStatus).toBe("trusted")
+    expect(list.hooks[0]?.trustStatus).toBe("trusted")
 
     // Now dispatch runs it
     result = await engine.dispatch(
@@ -107,7 +108,7 @@ describe("HookEngine", () => {
       { agentId: "codex", threadId: "thread-1", cwd: workDir }
     )
     expect(result.runs).toHaveLength(1)
-    expect(result.runs[0]!.status).toBe("completed")
+    expect(result.runs[0]?.status).toBe("completed")
 
     // 3. Modifying the project hooks file changes hash to 'modified'
     const modifiedConfig = {
@@ -124,7 +125,7 @@ describe("HookEngine", () => {
     await writeFile(projectHooksFile, JSON.stringify(modifiedConfig))
 
     list = await engine.listHooks({ cwd: workDir })
-    expect(list.hooks[0]!.trustStatus).toBe("modified")
+    expect(list.hooks[0]?.trustStatus).toBe("modified")
 
     // Modified hook is skipped until re-trusted
     result = await engine.dispatch(
@@ -163,7 +164,7 @@ describe("HookEngine", () => {
     expect(result.status).toBe("blocked")
     expect(result.blockedReason).toContain("Dangerous prompt blocked by security policy")
     expect(result.runs).toHaveLength(1)
-    expect(result.runs[0]!.status).toBe("blocked")
+    expect(result.runs[0]?.status).toBe("blocked")
   })
 
   it("skips plugin-level hooks when agent is codex, but executes them for non-codex agents", async () => {
@@ -189,7 +190,7 @@ describe("HookEngine", () => {
     // List hooks with plugin directory
     const list = await engine.listHooks({ pluginDirectories: [pluginDir] })
     expect(list.hooks).toHaveLength(1)
-    expect(list.hooks[0]!.source).toBe("plugin")
+    expect(list.hooks[0]?.source).toBe("plugin")
 
     // 1. When agent is codex: plugin hook is skipped in Cypheria to avoid duplicate execution
     const codexRes = await engine.dispatch(
@@ -206,7 +207,7 @@ describe("HookEngine", () => {
       { agentId: "claude", threadId: "thread-1", cwd: workDir, pluginDirectories: [pluginDir] }
     )
     expect(claudeRes.runs).toHaveLength(1)
-    expect(claudeRes.runs[0]!.status).toBe("completed")
+    expect(claudeRes.runs[0]?.status).toBe("completed")
     expect(claudeRes.feedback).toContain("plugin hook executed")
   })
 })
