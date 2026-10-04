@@ -88,7 +88,16 @@ describe.skipIf(!available)("cua_repl end to end", () => {
   beforeAll(async () => {
     directory = mkdtempSync(join(tmpdir(), "cua-e2e-"))
     const pipe = join(directory, "host.sock")
-    const host = new CuaHost({ desktop, surfaces: () => new Set(["iab"]) })
+    const host = new CuaHost({
+      desktop,
+      hosts: {
+        device: async () => {
+          throw new Error("no device requests in this test")
+        },
+        list: () => [{ id: "desktop-1", name: "Studio Mac", surfaces: ["iab", "mcpapps"] }],
+      },
+      surfaces: () => new Set(["iab"]),
+    })
     server = createServer((socket) => {
       createInterface({ input: socket }).on("line", async (line) => {
         const message = JSON.parse(line)

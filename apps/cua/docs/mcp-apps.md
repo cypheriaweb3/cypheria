@@ -1,13 +1,13 @@
 ## MCP Apps (`cua.mcpApps`)
 
-MCP Apps are plugin interfaces Cypheria shows in this task, such as a tool call's App or one opened in a side panel. Only Apps currently on screen in this task can be listed.
+MCP Apps are plugin interfaces Cypheria shows: a tool call's App in this task, an App opened beside it, or a plugin page outside any task, such as Code Review. Only Apps a connected Cypheria Desktop currently shows can be listed; `threadId` is `null` for an App outside any task. Each device shows its own copy of an App; actions go to the copy on the device the user wrote from when it shows one.
 
 ```typescript
 type Ref = string; // "@e12"
 
 declare const cua: {
   mcpApps: {
-    list(options?: { emit?: boolean }): Promise<{ id: string; title: string; server: string; pluginId: string | null; displayMode: string }[]>;
+    list(options?: { emit?: boolean }): Promise<{ id: string; threadId: string | null; title: string; server: string; pluginId: string | null; displayMode: string }[]>;
     get(id: string): Promise<McpAppTab>;
   };
 };

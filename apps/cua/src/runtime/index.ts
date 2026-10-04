@@ -1,6 +1,6 @@
 // The `cua` global of `cua_repl`, built to dist/runtime.mjs. The launcher's banner imports it once
 // per REPL module cache, so `js_reset` builds a fresh one.
-import type { CuaState } from "../protocol.ts"
+import type { CuaHostInfo, CuaState } from "../protocol.ts"
 import { parseSurfaces } from "../surfaces.ts"
 import { createAppsApi } from "./apps.ts"
 import { createBrowsersApi } from "./browsers.ts"
@@ -46,6 +46,11 @@ const createCua = () => {
     if (options.emit !== false) writeText(JSON.stringify(state))
     return state
   }
+  const hosts = async (options: { emit?: boolean } = {}): Promise<CuaHostInfo[]> => {
+    const list = await call<CuaHostInfo[]>({ op: "hosts" })
+    if (options.emit !== false) writeText(JSON.stringify(list))
+    return list
+  }
   docs.start()
   return {
     browsers: surfaces.has("browsers")
@@ -53,6 +58,7 @@ const createCua = () => {
       : disabled("External browser control"),
     getApp: apps?.getApp ?? unavailable("Native app control"),
     getState,
+    hosts,
     iab: surfaces.has("iab") ? createIabApi(history, docs) : disabled("The built-in browser"),
     initialize: getState,
     listApps: apps?.listApps ?? unavailable("Native app control"),

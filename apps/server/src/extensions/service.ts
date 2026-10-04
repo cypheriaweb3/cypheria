@@ -106,7 +106,20 @@ type Instance = {
   readonly entryTool: string
   readonly html: string
   readonly mimeType: string | null
-  readonly clients: Set<string>
+  /**
+   * How many times each client session has the instance open. Windows of one Desktop share a
+   * session, so one window closing the App must not close it for another.
+   */
+  readonly clients: Map<string, number>
+}
+
+export type ExtensionOpenApp = {
+  readonly id: string
+  readonly threadId: string | null
+  readonly title: string
+  readonly server: string
+  readonly pluginId: string | null
+  readonly displayMode: string
 }
 
 type PendingElicitation = {
@@ -364,6 +377,21 @@ export class ExtensionService {
     return link
   }
 
+  /**
+   * Open App instances, for Computer Use: a Thread's App and a page's App outside any Thread are
+   * both listed. Which windows show one is for those windows to say.
+   */
+  openApps(): ExtensionOpenApp[] {
+    return [...this.#instances.values()].map(({ view }) => ({
+      displayMode: view.displayMode,
+      id: view.id,
+      pluginId: view.pluginId ?? null,
+      server: view.server,
+      threadId: view.threadId,
+      title: view.title,
+    }))
+  }
+
   /** Forgets a disconnected client: its instances lose it and its forms are cancelled. */
   detach(clientId: string): void {
     this.#clients.delete(clientId)
@@ -442,7 +470,9 @@ export class ExtensionService {
         }
       case "extension.app.close.request": {
         const instance = this.#instances.get(message.payload.instanceId)
-        instance?.clients.delete(client.id)
+        const open = instance?.clients.get(client.id) ?? 0
+        if (open > 1) instance?.clients.set(client.id, open - 1)
+        else instance?.clients.delete(client.id)
         if (instance && instance.clients.size === 0) this.#drop(instance)
         return {}
       }
@@ -632,7 +662,7 @@ export class ExtensionService {
     const existing = sharedId ? this.#instances.get(sharedId) : undefined
     if (existing) {
       if (file) this.#files.release(id)
-      existing.clients.add(client.id)
+      existing.clients.set(client.id, (existing.clients.get(client.id) ?? 0) + 1)
       if (Object.keys(hostContext).length > 0) {
         Object.assign(existing.view.hostContext, hostContext)
         this.#notifyInstance(existing, "ui/notifications/host-context-changed", hostContext)
@@ -717,7 +747,7 @@ export class ExtensionService {
     // Entry points and tool calls are shared, so a second client attaches to the same instance.
     const shared = target.kind === "tool" ? null : key
     const instance: Instance = {
-      clients: new Set([client.id]),
+      clients: new Map([[client.id, 1]]),
       contextKey: key,
       file,
       global,
@@ -1093,7 +1123,7 @@ export class ExtensionService {
   }
 
   #notifyInstance(instance: Instance, method: string, params: Record<string, unknown>): void {
-    for (const clientId of instance.clients) {
+    for (const clientId of instance.clients.keys()) {
       this.#clients.get(clientId)?.notify({
         payload: { instanceId: instance.view.id, method, params },
         type: "extension.app.notification",

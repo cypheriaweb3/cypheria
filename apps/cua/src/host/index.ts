@@ -1,17 +1,21 @@
 import type {
+  AppBinding,
+  AppInfo,
+  CuaHostInfo,
   CuaImage,
+  CuaObservation,
   CuaState,
+  ExternalBrowserInfo,
   IabCommand,
   IabTabInfo,
   McpAppAction,
   McpAppInfo,
+  ParsedCuaDeviceRequest,
   ParsedCuaRequest,
 } from "../protocol.ts"
 import { CuaRequestSchema } from "../protocol.ts"
 import type { CuaSurface } from "../surfaces.ts"
-import type { ComputerBackend } from "./computer/backend.ts"
 import { CuaHostError } from "./errors.ts"
-import type { ExternalBrowsersBackend } from "./external/backend.ts"
 
 export { ComputerBackend, type ToolCaller } from "./computer/backend.ts"
 export {
@@ -20,6 +24,7 @@ export {
   type CuaDriverConnection,
   resolveCuaDriverBinary,
 } from "./computer/cua-driver.ts"
+export { CuaDevice, type CuaDeviceContext, type CuaDeviceOptions } from "./device.ts"
 export { CuaHostError } from "./errors.ts"
 export {
   type AgentBrowserRunner,
@@ -32,15 +37,32 @@ export { browserInstallations, readDevToolsActivePort } from "./external/discove
 /** What a Thread's request is scoped to. */
 export type CuaHostContext = { readonly threadId: string; readonly cwd?: string }
 
+/** A connected device that registered as a Computer Use host. */
+export type CuaHostEntry = {
+  readonly id: string
+  readonly name: string
+  readonly surfaces: readonly CuaSurface[]
+}
+
 /**
- * The surfaces Cypheria Desktop hosts: built-in browser tabs and MCP Apps. The Server implements
- * it over its browser host broker.
+ * The connected Computer Use hosts, which the Server tracks. Built-in browser tabs and MCP Apps
+ * go through `DesktopSurfaces`; external browsers and native apps through `device`.
+ */
+export interface CuaHosts {
+  list(): readonly CuaHostEntry[]
+  /** Sends one request to the device; the device answers with its backend's result. */
+  device(host: string, context: CuaHostContext, request: ParsedCuaDeviceRequest): Promise<unknown>
+}
+
+/**
+ * Built-in browser tabs and the MCP Apps clients show. The Server implements it over its host
+ * broker and its App instances.
  */
 export interface DesktopSurfaces {
   listTabs(context: CuaHostContext): Promise<IabTabInfo[]>
   newTab(
     context: CuaHostContext,
-    options: { url?: string; kind: "web" | "dapp" }
+    options: { url?: string; kind: "web" | "dapp"; host: string }
   ): Promise<IabTabInfo>
   command(
     context: CuaHostContext,
@@ -49,10 +71,12 @@ export interface DesktopSurfaces {
     args: Record<string, unknown>
   ): Promise<{ result: Record<string, unknown>; notice?: string }>
   listMcpApps(context: CuaHostContext): Promise<McpAppInfo[]>
+  /** Acts on one App, on a host that shows it; `preferredHost` wins when it shows the App. */
   mcpApp(
     context: CuaHostContext,
     appId: string,
-    action: McpAppAction
+    action: McpAppAction,
+    preferredHost: string | undefined
   ): Promise<{ text?: string; image?: CuaImage; notice?: string }>
 }
 
@@ -67,9 +91,13 @@ export type CuaAuditEvent = {
 export type CuaHostOptions = {
   /** The surfaces settings allow right now; read on every request. */
   readonly surfaces: () => ReadonlySet<CuaSurface>
+  readonly hosts?: CuaHosts
   readonly desktop?: DesktopSurfaces
-  readonly browsers?: ExternalBrowsersBackend
-  readonly computer?: ComputerBackend
+  /**
+   * The client that sent the Thread's current turn. A new tab or app opens on that device when
+   * it can host one; resources that already exist stay on the device that has them.
+   */
+  readonly initiator?: (threadId: string) => string | undefined
   /** Records mutations, never page or app content. */
   readonly audit?: (event: CuaAuditEvent) => void
 }
@@ -77,6 +105,7 @@ export type CuaHostOptions = {
 const SURFACE_OF: Record<string, CuaSurface | null> = {
   apps: "computer",
   browsers: "browsers",
+  hosts: null,
   iab: "iab",
   mcpapps: "mcpapps",
   state: null,
@@ -91,6 +120,7 @@ const SURFACE_LABELS: Record<CuaSurface, string> = {
 
 const READ_ONLY = new Set([
   "state",
+  "hosts",
   "apps.list",
   "apps.windows",
   "apps.observe",
@@ -110,12 +140,17 @@ const READ_ONLY_ACTIONS = new Set([
   "extract_assets",
 ])
 
+const describeHost = (host: CuaHostEntry) => `${host.id} (${host.name})`
+
 /**
  * The privileged side of `cua_repl`. It validates each request from model code, enforces the
- * enabled surfaces, scopes everything to the calling Thread, and dispatches to the backends.
+ * enabled surfaces, scopes everything to the calling Thread, and routes each request to the
+ * connected device that holds its tab, App, browser, or window.
  */
 export class CuaHost {
   readonly #options: CuaHostOptions
+  /** The devices each Thread used, which hear about its turn ends and its closing. */
+  readonly #used = new Map<string, Set<string>>()
 
   constructor(options: CuaHostOptions) {
     this.#options = options
@@ -148,14 +183,25 @@ export class CuaHost {
     }
   }
 
-  /** Applies end-of-turn tab rules for a Thread. */
+  /** Applies end-of-turn tab rules on every device the Thread used. */
   async turnEnded(context: CuaHostContext): Promise<void> {
-    await this.#options.browsers?.turnEnded(context.threadId)
+    await Promise.all(
+      [...(this.#used.get(context.threadId) ?? [])].map((host) =>
+        this.#options.hosts
+          ?.device(host, context, { op: "device.turnEnded" })
+          .catch(() => undefined)
+      )
+    )
   }
 
   closeThread(threadId: string): void {
-    this.#options.browsers?.closeThread(threadId)
-    this.#options.computer?.closeThread(threadId)
+    const used = this.#used.get(threadId)
+    this.#used.delete(threadId)
+    for (const host of used ?? []) {
+      void this.#options.hosts
+        ?.device(host, { threadId }, { op: "device.closeThread" })
+        .catch(() => undefined)
+    }
   }
 
   #readOnlyAction(request: ParsedCuaRequest): boolean {
@@ -181,11 +227,12 @@ export class CuaHost {
         : "command" in request
           ? `${request.op}:${request.command}`
           : request.op
+    const host = "host" in request ? request.host : undefined
     this.#options.audit?.({
       ok,
       op: action,
       threadId: context.threadId,
-      ...(target ? { target } : {}),
+      ...(target || host ? { target: [host, target].filter(Boolean).join(" ") } : {}),
       ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
     })
   }
@@ -197,59 +244,123 @@ export class CuaHost {
     return this.#options.desktop
   }
 
-  #browsers(): ExternalBrowsersBackend {
-    if (!this.#options.browsers)
-      throw new CuaHostError("unavailable", "External browsers are unavailable.")
-    return this.#options.browsers
+  #hostList(): readonly CuaHostEntry[] {
+    return this.#options.hosts?.list() ?? []
   }
 
-  #computer(): ComputerBackend {
-    if (!this.#options.computer)
-      throw new CuaHostError("unavailable", "Native app control is unavailable.")
-    return this.#options.computer
+  #hostInfo(context: CuaHostContext): CuaHostInfo[] {
+    const initiator = this.#options.initiator?.(context.threadId)
+    return this.#hostList().map((host) => ({
+      current: host.id === initiator,
+      id: host.id,
+      name: host.name,
+      surfaces: [...host.surfaces],
+    }))
+  }
+
+  /**
+   * The device a request for `surface` goes to: the one named, else the device the turn came
+   * from, else the only device that offers the surface. Several candidates need a choice.
+   */
+  #resolve(context: CuaHostContext, surface: CuaSurface, requested: string | undefined): string {
+    const all = this.#hostList()
+    const label = SURFACE_LABELS[surface]
+    if (requested) {
+      const host = all.find((candidate) => candidate.id === requested)
+      if (!host) {
+        throw new CuaHostError(
+          "unknown_host",
+          `Device ${requested} is not connected. Connected devices: ${all.map(describeHost).join(", ") || "none"}.`
+        )
+      }
+      if (!host.surfaces.includes(surface)) {
+        throw new CuaHostError("unavailable", `${label} is unavailable on ${describeHost(host)}.`)
+      }
+      return host.id
+    }
+    const candidates = all.filter((host) => host.surfaces.includes(surface))
+    const initiator = this.#options.initiator?.(context.threadId)
+    const current = candidates.find((host) => host.id === initiator)
+    if (current) return current.id
+    if (candidates.length === 1 && candidates[0]) return candidates[0].id
+    if (candidates.length === 0) {
+      throw new CuaHostError(
+        "unavailable",
+        `${label} needs a connected Cypheria Desktop that offers it. Open Cypheria Desktop on the device to use.`
+      )
+    }
+    throw new CuaHostError(
+      "choose_host",
+      `Several devices offer ${label.toLowerCase()}: ${candidates.map(describeHost).join(", ")}. Pass { host } with one of these IDs, or ask the person which device to use.`
+    )
+  }
+
+  async #device(
+    context: CuaHostContext,
+    host: string,
+    request: ParsedCuaDeviceRequest
+  ): Promise<unknown> {
+    if (!this.#options.hosts) {
+      throw new CuaHostError("unavailable", "No Computer Use host is connected.")
+    }
+    let used = this.#used.get(context.threadId)
+    if (!used) {
+      used = new Set()
+      this.#used.set(context.threadId, used)
+    }
+    used.add(host)
+    return this.#options.hosts.device(host, context, request)
   }
 
   async #dispatch(request: ParsedCuaRequest, context: CuaHostContext): Promise<unknown> {
-    const { threadId } = context
     switch (request.op) {
       case "state":
         return this.#state(context)
+      case "hosts":
+        return this.#hostInfo(context)
       case "apps.list":
-        return this.#computer().listApps(threadId)
       case "apps.windows":
-        return this.#computer().listWindows(threadId, request.pid)
-      case "apps.get":
-        return this.#computer().getApp(threadId, request.app)
+        return this.#device(context, this.#resolve(context, "computer", request.host), request)
+      case "apps.get": {
+        const host = this.#resolve(context, "computer", request.host)
+        const opened = (await this.#device(context, host, request)) as {
+          binding: AppBinding
+          observation: CuaObservation
+        }
+        return { ...opened, host }
+      }
       case "apps.observe":
-        return this.#computer().observe(threadId, request.handle, request)
       case "apps.act":
-        return this.#computer().act(threadId, request.handle, request.action)
+        return this.#device(context, this.#resolve(context, "computer", request.host), request)
       case "iab.tabs":
         return this.#desktop().listTabs(context)
       case "iab.new":
-        return this.#desktop().newTab(context, { kind: request.kind ?? "web", url: request.url })
+        return this.#desktop().newTab(context, {
+          host: this.#resolve(context, "iab", request.host),
+          kind: request.kind ?? "web",
+          ...(request.url ? { url: request.url } : {}),
+        })
       case "iab.command":
         return this.#desktop().command(context, request.tabId, request.command, request.args)
-      case "browsers.list":
-        return this.#browsers().list()
+      case "browsers.list": {
+        const host = this.#resolve(context, "browsers", request.host)
+        const browsers = (await this.#device(context, host, request)) as ExternalBrowserInfo[]
+        return browsers.map((browser) => ({ ...browser, host }))
+      }
       case "browsers.tabs":
-        return this.#browsers().tabs(threadId, request.browserId)
       case "browsers.new":
-        return this.#browsers().newTab(threadId, request.browserId, request.url)
       case "browsers.claim":
-        return this.#browsers().claim(threadId, request.browserId, request.tabId)
       case "browsers.act":
-        return this.#browsers().act(
-          threadId,
-          request.browserId,
-          request.tabId,
-          request.action,
-          context.cwd
-        )
+        return this.#device(context, this.#resolve(context, "browsers", request.host), request)
       case "mcpapps.list":
         return this.#desktop().listMcpApps(context)
       case "mcpapps.act":
-        return this.#desktop().mcpApp(context, request.appId, request.action)
+        return this.#desktop().mcpApp(
+          context,
+          request.appId,
+          request.action,
+          this.#options.initiator?.(context.threadId)
+        )
     }
   }
 
@@ -264,27 +375,45 @@ export class CuaHost {
         return undefined
       }
     }
+    const resolve = (surface: CuaSurface) => {
+      try {
+        return this.#resolve(context, surface, undefined)
+      } catch (error) {
+        errors.push(
+          `${SURFACE_LABELS[surface]}: ${error instanceof Error ? error.message : String(error)}`
+        )
+        return undefined
+      }
+    }
+    const computerHost = surfaces.has("computer") ? resolve("computer") : undefined
+    const browsersHost = surfaces.has("browsers") ? resolve("browsers") : undefined
     const [apps, iab, browsers, mcpApps] = await Promise.all([
-      surfaces.has("computer")
+      computerHost
         ? attempt("Native apps", async () =>
-            (await this.#computer().listApps(context.threadId)).filter((app) => app.running)
+            ((await this.#device(context, computerHost, { op: "apps.list" })) as AppInfo[]).filter(
+              (app) => app.running
+            )
           )
         : undefined,
       surfaces.has("iab")
         ? attempt("Built-in browser", () => this.#desktop().listTabs(context))
         : undefined,
-      surfaces.has("browsers")
+      browsersHost
         ? attempt("External browsers", async () => {
-            const backend = this.#browsers()
+            const list = (await this.#device(context, browsersHost, {
+              op: "browsers.list",
+            })) as ExternalBrowserInfo[]
             return Promise.all(
-              (await backend.list()).map(async (browser) =>
-                browser.connectable
-                  ? {
-                      ...browser,
-                      tabs: await backend.tabs(context.threadId, browser.id).catch(() => []),
-                    }
-                  : browser
-              )
+              list.map(async (browser) => {
+                const hosted = { ...browser, host: browsersHost }
+                if (!browser.connectable) return hosted
+                const tabs = await this.#device(context, browsersHost, {
+                  browserId: browser.id,
+                  host: browsersHost,
+                  op: "browsers.tabs",
+                }).catch(() => [])
+                return { ...hosted, tabs: tabs as never }
+              })
             )
           })
         : undefined,
@@ -292,7 +421,10 @@ export class CuaHost {
         ? attempt("MCP Apps", () => this.#desktop().listMcpApps(context))
         : undefined,
     ])
+    const host = computerHost ?? browsersHost
     return {
+      hosts: this.#hostInfo(context),
+      ...(host ? { host } : {}),
       ...(apps ? { apps } : {}),
       ...(iab ? { iab } : {}),
       ...(browsers ? { browsers } : {}),

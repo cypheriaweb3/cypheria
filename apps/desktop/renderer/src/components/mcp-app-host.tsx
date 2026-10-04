@@ -423,17 +423,11 @@ export function McpAppHost({
         attributes: true,
       })
       setOrigin(sandbox)
-      if (opened.threadId) {
-        unregisterApp = registerMountedMcpApp({
-          appId: opened.id,
-          displayMode: String(contextRef.current?.displayMode ?? displayMode),
-          origin: sandbox,
-          pluginId: opened.pluginId ?? null,
-          server: opened.server,
-          threadId: opened.threadId,
-          title: opened.title,
-        })
-      }
+      unregisterApp = registerMountedMcpApp({
+        appId: opened.id,
+        origin: sandbox,
+        threadId: opened.threadId,
+      })
     }
     start().catch((failure: unknown) => {
       if (disposed) return

@@ -15,12 +15,13 @@ import {
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
 import { type ArtifactActions, createArtifactActions } from "./artifact.js"
-import { type BrowserActions, createBrowserActions } from "./browser.js"
+import { type BrowserHostActions, createBrowserHostActions } from "./browser-host.js"
 import {
   type CodeReviewActions,
   CodeReviewRequestError,
   createCodeReviewActions,
 } from "./code-review.js"
+import { type ComputerHostActions, createComputerHostActions } from "./computer-host.js"
 import {
   createExtensionActions,
   type ExtensionActions,
@@ -98,7 +99,8 @@ export interface CypheriaApi {
   /** Preferred plural Agent facade. `agent` remains as a compatibility alias. */
   readonly agents: AgentActions
   readonly artifacts: ArtifactActions
-  readonly browser: BrowserActions
+  readonly browserHost: BrowserHostActions
+  readonly computerHost: ComputerHostActions
   readonly integrations: IntegrationActions
   readonly git: GitActions
   readonly projectThread: ProjectThreadActions
@@ -198,7 +200,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
   const artifacts = createArtifactActions(threads.timeline)
-  const browser = createBrowserActions(serverClient)
+  const browserHost = createBrowserHostActions(serverClient)
+  const computerHost = createComputerHostActions(serverClient)
   const settings: SettingsActions = {
     get: async (options) => serverClient.getServerConfig(options),
     reload: async (options) => serverClient.reloadServerConfig(options),
@@ -208,7 +211,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     agent: agents,
     agents,
     artifacts,
-    browser,
+    browserHost,
+    computerHost,
     integrations,
     git,
     magpie,
@@ -262,7 +266,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   }
 }
 
-export type { BrowserHostRegistration } from "./browser.js"
+export type { BrowserHostHandle, BrowserHostOptions } from "./browser-host.js"
+export type { ComputerHostHandle, ComputerHostOptions } from "./computer-host.js"
 export {
   type ConnectionState,
   CypheriaCapabilityError,
@@ -275,9 +280,10 @@ export {
 export type {
   AgentManagementActions,
   ArtifactActions,
-  BrowserActions,
+  BrowserHostActions,
   CodeReviewActions,
   CodexHarnessActions,
+  ComputerHostActions,
   ExtensionActions,
   ExtensionSettingsView,
   HarnessActions,

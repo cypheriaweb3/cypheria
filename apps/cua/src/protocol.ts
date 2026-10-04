@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { BROWSER_FAMILIES } from "./families.ts"
+import type { CuaSurface } from "./surfaces.ts"
 
 /**
  * Requests the `cua` runtime sends to its host over `nodeRepl.rpc(CUA_SERVICE, request)`. Model
@@ -22,6 +23,9 @@ const modifier = z.enum(["cmd", "ctrl", "alt", "shift", "fn"])
 const text = z.string().max(100_000)
 const key = z.string().min(1).max(64)
 const url = z.string().min(1).max(8_192)
+
+/** A Computer Use host: the client ID of the device whose browsers and apps a request uses. */
+const host = z.string().min(1).max(128)
 
 export const AppHandleSchema = z.object({ pid: z.int().positive(), windowId: z.int().positive() })
 export type AppHandle = z.infer<typeof AppHandleSchema>
@@ -171,24 +175,42 @@ export type IabCommand = (typeof IAB_COMMANDS)[number]
 const browserId = z.enum(BROWSER_FAMILIES)
 const tabId = z.string().min(1).max(256)
 
-export const CuaRequestSchema = z.discriminatedUnion("op", [
-  z.object({ op: z.literal("state") }),
-  z.object({ op: z.literal("apps.list") }),
-  z.object({ op: z.literal("apps.windows"), pid: z.int().positive().optional() }),
+/** Requests about the host device itself, which the Server forwards to that device. */
+const DEVICE_REQUESTS = [
+  z.object({ host: host.optional(), op: z.literal("apps.list") }),
+  z.object({
+    host: host.optional(),
+    op: z.literal("apps.windows"),
+    pid: z.int().positive().optional(),
+  }),
   z.object({
     app: z.union([z.string().min(1).max(1_024), z.object({ windowId: z.int().positive() })]),
+    host: host.optional(),
     op: z.literal("apps.get"),
   }),
   z.object({
     handle: AppHandleSchema,
+    host,
     op: z.literal("apps.observe"),
     query: z.string().min(1).max(256).optional(),
     screenshot: z.boolean().optional(),
     tree: z.boolean().optional(),
   }),
-  z.object({ action: AppActionSchema, handle: AppHandleSchema, op: z.literal("apps.act") }),
+  z.object({ action: AppActionSchema, handle: AppHandleSchema, host, op: z.literal("apps.act") }),
+  z.object({ host: host.optional(), op: z.literal("browsers.list") }),
+  z.object({ browserId, host, op: z.literal("browsers.tabs") }),
+  z.object({ browserId, host, op: z.literal("browsers.new"), url: url.optional() }),
+  z.object({ browserId, host, op: z.literal("browsers.claim"), tabId }),
+  z.object({ action: PageActionSchema, browserId, host, op: z.literal("browsers.act"), tabId }),
+] as const
+
+export const CuaRequestSchema = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("state") }),
+  z.object({ op: z.literal("hosts") }),
+  ...DEVICE_REQUESTS,
   z.object({ op: z.literal("iab.tabs") }),
   z.object({
+    host: host.optional(),
     kind: z.enum(["web", "dapp"]).optional(),
     op: z.literal("iab.new"),
     url: url.optional(),
@@ -199,16 +221,47 @@ export const CuaRequestSchema = z.discriminatedUnion("op", [
     op: z.literal("iab.command"),
     tabId,
   }),
-  z.object({ op: z.literal("browsers.list") }),
-  z.object({ browserId, op: z.literal("browsers.tabs") }),
-  z.object({ browserId, op: z.literal("browsers.new"), url: url.optional() }),
-  z.object({ browserId, op: z.literal("browsers.claim"), tabId }),
-  z.object({ action: PageActionSchema, browserId, op: z.literal("browsers.act"), tabId }),
   z.object({ op: z.literal("mcpapps.list") }),
   z.object({ action: McpAppActionSchema, appId: tabId, op: z.literal("mcpapps.act") }),
 ])
 export type CuaRequest = z.input<typeof CuaRequestSchema>
 export type ParsedCuaRequest = z.output<typeof CuaRequestSchema>
+
+/**
+ * What a host device executes: its share of the Thread's requests plus the Server's lifecycle
+ * notices. The device validates it again, since it arrives over the network.
+ */
+export const CuaDeviceRequestSchema = z.discriminatedUnion("op", [
+  ...DEVICE_REQUESTS,
+  z.object({ op: z.literal("device.turnEnded") }),
+  z.object({ op: z.literal("device.closeThread") }),
+])
+export type CuaDeviceRequest = z.input<typeof CuaDeviceRequestSchema>
+export type ParsedCuaDeviceRequest = z.output<typeof CuaDeviceRequestSchema>
+
+const REPEATABLE_DEVICE_OPS: ReadonlySet<string> = new Set([
+  "apps.list",
+  "apps.windows",
+  "apps.observe",
+  "browsers.list",
+  "browsers.tabs",
+  "device.turnEnded",
+  "device.closeThread",
+])
+const REPEATABLE_PAGE_ACTIONS: ReadonlySet<string> = new Set([
+  "snapshot",
+  "screenshot",
+  "get",
+  "wait",
+])
+
+/**
+ * Whether a device request that got no answer may simply run again: reads and the idempotent
+ * lifecycle notices. Anything else may already have acted.
+ */
+export const isRepeatableDeviceRequest = (request: ParsedCuaDeviceRequest): boolean =>
+  REPEATABLE_DEVICE_OPS.has(request.op) ||
+  (request.op === "browsers.act" && REPEATABLE_PAGE_ACTIONS.has(request.action.type))
 
 /** A screenshot crossing the RPC boundary. */
 export type CuaImage = { readonly dataBase64: string; readonly mimeType: string }
@@ -234,8 +287,19 @@ export type WindowInfo = {
 
 export type AppBinding = AppHandle & { readonly name: string; readonly bundleId?: string }
 
+/** A device that can act for Computer Use, as the model sees it. */
+export type CuaHostInfo = {
+  readonly id: string
+  readonly name: string
+  /** Whether this is the device the person sent the current turn from. */
+  readonly current: boolean
+  readonly surfaces: readonly CuaSurface[]
+}
+
 export type IabTabInfo = {
   readonly id: string
+  /** The host showing the tab, when the Server knows it. */
+  readonly host?: string
   readonly kind: "web" | "dapp"
   readonly title: string
   readonly url: string
@@ -252,6 +316,9 @@ export type ExternalBrowserInfo = {
   readonly setup?: string
 }
 
+/** An external browser together with the device it runs on, as the Server reports it. */
+export type HostedBrowserInfo = ExternalBrowserInfo & { readonly host: string }
+
 export type ExternalTabInfo = {
   readonly id: string
   readonly title: string
@@ -262,6 +329,8 @@ export type ExternalTabInfo = {
 
 export type McpAppInfo = {
   readonly id: string
+  /** The Thread whose Timeline holds the App, or `null` for a page outside any Thread. */
+  readonly threadId: string | null
   readonly title: string
   readonly server: string
   readonly pluginId: string | null
@@ -269,9 +338,12 @@ export type McpAppInfo = {
 }
 
 export type CuaState = {
+  readonly hosts: readonly CuaHostInfo[]
+  /** The device the state's native apps and external browsers come from. */
+  readonly host?: string
   readonly apps?: readonly AppInfo[]
   readonly iab?: readonly IabTabInfo[]
-  readonly browsers?: readonly (ExternalBrowserInfo & { tabs?: readonly ExternalTabInfo[] })[]
+  readonly browsers?: readonly (HostedBrowserInfo & { tabs?: readonly ExternalTabInfo[] })[]
   readonly mcpApps?: readonly McpAppInfo[]
   readonly errors?: readonly string[]
 }

@@ -115,16 +115,22 @@ const materialize = async (request: Request, threadId: string, browserId: string
     : failure(request, "browser_timeout", `Browser tab ${browserId} did not start.`, true)
 }
 
-/** Live tabs come from the main process; restored tabs that have not started are added here. */
+/**
+ * Live tabs come from the main process. Restored tabs that no window has started yet are added
+ * here; a tab live in another window is that window's to report.
+ */
 const listTabs = async (
   request: Request,
   threadId: string,
   bridge: NonNullable<NonNullable<Window["cypheria"]>["browser"]>
 ): Promise<BrowserAutomationOutcomeInput> => {
   await browserTabsStore.load()
-  const live = await bridge.executeAutomation(request)
+  const [live, anywhere] = await Promise.all([
+    bridge.executeAutomation(request),
+    bridge.listLive().catch(() => ({ browserIds: [] })),
+  ])
   if (!live.ok || live.result.command !== "list_tabs") return live
-  const liveIds = new Set(live.result.tabs.map((tab) => tab.browserId))
+  const liveIds = new Set([...live.result.tabs.map((tab) => tab.browserId), ...anywhere.browserIds])
   const state = browserTabsStore.getSnapshot()
   const restored = state.tabs
     .filter((tab) => !liveIds.has(tab.browserId))
@@ -141,7 +147,7 @@ const listTabs = async (
   return { ...live, result: { ...live.result, tabs: [...live.result.tabs, ...restored] } }
 }
 
-/** Runs one DOM action in an MCP App this window shows for the Thread. */
+/** Runs one DOM action in an MCP App this window shows, for the Thread or outside any Thread. */
 const runMcpApp = async (
   request: Request,
   threadId: string,
@@ -153,7 +159,7 @@ const runMcpApp = async (
     return failure(
       request,
       "browser_tab_not_found",
-      `MCP App ${args.appId} is not open in this task.`
+      `MCP App ${args.appId} is not open in this window.`
     )
   }
   try {
@@ -202,7 +208,7 @@ export const executeBrowserHostCommand = async (
       return {
         automationId: request.automationId,
         ok: true,
-        result: { apps: mountedMcpApps(threadId), command: "list_mcp_apps" },
+        result: { apps: mountedMcpApps(), command: "list_mcp_apps" },
       }
     case "mcp_app":
       return runMcpApp(request, threadId, command.args, bridge)
@@ -215,18 +221,23 @@ export const executeBrowserHostCommand = async (
 }
 
 /**
- * Registers the main window as the Server's browser host. Returns a disposer; outside the main
- * Desktop window this is a no-op.
+ * Registers this window as a browser host for its built-in browser tabs and the MCP Apps it
+ * shows. Every window registers on its own connection and gets its own host, even though windows
+ * share a client ID. Returns a disposer; outside Desktop this is a no-op.
  */
 export const mountBrowserAutomationHost = (client: CypheriaClient): (() => void) => {
   if (!isBrowserAvailable()) return () => undefined
-  const release = client.browser.registerHost({
-    hostKind: "Cypheria Desktop",
+  const host = client.browserHost.register({
     onCommand: executeBrowserHostCommand,
     onRegistrationError: (error) => console.warn("[browser] host registration failed", error),
-    supportedCommands: BROWSER_AUTOMATION_COMMAND_NAMES,
+    registration: async () => {
+      const status = await globalThis.window?.cypheria?.computerUse.status().catch(() => undefined)
+      return {
+        hostKind: "Cypheria Desktop",
+        ...(status ? { name: status.deviceName } : {}),
+        supportedCommands: [...BROWSER_AUTOMATION_COMMAND_NAMES],
+      }
+    },
   })
-  return () => {
-    void release()
-  }
+  return () => void host.release()
 }

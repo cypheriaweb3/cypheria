@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import type { KeyValueStorage } from "@cypheria/storage"
@@ -7,6 +8,7 @@ import {
   type ClientPreferencesSnapshot,
   type ClientSettingDefinition,
   clientSettingDefinitions,
+  DesktopClientIdSchema,
   type LanguageLocale,
   type NotificationSound,
   type SupportedLocale,
@@ -19,6 +21,24 @@ export const readClientSetting = <Value>(
   readValidatedValue(storage, definition.key, definition.defaultValue, definition.schema, {
     version: definition.version,
   })
+
+const DESKTOP_CLIENT_ID_KEY = "cypheria.desktop.client-id"
+
+/**
+ * The Desktop's client ID, created once per Cypheria home and shared by Electron main and every
+ * window. The Server joins their connections into one session and knows the device's computer host
+ * by it, so the host keeps its ID across reloads, reconnects, and restarts.
+ */
+export const readDesktopClientId = async (
+  storage: KeyValueStorage,
+  create: () => string = () => `cid_${randomUUID()}`
+): Promise<string> => {
+  const stored = DesktopClientIdSchema.safeParse(await storage.getItem(DESKTOP_CLIENT_ID_KEY))
+  if (stored.success) return stored.data
+  const id = DesktopClientIdSchema.parse(create())
+  await storage.setItem(DESKTOP_CLIENT_ID_KEY, id)
+  return id
+}
 
 export const resolveSupportedLocale = (
   override: LanguageLocale | null,
@@ -69,8 +89,6 @@ export const readClientPreferences = async (
     showContextWindowUsage,
     composerEnterBehavior,
     followUpQueueMode,
-    hotkeyWindowHotkey,
-    hotkeyWindowProjectlessDefaultEnabled,
     notificationsTurnMode,
     notificationsPermissionsEnabled,
     notificationsQuestionsEnabled,
@@ -84,8 +102,6 @@ export const readClientPreferences = async (
     readClientSetting(storage, clientSettingDefinitions.showContextWindowUsage),
     readClientSetting(storage, clientSettingDefinitions.composerEnterBehavior),
     readClientSetting(storage, clientSettingDefinitions.followUpQueueMode),
-    readClientSetting(storage, clientSettingDefinitions.hotkeyWindowHotkey),
-    readClientSetting(storage, clientSettingDefinitions.hotkeyWindowProjectlessDefaultEnabled),
     readClientSetting(storage, clientSettingDefinitions.notificationsTurnMode),
     readClientSetting(storage, clientSettingDefinitions.notificationsPermissionsEnabled),
     readClientSetting(storage, clientSettingDefinitions.notificationsQuestionsEnabled),
@@ -100,8 +116,6 @@ export const readClientPreferences = async (
     showContextWindowUsage,
     composerEnterBehavior,
     followUpQueueMode,
-    hotkeyWindowHotkey,
-    hotkeyWindowProjectlessDefaultEnabled,
     notificationsTurnMode,
     notificationsPermissionsEnabled,
     notificationsQuestionsEnabled,
@@ -114,8 +128,6 @@ const sideEffectKeys = new Set([
   clientSettingDefinitions.localeOverride.key,
   clientSettingDefinitions.macMenuBarEnabled.key,
   clientSettingDefinitions.preventSleepWhileRunning.key,
-  clientSettingDefinitions.hotkeyWindowHotkey.key,
-  clientSettingDefinitions.hotkeyWindowProjectlessDefaultEnabled.key,
   clientSettingDefinitions.notificationsTurnMode.key,
   clientSettingDefinitions.notificationsPermissionsEnabled.key,
   clientSettingDefinitions.notificationsQuestionsEnabled.key,

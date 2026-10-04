@@ -21,14 +21,17 @@ import {
 type Listener = () => void
 
 /**
- * Device-local browser tab index persisted in Desktop client KV. Page state lives in the
- * resident `<webview>` guests; this store only keeps what is needed to restore and list tabs.
+ * Device-local browser tab index persisted in Desktop client KV and shared by every window. Page
+ * state lives in each window's resident `<webview>` guests; this store only keeps what is needed
+ * to restore and list tabs. A window adopts another window's saved index unless it has a change
+ * of its own waiting to be saved, which then wins.
  */
 class BrowserTabsStore {
   #state: BrowserTabsState = emptyBrowserTabsState()
   #listeners = new Set<Listener>()
   #loaded: Promise<void> | null = null
   #saveTimer: ReturnType<typeof setTimeout> | null = null
+  #saved: string | null = null
 
   getSnapshot = (): BrowserTabsState => this.#state
 
@@ -39,6 +42,7 @@ class BrowserTabsStore {
   }
 
   load(): Promise<void> {
+    if (!this.#loaded) this.#watch()
     this.#loaded ??= desktopClientStorage.keyValue
       .getItem(BROWSER_TABS_STORAGE_KEY)
       .then((raw) => {
@@ -137,12 +141,28 @@ class BrowserTabsStore {
     if (persist) this.#schedulePersist()
   }
 
+  #watch(): void {
+    try {
+      desktopClientStorage.keyValue.subscribe?.(BROWSER_TABS_STORAGE_KEY, (raw) => {
+        if (raw === this.#saved || this.#saveTimer) return
+        try {
+          this.#set(parseBrowserTabsState(raw ? JSON.parse(raw) : null), false)
+        } catch {
+          // A corrupt index from elsewhere is ignored; this window's own copy stays.
+        }
+      })
+    } catch {
+      // Outside Electron there is no other window to follow.
+    }
+  }
+
   #schedulePersist(): void {
     if (this.#saveTimer) clearTimeout(this.#saveTimer)
     this.#saveTimer = setTimeout(() => {
       this.#saveTimer = null
+      this.#saved = JSON.stringify(serializeBrowserTabsState(this.#state))
       void desktopClientStorage.keyValue
-        .setItem(BROWSER_TABS_STORAGE_KEY, JSON.stringify(serializeBrowserTabsState(this.#state)))
+        .setItem(BROWSER_TABS_STORAGE_KEY, this.#saved)
         .catch(() => undefined)
     }, 250)
   }

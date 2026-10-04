@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto"
 
 import {
+  BROWSER_AUTOMATION_READ_ONLY_COMMANDS,
   type BrowserAutomationCommand,
   type BrowserAutomationCommandInput,
   type BrowserAutomationCommandName,
@@ -11,20 +12,35 @@ import {
   type BrowserAutomationOutcome,
   BrowserAutomationOutcomeSchema,
   type BrowserAutomationRequest,
+  type BrowserTabInfo,
 } from "@cypheria/protocol"
 
-/** A client session registered as a browser host, usually one Desktop window process. */
+/**
+ * One window registered as a browser host. Each registration gets its own `id`, so windows that
+ * share a client keep separate tabs and Apps; `clientId` names the device they belong to. Nothing
+ * here is persisted: after a restart or reconnect, hosts register again and the broker relearns
+ * which host has a tab from the next listing.
+ */
 export type BrowserHostClient = {
   readonly hostKind: string
   readonly id: string
+  readonly clientId: string
+  readonly name: string
   readonly supportedCommands: readonly BrowserAutomationCommandName[]
   send(request: BrowserAutomationRequest): void
 }
+
+/** A registered window as the rest of the Server sees it. */
+export type BrowserHostEntry = Omit<BrowserHostClient, "send">
 
 export type BrowserToolsExecuteInput = {
   readonly automationId?: string
   readonly command: BrowserAutomationCommandInput
   readonly cwd?: string
+  /** The window to run on. */
+  readonly hostId?: string
+  /** The device to run on: its most recently registered window that supports the command. */
+  readonly clientId?: string
   readonly threadId?: string
   readonly timeoutMs?: number
 }
@@ -36,11 +52,30 @@ type RegisteredHost = {
 }
 
 type PendingRequest = {
-  readonly clientId: string
+  readonly hostId: string
+  readonly command: BrowserAutomationCommandName
   readonly rememberAffinity: boolean
   readonly resolve: (outcome: BrowserAutomationOutcome) => void
   readonly timeout: ReturnType<typeof setTimeout>
 }
+
+/** One host's answer to a command sent to every host that supports it. */
+export type BrowserHostAnswer = {
+  readonly host: BrowserHostEntry
+  readonly outcome: BrowserAutomationOutcome
+}
+
+/**
+ * Whether a command that got no answer may simply run again. A mutation may already have run,
+ * so the caller must look at the page before deciding; only reads are safe to repeat.
+ */
+const safeToRepeat = (command: BrowserAutomationCommandName) =>
+  BROWSER_AUTOMATION_READ_ONLY_COMMANDS.has(command)
+
+const unanswered = (command: BrowserAutomationCommandName, reason: string) =>
+  safeToRepeat(command)
+    ? reason
+    : `${reason} The command may have run; check the current state before trying again.`
 
 export const DEFAULT_BROWSER_TOOLS_TIMEOUT_MS = 15_000
 
@@ -59,9 +94,11 @@ export const browserToolsFailure = (input: {
 const browserIdOf = (command: BrowserAutomationCommand): string | null =>
   "browserId" in command.args ? command.args.browserId : null
 
+const entryOf = ({ client: { send: _send, ...entry } }: RegisteredHost): BrowserHostEntry => entry
+
 /**
- * Routes browser commands to connected hosts. It remembers which host owns each tab so later
- * tab commands reach the same Desktop window, and it never executes browser work itself.
+ * Routes browser commands to connected windows. It remembers which window has each tab so later
+ * tab commands reach it, and it never executes browser work itself.
  */
 export class BrowserToolsBroker {
   readonly #clients = new Map<string, RegisteredHost>()
@@ -69,7 +106,6 @@ export class BrowserToolsBroker {
   readonly #defaultTimeoutMs: number
   readonly #hostByBrowserId = new Map<string, string>()
   readonly #pending = new Map<string, PendingRequest>()
-  readonly #strandedHostByBrowserId = new Map<string, string>()
   #registrationSequence = 0
 
   constructor(
@@ -87,6 +123,18 @@ export class BrowserToolsBroker {
     return this.#pending.size
   }
 
+  /** The registered windows, oldest registration first. */
+  hosts(): BrowserHostEntry[] {
+    return [...this.#clients.values()].map(entryOf)
+  }
+
+  /** The window that has a tab, as last reported by that window. */
+  hostOfTab(browserId: string): BrowserHostEntry | undefined {
+    const id = this.#hostByBrowserId.get(browserId)
+    const host = id ? this.#clients.get(id) : undefined
+    return host ? entryOf(host) : undefined
+  }
+
   registerClient(client: BrowserHostClient): () => void {
     this.unregisterClient(client.id)
     const registeredAt = ++this.#registrationSequence
@@ -98,25 +146,24 @@ export class BrowserToolsBroker {
     return () => this.unregisterClient(client.id, registeredAt)
   }
 
-  unregisterClient(clientId: string, registeredAt?: number): void {
-    const current = this.#clients.get(clientId)
+  unregisterClient(hostId: string, registeredAt?: number): void {
+    const current = this.#clients.get(hostId)
     if (!current || (registeredAt !== undefined && current.registeredAt !== registeredAt)) return
-    this.#clients.delete(clientId)
+    this.#clients.delete(hostId)
+    // The window's tabs are found again by listing once it, or a reload of it, registers.
     for (const [browserId, owner] of this.#hostByBrowserId) {
-      if (owner !== clientId) continue
-      this.#hostByBrowserId.delete(browserId)
-      this.#strandedHostByBrowserId.set(browserId, clientId)
+      if (owner === hostId) this.#hostByBrowserId.delete(browserId)
     }
     for (const [automationId, pending] of this.#pending) {
-      if (pending.clientId !== clientId) continue
+      if (pending.hostId !== hostId) continue
       this.#pending.delete(automationId)
       clearTimeout(pending.timeout)
       pending.resolve(
         browserToolsFailure({
           automationId,
           code: "browser_no_host",
-          message: "The browser host disconnected before responding.",
-          retryable: true,
+          message: unanswered(pending.command, "The window disconnected before responding."),
+          retryable: safeToRepeat(pending.command),
         })
       )
     }
@@ -141,15 +188,53 @@ export class BrowserToolsBroker {
     const timeoutMs = input.timeoutMs ?? this.#defaultTimeoutMs
     if (request.command.command === "list_tabs") return this.#listTabs(request, timeoutMs)
 
-    const host = this.#selectHost(request.command, automationId)
+    let host = this.#selectHost(request.command, automationId, input)
+    // A tab no registered window has claimed yet, such as after a reconnect, is found by asking
+    // every window for its tabs, as Paseo does; the command itself has not been sent.
+    if (!host.ok && host.relearn) {
+      await this.#listTabs(
+        { automationId: `${automationId}:relearn`, command: { args: {}, command: "list_tabs" } },
+        timeoutMs
+      )
+      host = this.#selectHost(request.command, automationId, input)
+    }
     if (!host.ok) return host.outcome
     const unsupported = this.#unsupported(host.value, request.command.command, automationId)
     if (unsupported) return unsupported
     return this.#send({ host: host.value, request, timeoutMs })
   }
 
-  /** Accepts a host's answer. Returns false for unknown ids or answers from another host. */
-  receiveOutcome(clientId: string, value: unknown): boolean {
+  /** Sends a read-only command to every window that supports it and returns each answer. */
+  async broadcast(
+    input: Omit<BrowserToolsExecuteInput, "hostId" | "clientId">
+  ): Promise<BrowserHostAnswer[]> {
+    const automationId = input.automationId ?? this.#createAutomationId()
+    const parsed = BrowserAutomationCommandSchema.safeParse(input.command)
+    if (!parsed.success || !safeToRepeat(parsed.data.command)) return []
+    const command = parsed.data
+    const hosts = [...this.#clients.values()].filter((host) =>
+      host.supportedCommands.has(command.command)
+    )
+    return Promise.all(
+      hosts.map(async (host) => ({
+        host: entryOf(host),
+        outcome: await this.#send({
+          host,
+          rememberAffinity: false,
+          request: {
+            automationId: `${automationId}:${host.client.id}`,
+            command,
+            ...(input.cwd ? { cwd: input.cwd } : {}),
+            ...(input.threadId ? { threadId: input.threadId } : {}),
+          },
+          timeoutMs: input.timeoutMs ?? this.#defaultTimeoutMs,
+        }),
+      }))
+    )
+  }
+
+  /** Accepts a window's answer. Returns false for unknown ids or answers from another window. */
+  receiveOutcome(hostId: string, value: unknown): boolean {
     const parsed = BrowserAutomationOutcomeSchema.safeParse(value)
     const automationId =
       typeof value === "object" && value !== null && "automationId" in value
@@ -157,7 +242,7 @@ export class BrowserToolsBroker {
         : undefined
     if (!automationId) return false
     const pending = this.#pending.get(automationId)
-    if (!pending || pending.clientId !== clientId) return false
+    if (!pending || pending.hostId !== hostId) return false
     this.#pending.delete(automationId)
     clearTimeout(pending.timeout)
     if (!parsed.success) {
@@ -170,7 +255,7 @@ export class BrowserToolsBroker {
       )
       return true
     }
-    if (pending.rememberAffinity) this.#rememberHost(clientId, parsed.data)
+    if (pending.rememberAffinity) this.#rememberHost(hostId, parsed.data)
     pending.resolve(parsed.data)
     return true
   }
@@ -179,12 +264,10 @@ export class BrowserToolsBroker {
     request: BrowserAutomationRequest,
     timeoutMs: number
   ): Promise<BrowserAutomationOutcome> {
-    const hosts = [...this.#clients.values()]
+    const hosts = [...this.#clients.values()].filter((host) =>
+      host.supportedCommands.has("list_tabs")
+    )
     if (hosts.length === 0) return this.#noHost(request.automationId)
-    for (const host of hosts) {
-      const unsupported = this.#unsupported(host, "list_tabs", request.automationId)
-      if (unsupported) return unsupported
-    }
     const answers = await Promise.all(
       hosts.map(async (host) => ({
         host,
@@ -199,62 +282,98 @@ export class BrowserToolsBroker {
         }),
       }))
     )
+    // One unreachable window must not hide the others' tabs; fail only when every window failed.
     const failed = answers.find(({ outcome }) => !outcome.ok)
-    if (failed) return { ...failed.outcome, automationId: request.automationId }
-    for (const { host, outcome } of answers) this.#rememberHost(host.client.id, outcome)
-    return {
-      automationId: request.automationId,
-      ok: true,
-      result: {
-        command: "list_tabs",
-        tabs: answers.flatMap(({ outcome }) =>
-          outcome.ok && outcome.result.command === "list_tabs" ? outcome.result.tabs : []
-        ),
-      },
+    if (failed && answers.every(({ outcome }) => !outcome.ok)) {
+      return { ...failed.outcome, automationId: request.automationId }
     }
+    // Windows share the device's tab index, so a restored tab no window has started is listed
+    // by each of them; the earliest registered window keeps it.
+    const tabs: BrowserTabInfo[] = []
+    const seen = new Set<string>()
+    for (const { host, outcome } of answers) {
+      if (!outcome.ok || outcome.result.command !== "list_tabs") continue
+      for (const tab of outcome.result.tabs) {
+        if (seen.has(tab.browserId)) continue
+        seen.add(tab.browserId)
+        tabs.push(tab)
+        this.#hostByBrowserId.set(tab.browserId, host.client.id)
+      }
+    }
+    return { automationId: request.automationId, ok: true, result: { command: "list_tabs", tabs } }
   }
 
   #selectHost(
     command: BrowserAutomationCommand,
-    automationId: string
-  ): { ok: true; value: RegisteredHost } | { ok: false; outcome: BrowserAutomationOutcome } {
-    const browserId = browserIdOf(command)
-    if (!browserId) {
-      const host = this.#mostRecentHost()
-      return host ? { ok: true, value: host } : { ok: false, outcome: this.#noHost(automationId) }
-    }
-    const owner = this.#hostByBrowserId.get(browserId)
-    if (owner) {
-      const host = this.#clients.get(owner)
+    automationId: string,
+    target: { readonly hostId?: string; readonly clientId?: string }
+  ):
+    | { ok: true; value: RegisteredHost }
+    | { ok: false; outcome: BrowserAutomationOutcome; relearn?: boolean } {
+    if (target.hostId) {
+      const host = this.#clients.get(target.hostId)
       return host
         ? { ok: true, value: host }
-        : { ok: false, outcome: this.#stranded(automationId, browserId) }
+        : { ok: false, outcome: this.#gone(automationId, "That window is no longer connected.") }
     }
-    const stranded = this.#strandedHostByBrowserId.get(browserId)
-    if (stranded) {
-      const host = this.#clients.get(stranded)
-      if (!host) return { ok: false, outcome: this.#stranded(automationId, browserId) }
-      this.#strandedHostByBrowserId.delete(browserId)
-      this.#hostByBrowserId.set(browserId, stranded)
-      return { ok: true, value: host }
+    if (target.clientId) {
+      const host = [...this.#clients.values()]
+        .filter(
+          (candidate) =>
+            candidate.client.clientId === target.clientId &&
+            candidate.supportedCommands.has(command.command)
+        )
+        .at(-1)
+      return host
+        ? { ok: true, value: host }
+        : {
+            ok: false,
+            outcome: this.#gone(automationId, `Device ${target.clientId} has no window for this.`),
+          }
     }
+    const browserId = browserIdOf(command)
+    if (!browserId) {
+      // Which device a new resource belongs on is the caller's decision. Among the windows of
+      // one device, the most recently registered one wins, as in Paseo.
+      if (this.#clients.size === 0) return { ok: false, outcome: this.#noHost(automationId) }
+      const hosts = [...this.#clients.values()]
+      const newest = hosts
+        .filter((candidate) => candidate.supportedCommands.has(command.command))
+        .at(-1)
+      if (
+        newest &&
+        hosts.every((candidate) => candidate.client.clientId === newest.client.clientId)
+      ) {
+        return { ok: true, value: newest }
+      }
+      return {
+        ok: false,
+        outcome: browserToolsFailure({
+          automationId,
+          code: "browser_no_host",
+          message: "Several windows are connected; name the device to use.",
+        }),
+      }
+    }
+    const owner = this.#hostByBrowserId.get(browserId)
+    const known = owner ? this.#clients.get(owner) : undefined
+    if (known) return { ok: true, value: known }
     if (this.#clients.size === 0) return { ok: false, outcome: this.#noHost(automationId) }
-    if (this.#clients.size === 1) {
-      const host = this.#mostRecentHost()
-      if (host) return { ok: true, value: host }
-    }
+    const only = this.#onlyHost()
+    if (only) return { ok: true, value: only }
     return {
       ok: false,
       outcome: browserToolsFailure({
         automationId,
         code: "browser_tab_not_found",
-        message: `Browser tab ${browserId} is not associated with a connected browser host. Call browser_list_tabs and use one of the returned browserId values.`,
+        message: `Browser tab ${browserId} is not open in a connected window. List the tabs again and use one of the returned IDs.`,
       }),
+      relearn: true,
     }
   }
 
-  #mostRecentHost(): RegisteredHost | undefined {
-    return [...this.#clients.values()].at(-1)
+  #onlyHost(): RegisteredHost | undefined {
+    return this.#clients.size === 1 ? [...this.#clients.values()][0] : undefined
   }
 
   #unsupported(
@@ -279,29 +398,16 @@ export class BrowserToolsBroker {
     })
   }
 
-  #stranded(automationId: string, browserId: string): BrowserAutomationOutcome {
-    return browserToolsFailure({
-      automationId,
-      code: "browser_no_host",
-      message: `The app hosting browser tab ${browserId} disconnected.`,
-      retryable: true,
-    })
+  #gone(automationId: string, message: string): BrowserAutomationOutcome {
+    return browserToolsFailure({ automationId, code: "browser_no_host", message, retryable: true })
   }
 
-  #rememberHost(clientId: string, outcome: BrowserAutomationOutcome): void {
+  #rememberHost(hostId: string, outcome: BrowserAutomationOutcome): void {
     if (!outcome.ok) return
     const result = outcome.result
-    if (result.command === "list_tabs") {
-      for (const tab of result.tabs) {
-        this.#hostByBrowserId.set(tab.browserId, clientId)
-        this.#strandedHostByBrowserId.delete(tab.browserId)
-      }
-      return
-    }
     if (!("browserId" in result)) return
-    this.#strandedHostByBrowserId.delete(result.browserId)
     if (result.command === "close_tab") this.#hostByBrowserId.delete(result.browserId)
-    else this.#hostByBrowserId.set(result.browserId, clientId)
+    else this.#hostByBrowserId.set(result.browserId, hostId)
   }
 
   #send(input: {
@@ -312,6 +418,7 @@ export class BrowserToolsBroker {
   }): Promise<BrowserAutomationOutcome> {
     const { host, request, timeoutMs } = input
     const automationId = request.automationId
+    const command = request.command.command
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         if (!this.#pending.delete(automationId)) return
@@ -319,13 +426,14 @@ export class BrowserToolsBroker {
           browserToolsFailure({
             automationId,
             code: "browser_timeout",
-            message: `Browser command timed out after ${timeoutMs}ms.`,
-            retryable: true,
+            message: unanswered(command, `The command timed out after ${timeoutMs}ms.`),
+            retryable: safeToRepeat(command),
           })
         )
       }, timeoutMs)
       this.#pending.set(automationId, {
-        clientId: host.client.id,
+        command,
+        hostId: host.client.id,
         rememberAffinity: input.rememberAffinity ?? true,
         resolve,
         timeout,

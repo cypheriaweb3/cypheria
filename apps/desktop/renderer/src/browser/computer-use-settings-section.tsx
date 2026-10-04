@@ -51,7 +51,9 @@ function PermissionRows({
       if (!bridge) throw new Error("Computer Use is available in Cypheria Desktop.")
       return bridge.restartDriver()
     },
-    onSuccess: (next) => queryClient.setQueryData(statusKey, next),
+    onSuccess: (next) => {
+      queryClient.setQueryData(statusKey, next)
+    },
   })
   const granted = <Trans id="settings.computerUse.granted">Granted</Trans>
   return (

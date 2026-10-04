@@ -12,6 +12,8 @@ import {
   type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
+  type ComputerHostClientMessage,
+  type ComputerHostServerMessage,
   type ConnectionOfferV2,
   ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
@@ -732,6 +734,24 @@ export class ServerClient {
       SERVER_CAPABILITIES.browser
     )
     return message as BrowserServerMessage
+  }
+
+  async requestComputerHost(
+    type: ComputerHostClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<ComputerHostServerMessage> {
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("computer-host"),
+        type,
+      } as ComputerHostClientMessage,
+      type.replace(/\.request$/u, ".response"),
+      options,
+      SERVER_CAPABILITIES.computerHost
+    )
+    return message as ComputerHostServerMessage
   }
 
   async requestGit(

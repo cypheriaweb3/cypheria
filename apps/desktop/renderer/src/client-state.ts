@@ -62,10 +62,6 @@ export const composerEnterBehaviorAtom = atomFor(clientSettingDefinitions.compos
 export const followUpQueueModeAtom = atomFor(clientSettingDefinitions.followUpQueueMode)
 export const defaultTerminalLocationAtom = atomFor(clientSettingDefinitions.defaultTerminalLocation)
 export const showBottomPanelControlAtom = atomFor(clientSettingDefinitions.showBottomPanelControl)
-export const hotkeyWindowHotkeyAtom = atomFor(clientSettingDefinitions.hotkeyWindowHotkey)
-export const hotkeyWindowProjectlessDefaultEnabledAtom = atomFor(
-  clientSettingDefinitions.hotkeyWindowProjectlessDefaultEnabled
-)
 export const notificationsTurnModeAtom = atomFor(clientSettingDefinitions.notificationsTurnMode)
 export const notificationsPermissionsEnabledAtom = atomFor(
   clientSettingDefinitions.notificationsPermissionsEnabled

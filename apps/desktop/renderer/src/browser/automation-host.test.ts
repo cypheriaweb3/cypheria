@@ -10,6 +10,9 @@ const threadB = "01984de2-8f74-7c91-a3b2-5c5e937cf319"
 
 const executeMcpApp = vi.fn(async () => ({ snapshot: '- button "Save" [ref=e1]' }))
 
+/** Tabs live in some window; a tab live elsewhere is not reported as restored here. */
+const listLive = vi.fn(async () => ({ browserIds: [] as string[] }))
+
 const executeAutomation = vi.fn(async (request: BrowserAutomationRequest) => ({
   automationId: request.automationId,
   ok: true as const,
@@ -19,7 +22,7 @@ const executeAutomation = vi.fn(async (request: BrowserAutomationRequest) => ({
 describe("browser host commands", () => {
   beforeEach(() => {
     vi.stubGlobal("window", {
-      cypheria: { browser: { executeAutomation, executeMcpApp } },
+      cypheria: { browser: { executeAutomation, executeMcpApp, listLive } },
     })
   })
   afterEach(() => {
@@ -62,27 +65,36 @@ describe("browser host commands", () => {
     expect(browserTabsStore.get(other.browserId)).toBeDefined()
   })
 
-  it("lists and operates only the MCP Apps mounted for the calling Thread", async () => {
-    const dispose = registerMountedMcpApp({
-      appId: "app-1",
-      displayMode: "fullscreen",
-      origin: "cypheria-sandbox://a1/",
-      pluginId: "demo@market",
-      server: "demo",
+  it("leaves a tab live in another window to that window", async () => {
+    const elsewhere = browserTabsStore.create({
+      kind: "web",
       threadId: threadA,
-      title: "Demo",
+      url: "https://elsewhere.test",
     })
+    listLive.mockResolvedValueOnce({ browserIds: [elsewhere.browserId] })
+    const listed = await executeBrowserHostCommand({
+      automationId: "a-4",
+      command: { args: {}, command: "list_tabs" },
+      threadId: threadA,
+    })
+    const tabs = listed.ok && listed.result.command === "list_tabs" ? listed.result.tabs : []
+    expect(tabs.map((tab) => tab.browserId)).not.toContain(elsewhere.browserId)
+    browserTabsStore.remove(elsewhere.browserId)
+  })
+
+  it("operates MCP Apps of the calling Thread and Apps outside any Thread", async () => {
+    const disposers = [
+      registerMountedMcpApp({
+        appId: "app-1",
+        origin: "cypheria-sandbox://a1/",
+        threadId: threadA,
+      }),
+      registerMountedMcpApp({ appId: "page", origin: "cypheria-sandbox://p1/", threadId: null }),
+    ]
     try {
       await expect(
         executeBrowserHostCommand({
           automationId: "m-1",
-          command: { args: {}, command: "list_mcp_apps" },
-          threadId: threadB,
-        })
-      ).resolves.toMatchObject({ ok: true, result: { apps: [] } })
-      await expect(
-        executeBrowserHostCommand({
-          automationId: "m-2",
           command: { args: { action: { type: "snapshot" }, appId: "app-1" }, command: "mcp_app" },
           threadId: threadA,
         })
@@ -97,13 +109,34 @@ describe("browser host commands", () => {
       })
       await expect(
         executeBrowserHostCommand({
-          automationId: "m-3",
+          automationId: "m-2",
           command: { args: { action: { type: "snapshot" }, appId: "app-1" }, command: "mcp_app" },
           threadId: threadB,
         })
       ).resolves.toMatchObject({ error: { code: "browser_tab_not_found" }, ok: false })
+      await expect(
+        executeBrowserHostCommand({
+          automationId: "m-3",
+          command: { args: { action: { type: "snapshot" }, appId: "page" }, command: "mcp_app" },
+          threadId: threadB,
+        })
+      ).resolves.toMatchObject({ ok: true })
+      await expect(
+        executeBrowserHostCommand({
+          automationId: "m-4",
+          command: { args: {}, command: "list_mcp_apps" },
+          threadId: threadB,
+        })
+      ).resolves.toMatchObject({
+        result: {
+          apps: [
+            { appId: "app-1", threadId: threadA },
+            { appId: "page", threadId: null },
+          ],
+        },
+      })
     } finally {
-      dispose()
+      for (const dispose of disposers) dispose()
     }
   })
 })

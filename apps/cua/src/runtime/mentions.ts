@@ -2,6 +2,8 @@
 export type TabMention = {
   readonly plugin: "browser" | "chrome"
   readonly browserId?: string
+  /** The device an external tab's browser runs on, when the mention names one. */
+  readonly host?: string
   readonly tabId: string
   readonly title: string
   readonly url: string
@@ -9,8 +11,8 @@ export type TabMention = {
 
 /**
  * Parses `plugin://browser@cypheria-bundled?mention=tab-v1&tabId=…&title=…&url=…` (a built-in
- * browser tab) or `plugin://chrome@cypheria-bundled?mention=tab-v1&browserId=…&tabId=…&…` (an
- * external browser tab). Anything else is rejected rather than guessed at.
+ * browser tab) or `plugin://chrome@cypheria-bundled?mention=tab-v1&host=…&browserId=…&tabId=…&…`
+ * (an external browser tab). Anything else is rejected rather than guessed at.
  */
 export const parseTabMention = (mention: string): TabMention => {
   let url: URL
@@ -31,7 +33,7 @@ export const parseTabMention = (mention: string): TabMention => {
     throw new Error("Invalid tab mention URL.")
   }
   const fields = Object.fromEntries(url.searchParams)
-  const { browserId, mention: version, tabId, title, url: pageUrl } = fields
+  const { browserId, host, mention: version, tabId, title, url: pageUrl } = fields
   if (
     version !== "tab-v1" ||
     !tabId?.trim() ||
@@ -41,7 +43,7 @@ export const parseTabMention = (mention: string): TabMention => {
   ) {
     throw new Error("Invalid tab mention fields.")
   }
-  return { browserId, plugin, tabId, title, url: pageUrl }
+  return { browserId, ...(host?.trim() ? { host } : {}), plugin, tabId, title, url: pageUrl }
 }
 
 /** Fails closed when a mentioned tab changed after the user mentioned it. */

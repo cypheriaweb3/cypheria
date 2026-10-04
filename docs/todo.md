@@ -59,8 +59,12 @@ The detailed future service boundary and threat model are in [Marketplace](marke
 - [ ] Give Pi, OpenCode, and ACP Agents the `cua_repl` server through their harness adapters, with the same per-Thread host as Codex and Claude.
 - [ ] Verify Computer Use end to end in development and packaged Electron builds: Codex and Claude Threads on each surface, external browsers on macOS, Windows, and Linux, MCP App screenshots and actions, and native apps with the embedded cua-driver daemon and its macOS grants.
 - [ ] Bundle the fetched cua-driver executable outside ASAR and sign it with the Desktop app once Desktop packaging exists.
-- [ ] Add composer mentions of external browser tabs (`plugin://chrome@cypheria-bundled?mention=tab-v1&…`) and per-browser switches.
-- [ ] Ask the user before an Agent first operates a desktop app or claims an external browser tab, with per-app and per-site approvals.
+- [ ] Add composer mentions of external browser tabs (`plugin://chrome@cypheria-bundled?mention=tab-v1&host=…&…`) and per-browser switches.
+- [ ] Ask the user before an Agent first operates a desktop app or claims an external browser tab, with per-app and per-site approvals that any client of the Thread can answer.
+- [ ] Publish built-in browser tab metadata through the Server, so every client's Browser panel and composer mentions show a Thread's tabs on other devices.
+- [ ] Broadcast Computer Use activity per Thread (device, target, action) with a stop control on every client.
+- [ ] Mount MCP Apps on demand in a parked layer, so an Agent can operate a Thread's App that no window currently shows.
+- [ ] Arbitrate native app control between Threads acting on the same device.
 
 ## Codex desktop parity
 

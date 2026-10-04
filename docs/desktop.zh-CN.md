@@ -9,9 +9,10 @@ title: Desktop
 ## 进程边界
 
 - Electron main 负责窗口、应用生命周期、Server 管理、桌面设置、安全存储、更新、原生菜单、操作系统集成，以及浏览器 guest 加固：webview 挂载、浏览器配置、弹窗、导航、自动化和 dApp provider 边界。
+- File → New Window（`CmdOrCtrl+Shift+N`）打开另一个与第一个窗口布局相同的窗口。每个窗口都以 Desktop 唯一的 client ID 作为 Server 的完整客户端，Server 只把窗口当作内存中的连接，重连或重启后由窗口重新注册。主窗口（每次启动的第一个窗口）跨启动保存 Thread panel 布局、接收深链接，在 macOS 上关闭时隐藏；其他窗口只在内存中保留布局，关闭即销毁。
 - Preload 为 Electron 专属能力暴露狭窄的类型化 IPC。
 - TanStack renderer 直接通过 `@cypheria/client` 使用共享产品状态并消费实时 Agent turns。
-- 浏览器标签页是由主窗口 renderer 承载的沙箱化 `<webview>` guest。Electron main 为每个 guest 选择 preload；dApp preload 只向安全 origin 的顶层 frame 暴露受限 provider bridge，绝不暴露 Node.js 或密钥材料。
+- 浏览器标签页是由窗口 renderer 承载的沙箱化 `<webview>` guest。Electron main 为每个 guest 选择 preload；dApp preload 只向安全 origin 的顶层 frame 暴露受限 provider bridge，绝不暴露 Node.js 或密钥材料。
 
 浏览器 guest 和弹窗始终关闭 `nodeIntegration`，开启 `contextIsolation`、sandbox 和 web security。
 
@@ -145,9 +146,9 @@ Codex 的独立 Summary 概览从会话标题栏打开，不再是右侧面板 t
 
 ## Desktop 本地设置
 
-Electron 将 Desktop 私有偏好以版本 1 值保存到 `userData/kv.sqlite`。语义化 key 不添加产品或平台前缀。Appearance、`localeOverride`、General、Composer、Panel、Popout、Notifications、Sidebar、Git UI 与未读活动各自使用窄 Schema。Renderer 状态由 Jotai 管理；临时表单编辑值在确认前仍属于组件状态。Electron main 在创建窗口前读取 appearance 与 locale，并为相关 key 应用菜单、休眠、通知、声音与快捷键副作用。选择目录或声音等 OS 操作继续使用窄 IPC。
+Electron 将 Desktop 私有偏好以版本 1 值保存到 `userData/kv.sqlite`。语义化 key 不添加产品或平台前缀。Appearance、`localeOverride`、General、Composer、Panel、Notifications、Sidebar、Git UI 与未读活动各自使用窄 Schema。Renderer 状态由 Jotai 管理；临时表单编辑值在确认前仍属于组件状态。Electron main 在创建窗口前读取 appearance 与 locale，并为相关 key 应用菜单、休眠、通知与声音副作用。选择目录或声音等 OS 操作继续使用窄 IPC。
 
-常规设置页将本地偏好分为 Permissions、General、Composer、Popout Window 和 Notifications。General 包含无项目任务默认目录（默认 `~/Documents/Cypheria`）、动态发现的本机文件打开应用、界面语言、菜单栏驻留、底部面板控件、终端位置和防止休眠。Composer 包含纯文本输入、上下文窗口用量、三种 Enter 发送模式和跟进消息行为。Popout Window 包含全局快捷键与默认独立聊天。Notifications 包含任务完成提醒模式、权限与问题提醒，以及内置 Default 和 Classic、None、从 macOS 发现的声音和自选声音文件。选中声音时立即试听；选中 None 时停止试听。Codex 插件可用性在 Codex Settings 中配置并由 Codex 保存，见 [Codex 配置](codex-app-server-config.zh-CN.md)。
+常规设置页将本地偏好分为 Permissions、General、Composer 和 Notifications。General 包含无项目任务默认目录（默认 `~/Documents/Cypheria`）、动态发现的本机文件打开应用、界面语言、菜单栏驻留、底部面板控件、终端位置和防止休眠。Composer 包含纯文本输入、上下文窗口用量、三种 Enter 发送模式和跟进消息行为。Notifications 包含任务完成提醒模式、权限与问题提醒，以及内置 Default 和 Classic、None、从 macOS 发现的声音和自选声音文件。选中声音时立即试听；选中 None 时停止试听。Codex 插件可用性在 Codex Settings 中配置并由 Codex 保存，见 [Codex 配置](codex-app-server-config.zh-CN.md)。
 
 共享 Agent、model、integration、Web3 和 Server 行为属于 Cypheria Server 配置或数据库。UI 偏好不会写入 Codex 配置。
 
@@ -157,7 +158,7 @@ Electron 将 Desktop 私有偏好以版本 1 值保存到 `userData/kv.sqlite`�
 
 Timeline 消息菜单由 Server 公布的逐边界 capability 决定。`turn-user` 消息可以显示 **Rewind to here** 与 **Fork in new chat**；`assistant-final` 消息可以显示 Fork；steer 消息、流式或未成功完成的 assistant 消息、tools、reasoning 和其他 items 均不显示这些操作。Rewind 在覆盖非空草稿前要求确认，且仅在 Server 操作成功后写入返回的 input blocks。用户消息 Fork 会把这些 blocks 写入新 Thread 草稿；assistant 与 thread-head Fork 使用空 composer。分支操作进行时，相关操作与提交会被锁定。
 
-主窗口把用户改动后的 Thread 布局保存在 `panelLayout:<threadId>`，包括左右／底部 panel 的可见性与尺寸、右侧 tab 状态、全屏状态和焦点。新 Thread 使用代码中的固定默认值，在用户改变 workspace 前不创建布局值。Popout 窗口只在内存中保留布局。恢复时会过滤不支持的 tab。
+主窗口把用户改动后的 Thread 布局保存在 `panelLayout:<threadId>`，包括左右／底部 panel 的可见性与尺寸、右侧 tab 状态、全屏状态和焦点。新 Thread 使用代码中的固定默认值，在用户改变 workspace 前不创建布局值。其他窗口只在内存中保留布局。恢复时会过滤不支持的 tab。
 
 开发构建会提供 `/debug` 路由和仅开发模式显示的 Sidebar 入口。其紧凑左右布局可以浏览键值状态、Replica 记录与附件二进制，并支持查询、keyset 分页、受限文本预览和受限二进制前缀。非 Desktop 开发模式访问该路由会重定向到主工作区，生产导航也不会显示入口。
 
@@ -175,17 +176,17 @@ Review 面板遵循仅显示最后一轮的模式。
 
 ## 浏览器与 dApp 边界
 
-只有主窗口可以承载内置浏览器；popout 窗口不承载。改编的浏览器代码的第三方声明见 `NOTICE`。
+每个窗口都可以承载内置浏览器。改编的浏览器代码的第三方声明见 `NOTICE`。
 
 ### 标签页与配置
 
-每个浏览器标签页（无论网页还是 dApp）都只属于一个 Thread，并显示在该 Thread 的 Browser 面板中；用户也在这里打开网页和 dApp 标签页，Thread 之外没有浏览器。删除 Thread 会关闭其标签页；每次连上 Server 时，也会关闭所属 Thread 已不存在的标签页，以覆盖 Desktop 错过的删除。设备本地的标签页索引保存在 Desktop client KV 中，最多保留最新的 200 个标签页；损坏的记录会被单独丢弃。页面状态保存在 guest 中。Guest 统一放在 React 面板之外的固定定位容器里：可见面板把当前标签页定位到自身上方，隐藏的标签页停放为 1×1，页面仍会运行，Agent 也仍可操作。恢复的标签页在首次显示或被自动化时从保存的 URL 加载。输入框的 `@` 菜单会列出该 Thread 已打开的标签页。
+每个浏览器标签页（无论网页还是 dApp）都只属于一个 Thread，并显示在该 Thread 的 Browser 面板中；用户也在这里打开网页和 dApp 标签页，Thread 之外没有浏览器。删除 Thread 会关闭其标签页；每次连上 Server 时，也会关闭所属 Thread 已不存在的标签页，以覆盖 Desktop 错过的删除。设备本地的标签页索引保存在 Desktop client KV 中，由所有窗口共享，最多保留最新的 200 个标签页；损坏的记录会被单独丢弃。页面状态保存在每个窗口为该标签页创建的 guest 中。窗口向 Server 上报自己已启动的标签页，以及尚无窗口启动的已恢复标签页，后者由最早注册的窗口接手；一个窗口关闭某个标签页时，其他窗口会移除自己对应的 guest。Guest 统一放在 React 面板之外的固定定位容器里：可见面板把当前标签页定位到自身上方，隐藏的标签页停放为 1×1，页面仍会运行，Agent 也仍可操作。恢复的标签页在首次显示或被自动化时从保存的 URL 加载。输入框的 `@` 菜单会列出该 Thread 已打开的标签页。
 
 每个标签页都有类型。网页标签页共享 `persist:cypheria-browser` 配置，永远不会获得钱包。dApp 标签页共享独立的 `persist:cypheria-dapp-browser` 配置。切换标签页类型会重建 guest，因为 guest 挂载后配置无法更改。Electron main 拒绝其他 partition 或 preload，拒绝设备权限，阻止非 HTTP(S) 导航；需要 `window.opener` 的 `window.open` 弹窗以没有 preload 的沙箱窗口打开，其他新窗口请求会变成同类型的标签页。地址栏聚焦和重新加载快捷键在 guest 中保留，其他按键交给页面处理。
 
 ### Agent 操控
 
-当 **设置 → 通用 → 电脑操控** 启用内置浏览器或 MCP 应用时，主窗口会向 Server 注册为浏览器 host，并对调用方 Thread 的标签页和已挂载的 MCP App 执行来自 [Computer Use](computer-use.zh-CN.md) 的命令。快照提供无障碍树 ref，页面变化后 ref 失效；点击、按键、悬停和拖拽在目标可见、可用且稳定后，通过 Chrome DevTools Protocol 以可信输入执行。JavaScript 对话框会被处理并报告，不会阻塞。上传在解析符号链接后只接受 Thread 工作目录内的文件。MCP App 操作在 App 的沙箱 frame 内以合成事件执行。Electron main 还托管用于原生应用操控的 cua-driver daemon，并申请其所需的 macOS 权限，详见 [Computer Use](computer-use.zh-CN.md#桌面应用)。Server 契约见 [Protocol](protocol.zh-CN.md#浏览器-host-与-computer-use)。
+Electron main 和每个窗口都以 Desktop 在该 Cypheria home 下保留的同一个 client ID 连接，因此 Server 把它们合并为一个 session。每个窗口注册自己的 browser host，并对调用方 Thread 的标签页和它显示的 MCP App 执行来自 [Computer Use](computer-use.zh-CN.md#host) 的命令。Electron main 注册本设备的 computer host。快照提供无障碍树 ref，页面变化后 ref 失效；点击、按键、悬停和拖拽在目标可见、可用且稳定后，通过 Chrome DevTools Protocol 以可信输入执行。JavaScript 对话框会被处理并报告，不会阻塞。上传在解析符号链接后只接受 Thread 工作目录内的文件。MCP App 操作在 App 的沙箱 frame 内以合成事件执行。针对本设备外部浏览器和原生应用的请求直接到达 Electron main；Electron main 运行 agent-browser、托管 cua-driver daemon，并申请其所需的 macOS 权限，详见 [Computer Use](computer-use.zh-CN.md#桌面应用)。**设置 → 通用 → 电脑操控** 显示各开关和本设备的权限。Server 契约见 [Protocol](protocol.zh-CN.md#computer-use-host)。
 
 ### dApp 标签页
 

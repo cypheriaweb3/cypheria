@@ -1131,11 +1131,6 @@ msgid "settings.workspace.terminalLocation.label"
 msgstr "默认终端位置"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.standaloneChat"
-msgstr "默认使用独立聊天"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.delete"
 msgstr "删除"
@@ -2471,16 +2466,6 @@ msgid "navigation.pluginsAndSkills"
 msgstr "插件与技能"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.popoutSection"
-msgstr "弹出窗口"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.popoutHotkey"
-msgstr "弹出窗口快捷键"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "偏好设置"
@@ -2489,11 +2474,6 @@ msgstr "偏好设置"
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.branchPrefix.description"
 msgstr "Cypheria 创建新分支时使用的前缀"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.hotkeyCapturePrompt"
-msgstr "请按快捷键…"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -3078,11 +3058,6 @@ msgid "chat.message.fromApp"
 msgstr "由 {0} 发送"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.popoutHotkeyDescription"
-msgstr "设置弹出窗口的全局快捷键。留空则关闭此功能。"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.project.setPrimary"
 msgstr "设为主要"
@@ -3284,11 +3259,6 @@ msgstr "尽可能在当前聊天中启动 /review，或启动单独的审查聊�
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "开始会话"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.standaloneChatDescription"
-msgstr "在任何项目之外开始新聊天"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: entrypoint.title

@@ -15,6 +15,7 @@ export const CYPHERIA_BROWSER_CHANNELS = {
   dataClear: "browser.data.clear",
   devToolsOpen: "browser.devtools.open",
   focus: "browser.focus",
+  liveList: "browser.live.list",
   newTabRequested: "browser.new-tab.requested",
   reservedShortcut: "browser.shortcut.reserved",
   shortcutInput: "browser.shortcut.input",

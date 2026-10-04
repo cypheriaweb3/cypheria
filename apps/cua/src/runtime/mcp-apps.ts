@@ -11,7 +11,10 @@ type ActionResponse = {
   readonly notice?: string
 }
 
-/** An MCP App open in this task. Input is synthetic DOM events; refs come from its snapshot. */
+/**
+ * An MCP App a client shows: one in this task's Timeline or on a page outside any task. Input is
+ * synthetic DOM events; refs come from its snapshot.
+ */
 export class McpAppTab {
   readonly id: string
   readonly title: string
@@ -79,7 +82,7 @@ export const createMcpAppsApi = (history: SnapshotHistory, docs: Documentation) 
     async get(id: string): Promise<McpAppTab> {
       docs.enter("mcpapps")
       const info = (await list()).find((app) => app.id === id)
-      if (!info) throw new Error(`MCP App ${id} is not open in this task. List them again.`)
+      if (!info) throw new Error(`MCP App ${id} is not open on any device. List them again.`)
       const app = new McpAppTab(info, history)
       history.forget(`mcpapp:${id}`)
       await app.snapshot()

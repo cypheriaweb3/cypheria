@@ -34,6 +34,8 @@ import {
   type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
+  type ComputerHostClientMessage,
+  type ComputerHostServerMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
   type CypheriaBinaryFrame,
@@ -88,7 +90,7 @@ import {
   AppToolService,
   toMcpResult,
 } from "./app-tools/service.js"
-import { BrowserToolsService } from "./browser-tools/service.js"
+import { type BrowserHostSession, BrowserToolsService } from "./browser-tools/service.js"
 import { CodeReviewBackend } from "./code-review/backend.js"
 import { ChatGptSession } from "./code-review/chatgpt-session.js"
 import { CodeReviewHostService } from "./code-review/host-service.js"
@@ -96,6 +98,7 @@ import { PrivateReviews } from "./code-review/private-reviews.js"
 import { accountKey, CODE_REVIEW_APP_URI, CODE_REVIEW_SERVER } from "./code-review/schemas.js"
 import { CodeReviewTools } from "./code-review/tools.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
+import { ComputerHostService, type ComputerHostSession } from "./computer-use/computer-hosts.js"
 import { createCuaHost } from "./computer-use/cua-host.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
@@ -176,6 +179,13 @@ export type CypheriaServerAddress = {
   url: string
 }
 
+/** Requests that start or continue a Thread's turn on behalf of the client sending them. */
+const TURN_REQUESTS: ReadonlySet<string> = new Set([
+  "thread.turn.start.request",
+  "thread.turn.steer.request",
+  "thread.turn.queue.add.request",
+])
+
 export class CypheriaServer implements HttpAppHost {
   readonly config: CypheriaServerConfig
   readonly configStore: ServerConfigStore
@@ -184,7 +194,10 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
   readonly browserTools: BrowserToolsService
+  readonly computerHosts = new ComputerHostService()
   readonly cua: CuaHost
+  /** The client that sent each Thread's latest turn; Computer Use opens new things there. */
+  readonly #turnClients = new Map<string, string>()
   readonly nodeReplHostManager: NodeReplHostManager
   readonly projectThread: ProjectThreadService
   readonly appTools: AppToolService
@@ -247,9 +260,9 @@ export class CypheriaServer implements HttpAppHost {
     const computerUse = createCuaHost({
       audit: this.web3.audit,
       browserTools: this.browserTools,
-      cacheDir: this.runtime.paths.cacheDir,
-      cypheriaHome: this.runtime.paths.cypheriaHome,
-      logger: this.logger.child({ service: "computer-use" }),
+      computerHosts: this.computerHosts,
+      initiator: (threadId) => this.#turnClients.get(threadId),
+      openApps: () => this.extensions.openApps(),
       settings: () => this.configStore.getSnapshot().config.computerUse,
     })
     this.cua = computerUse.host
@@ -427,10 +440,12 @@ export class CypheriaServer implements HttpAppHost {
       },
       onArchived: async (threadId, cwd) => {
         this.terminals.closeThread(threadId)
+        this.#turnClients.delete(threadId)
         await this.git.cleanupManagedWorktrees(cwd)
       },
       onDeleting: async (threadId) => {
         this.terminals.closeThread(threadId)
+        this.#turnClients.delete(threadId)
         await this.threadAttachments.deleteForThread(threadId)
         await this.inputFiles.releaseThread(threadId)
       },
@@ -976,6 +991,7 @@ export class CypheriaServer implements HttpAppHost {
     return [
       SERVER_CAPABILITIES.agentManager,
       SERVER_CAPABILITIES.browser,
+      SERVER_CAPABILITIES.computerHost,
       SERVER_CAPABILITIES.config,
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.integrations,
@@ -1034,6 +1050,10 @@ export class CypheriaServer implements HttpAppHost {
     sendBinary?: (frame: CypheriaBinaryFrame) => void,
     clientKind?: ClientKind
   ): Promise<boolean> {
+    if (clientId && TURN_REQUESTS.has(message.type)) {
+      const { payload } = message as unknown as { payload: { threadId: string } }
+      this.#turnClients.set(payload.threadId, clientId)
+    }
     if (
       message.type.startsWith("thread.files.") ||
       message.type === "thread.paths.resolve.request" ||
@@ -1461,20 +1481,31 @@ export class CypheriaServer implements HttpAppHost {
 
   async handleBrowserMessage(
     message: BrowserClientMessage,
-    session: { id: string; kind: ClientKind; notify(message: BrowserServerMessage): void },
+    session: BrowserHostSession,
     send: (message: BrowserServerMessage) => void
   ): Promise<boolean> {
     return this.browserTools.handle(message, session, send)
   }
 
+  async handleComputerHostMessage(
+    message: ComputerHostClientMessage,
+    session: ComputerHostSession,
+    send: (message: ComputerHostServerMessage) => void
+  ): Promise<boolean> {
+    return this.computerHosts.handle(message, session, send)
+  }
+
   clientSessionClosed(sessionId: string): void {
     this.browserTools.sessionClosed(sessionId)
+    this.computerHosts.sessionClosed(sessionId)
     this.extensions.detach(sessionId)
     this.harnesses.closeSession(sessionId)
     this.terminals.closeSession(sessionId)
   }
 
   clientTransportClosed(sessionId: string, source: SessionTransport): void {
+    this.browserTools.transportClosed(source)
+    this.computerHosts.transportClosed(source)
     this.terminals.transportClosed(sessionId, source)
   }
 

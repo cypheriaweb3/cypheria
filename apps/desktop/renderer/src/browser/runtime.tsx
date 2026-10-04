@@ -3,7 +3,11 @@ import { useEffect } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { mountBrowserAutomationHost } from "./automation-host.js"
-import { isBrowserAvailable, removeResidentBrowserWebview } from "./resident-webviews.js"
+import {
+  getResidentBrowserWebview,
+  isBrowserAvailable,
+  removeResidentBrowserWebview,
+} from "./resident-webviews.js"
 import { browserTabsStore } from "./store.js"
 
 const listThreadIds = async (client: CypheriaClient): Promise<Set<string>> => {
@@ -29,8 +33,8 @@ const pruneDeletedThreadTabs = async (client: CypheriaClient) => {
 }
 
 /**
- * App-wide browser wiring for the main Desktop window: registers this window as the Server's
- * browser host, opens tabs requested by pages, and drops tabs of deleted Threads. Deletion notifications
+ * Browser wiring for each Desktop window: registers the window as a browser host with the
+ * Server, opens tabs requested by pages, and drops tabs of deleted Threads. Deletion notifications
  * can be missed while disconnected, so every (re)connection also reconciles against the Server.
  */
 export function BrowserRuntime() {
@@ -41,6 +45,19 @@ export function BrowserRuntime() {
     const disposers: Array<() => void> = []
 
     void browserTabsStore.load()
+    // Another window may close a tab this window also shows; drop this window's guest for it.
+    let known = new Set(browserTabsStore.getSnapshot().tabs.map((tab) => tab.browserId))
+    disposers.push(
+      browserTabsStore.subscribe(() => {
+        const current = new Set(browserTabsStore.getSnapshot().tabs.map((tab) => tab.browserId))
+        for (const browserId of known) {
+          if (!current.has(browserId) && getResidentBrowserWebview(browserId)) {
+            removeResidentBrowserWebview(browserId)
+          }
+        }
+        known = current
+      })
+    )
     // Browser pages keep every shortcut except the reserved address-bar and reload keys, which
     // Electron main handles directly.
     void bridge.setShortcutPolicy({ menuPrefixes: [], prefixes: [] }).catch(() => undefined)

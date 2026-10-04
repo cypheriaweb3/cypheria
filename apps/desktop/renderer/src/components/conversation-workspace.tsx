@@ -1014,7 +1014,7 @@ export function ConversationWorkspace({
   const draftAtom = useMemo(() => composerDraftAtom(draftScopeId), [draftScopeId])
   const [persistedDraft, setPersistedDraft] = useAtom(draftAtom)
   const canPersistPanel =
-    Boolean(initialThreadId) && window.cypheria?.bootstrap.windowRole === "main"
+    Boolean(initialThreadId) && window.cypheria?.bootstrap.persistLayout === true
   const panelAtom = useMemo(
     () =>
       canPersistPanel

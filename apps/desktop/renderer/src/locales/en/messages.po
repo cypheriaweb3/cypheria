@@ -1131,11 +1131,6 @@ msgid "settings.workspace.terminalLocation.label"
 msgstr "Default terminal location"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.standaloneChat"
-msgstr "Default to standalone chat"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.delete"
 msgstr "Delete"
@@ -2471,16 +2466,6 @@ msgid "navigation.pluginsAndSkills"
 msgstr "Plugins & skills"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.popoutSection"
-msgstr "Popout Window"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.popoutHotkey"
-msgstr "Popout Window hotkey"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "Preferences"
@@ -2489,11 +2474,6 @@ msgstr "Preferences"
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.branchPrefix.description"
 msgstr "Prefix used when Cypheria creates new branches"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.hotkeyCapturePrompt"
-msgstr "Press shortcut…"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -3078,11 +3058,6 @@ msgid "chat.message.fromApp"
 msgstr "Sent by {0}"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.popoutHotkeyDescription"
-msgstr "Set a global shortcut for Popout Window. Leave unset to keep it off."
-
-#. js-lingui-explicit-id
 #: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.project.setPrimary"
 msgstr "Set as primary"
@@ -3284,11 +3259,6 @@ msgstr "Start /review in the current chat when possible or launch a separate rev
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "Start a conversation"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.standaloneChatDescription"
-msgstr "Start new chats outside of any project"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: entrypoint.title

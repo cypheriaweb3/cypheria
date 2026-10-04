@@ -110,6 +110,12 @@ export const browserDevToolsOpenContract = contract(
   browserOnly,
   z.object({ opened: z.boolean() }).strict()
 )
+/** Tabs that have a live guest in any window, so a window does not report them as restored. */
+export const browserLiveListContract = contract(
+  CYPHERIA_BROWSER_CHANNELS.liveList,
+  z.object({}).strict(),
+  z.object({ browserIds: z.array(BrowserIdSchema) }).strict()
+)
 export const browserAutomationExecuteContract = contract(
   CYPHERIA_BROWSER_CHANNELS.automationExecute,
   BrowserAutomationRequestSchema,

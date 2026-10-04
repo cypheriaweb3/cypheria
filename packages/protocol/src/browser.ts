@@ -321,13 +321,14 @@ export const BrowserMcpAppActionSchema = z.discriminatedUnion("type", [
 ])
 export type BrowserMcpAppAction = z.infer<typeof BrowserMcpAppActionSchema>
 
-export const BrowserAutomationListMcpAppsCommandSchema = command(
-  "list_mcp_apps",
-  z.object({}).strict().default({})
-)
 export const BrowserAutomationMcpAppCommandSchema = command(
   "mcp_app",
   z.object({ action: BrowserMcpAppActionSchema, appId: z.string().min(1).max(256) }).strict()
+)
+/** The MCP Apps a window shows; the Server adds what it knows about each App instance. */
+export const BrowserAutomationListMcpAppsCommandSchema = command(
+  "list_mcp_apps",
+  z.object({}).strict().default({})
 )
 
 export const BrowserAutomationCommandSchema = z.discriminatedUnion("command", [
@@ -422,18 +423,11 @@ export type BrowserAutomationNetworkLogEntry = z.infer<
   typeof BrowserAutomationNetworkLogEntrySchema
 >
 
-/** An MCP App mounted in a Desktop window for a Thread. */
-export const BrowserMcpAppInfoSchema = z
-  .object({
-    appId: z.string().min(1),
-    displayMode: z.string(),
-    pluginId: z.string().nullable(),
-    server: z.string(),
-    threadId: ProjectThreadIdSchema,
-    title: z.string(),
-  })
+/** An MCP App instance a window shows, with the Thread it belongs to or `null` outside any. */
+export const BrowserMcpAppMountSchema = z
+  .object({ appId: z.string().min(1), threadId: ProjectThreadIdSchema.nullable() })
   .strict()
-export type BrowserMcpAppInfo = z.infer<typeof BrowserMcpAppInfoSchema>
+export type BrowserMcpAppMount = z.infer<typeof BrowserMcpAppMountSchema>
 
 export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("list_tabs"), tabs: z.array(BrowserTabInfoSchema) }).strict(),
@@ -535,9 +529,6 @@ export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
     totalCount: z.number(),
   }),
   z
-    .object({ apps: z.array(BrowserMcpAppInfoSchema), command: z.literal("list_mcp_apps") })
-    .strict(),
-  z
     .object({
       /** The action's type, such as `snapshot` or `click`. */
       action: z.string().min(1),
@@ -546,6 +537,12 @@ export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
       dataBase64: z.string().min(1).optional(),
       mimeType: z.literal("image/png").optional(),
       snapshot: z.string().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      apps: z.array(BrowserMcpAppMountSchema),
+      command: z.literal("list_mcp_apps"),
     })
     .strict(),
 ])
@@ -604,16 +601,23 @@ export const BrowserAutomationOutcomeSchema = z.discriminatedUnion("ok", [
 export type BrowserAutomationOutcome = z.infer<typeof BrowserAutomationOutcomeSchema>
 export type BrowserAutomationOutcomeInput = z.input<typeof BrowserAutomationOutcomeSchema>
 
-export const BrowserHostCapabilitySchema = z
+/**
+ * One window offering itself as a browser host: its built-in browser tabs and the MCP Apps it
+ * shows. Every window registers on its own connection, even when windows share a client ID.
+ */
+export const BrowserHostRegistrationSchema = z
   .object({
     hostKind: z.string().trim().min(1).max(64).default("browser host"),
+    /** The device's name as people know it, such as its host name. */
+    name: z.string().trim().min(1).max(128).optional(),
     supportedCommands: z
       .array(BrowserAutomationCommandNameSchema)
       .min(1)
       .transform((commands) => [...new Set(commands)]),
   })
   .strict()
-export type BrowserHostCapability = z.infer<typeof BrowserHostCapabilitySchema>
+export type BrowserHostRegistration = z.infer<typeof BrowserHostRegistrationSchema>
+export type BrowserHostRegistrationInput = z.input<typeof BrowserHostRegistrationSchema>
 
 const request = <const T extends string, S extends z.ZodType>(type: T, payload: S) =>
   z.object({ payload, requestId: RequestIdSchema, type: z.literal(type) }).strict()
@@ -637,7 +641,7 @@ const succeeded = z.object({ succeeded: z.literal(true) }).strict()
 
 export const BrowserHostRegisterRequestSchema = request(
   "browser.host.register.request",
-  BrowserHostCapabilitySchema
+  BrowserHostRegistrationSchema
 )
 export const BrowserHostUnregisterRequestSchema = request(
   "browser.host.unregister.request",

@@ -7,7 +7,6 @@ import { Trans } from "@lingui/react/macro"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useAtomValue } from "jotai"
-import { X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import type { ClientPreferencesSnapshot, NotificationSound } from "../../../ipc/src/index.js"
 import { BrowserSettingsSection } from "../browser/browser-settings-section.js"
@@ -18,8 +17,6 @@ import {
   composerPlainTextModeAtom,
   defaultTerminalLocationAtom,
   followUpQueueModeAtom,
-  hotkeyWindowHotkeyAtom,
-  hotkeyWindowProjectlessDefaultEnabledAtom,
   localeOverrideAtom,
   macMenuBarEnabledAtom,
   notificationSoundAtom,
@@ -51,7 +48,6 @@ const notificationSoundValue = (sound: NotificationSound): string => {
 
 function GeneralSettingsRoute() {
   const { i18n } = useLingui()
-  const [capturingHotkey, setCapturingHotkey] = useState(false)
   const [saveError, setSaveError] = useState<Error | null>(null)
   const localeOverride = useAtomValue(localeOverrideAtom)
   const defaultTerminalLocation = useAtomValue(defaultTerminalLocationAtom)
@@ -64,10 +60,6 @@ function GeneralSettingsRoute() {
   const showContextWindowUsage = useAtomValue(showContextWindowUsageAtom)
   const composerEnterBehavior = useAtomValue(composerEnterBehaviorAtom)
   const followUpQueueMode = useAtomValue(followUpQueueModeAtom)
-  const hotkeyWindowHotkey = useAtomValue(hotkeyWindowHotkeyAtom)
-  const hotkeyWindowProjectlessDefaultEnabled = useAtomValue(
-    hotkeyWindowProjectlessDefaultEnabledAtom
-  )
   const notificationsTurnMode = useAtomValue(notificationsTurnModeAtom)
   const notificationsPermissionsEnabled = useAtomValue(notificationsPermissionsEnabledAtom)
   const notificationsQuestionsEnabled = useAtomValue(notificationsQuestionsEnabledAtom)
@@ -92,8 +84,6 @@ function GeneralSettingsRoute() {
     showContextWindowUsage,
     composerEnterBehavior,
     followUpQueueMode,
-    hotkeyWindowHotkey,
-    hotkeyWindowProjectlessDefaultEnabled,
     notificationsTurnMode,
     notificationsPermissionsEnabled,
     notificationsQuestionsEnabled,
@@ -157,18 +147,6 @@ function GeneralSettingsRoute() {
             operations.push(
               Promise.resolve(
                 clientStateStore.set(followUpQueueModeAtom, value as typeof followUpQueueMode)
-              )
-            )
-            break
-          case "hotkeyWindowHotkey":
-            operations.push(
-              Promise.resolve(clientStateStore.set(hotkeyWindowHotkeyAtom, value as string | null))
-            )
-            break
-          case "hotkeyWindowProjectlessDefaultEnabled":
-            operations.push(
-              Promise.resolve(
-                clientStateStore.set(hotkeyWindowProjectlessDefaultEnabledAtom, value as boolean)
               )
             )
             break
@@ -511,91 +489,6 @@ function GeneralSettingsRoute() {
                   ["queue", i18n._(msg({ id: "settings.general.queueOption", message: "Queue" }))],
                 ],
                 i18n._(msg({ id: "settings.general.followUp", message: "Follow-up behavior" }))
-              )}
-            </SettingRow>
-          </div>
-        </section>
-        <section className="grid gap-3">
-          <h2 className={cn("text-sm", uiFontSemiboldClass)}>
-            <Trans id="settings.general.popoutSection">Popout Window</Trans>
-          </h2>
-          <div className="rounded-xl border border-border bg-card px-4 shadow-xs">
-            <SettingRow
-              title={<Trans id="settings.general.popoutHotkey">Popout Window hotkey</Trans>}
-              description={
-                <Trans id="settings.general.popoutHotkeyDescription">
-                  Set a global shortcut for Popout Window. Leave unset to keep it off.
-                </Trans>
-              }
-            >
-              <div className="flex items-center gap-1">
-                <Button
-                  aria-label="Popout Window hotkey capture"
-                  className="h-8 min-w-36 justify-center font-mono text-xs"
-                  disabled={preferencesDisabled}
-                  onBlur={() => setCapturingHotkey(false)}
-                  onClick={() => setCapturingHotkey(true)}
-                  onKeyDown={(event) => {
-                    if (!capturingHotkey) return
-                    event.preventDefault()
-                    event.stopPropagation()
-                    if (event.key === "Escape") {
-                      setCapturingHotkey(false)
-                      return
-                    }
-                    if (["Alt", "Control", "Meta", "Shift"].includes(event.key)) return
-                    if (!event.metaKey && !event.ctrlKey && !event.altKey) return
-                    const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
-                    const modifiers = [
-                      event.metaKey ? "Command" : null,
-                      event.ctrlKey ? "Control" : null,
-                      event.altKey ? "Alt" : null,
-                      event.shiftKey ? "Shift" : null,
-                    ].filter((part): part is string => part !== null)
-                    setCapturingHotkey(false)
-                    updatePreferences({ hotkeyWindowHotkey: [...modifiers, key].join("+") })
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  {capturingHotkey ? (
-                    <Trans id="settings.general.hotkeyCapturePrompt">Press shortcut…</Trans>
-                  ) : preferences.hotkeyWindowHotkey ? (
-                    preferences.hotkeyWindowHotkey
-                      .replaceAll("Command+", "⌘")
-                      .replaceAll("Control+", "⌃")
-                      .replaceAll("Alt+", "⌥")
-                      .replaceAll("Shift+", "⇧")
-                  ) : (
-                    <Trans id="settings.general.offOption">Off</Trans>
-                  )}
-                </Button>
-                {preferences.hotkeyWindowHotkey ? (
-                  <Button
-                    aria-label="Clear Popout Window hotkey"
-                    className="size-8"
-                    disabled={preferencesDisabled}
-                    onClick={() => updatePreferences({ hotkeyWindowHotkey: null })}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                ) : null}
-              </div>
-            </SettingRow>
-            <SettingRow
-              title={<Trans id="settings.general.standaloneChat">Default to standalone chat</Trans>}
-              description={
-                <Trans id="settings.general.standaloneChatDescription">
-                  Start new chats outside of any project
-                </Trans>
-              }
-            >
-              {preferenceSwitch(
-                "hotkeyWindowProjectlessDefaultEnabled",
-                "Default to standalone chat"
               )}
             </SettingRow>
           </div>

@@ -252,10 +252,17 @@ export const createIabApi = (history: SnapshotHistory, docs: Documentation) => {
       return enter(new IabTab(matches[0] as IabTabInfo, history))
     },
 
-    /** Opens a background tab: `kind: "dapp"` for a wallet-enabled dApp tab. */
-    async newTab(url?: string, options: { kind?: "web" | "dapp" } = {}): Promise<IabTab> {
+    /**
+     * Opens a background tab: `kind: "dapp"` for a wallet-enabled dApp tab. It opens on `host`,
+     * or by default on the device the person wrote from.
+     */
+    async newTab(
+      url?: string,
+      options: { kind?: "web" | "dapp"; host?: string } = {}
+    ): Promise<IabTab> {
       docs.enter("iab")
       const info = await call<IabTabInfo>({
+        host: options.host,
         kind: options.kind,
         op: "iab.new",
         url: url ? absoluteUrl(url) : undefined,

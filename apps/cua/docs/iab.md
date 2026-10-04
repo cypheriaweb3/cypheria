@@ -8,9 +8,9 @@ type Point = [x: number, y: number];
 
 declare const cua: {
   iab: {
-    listTabs(options?: { emit?: boolean }): Promise<{ id: string; kind: "web" | "dapp"; title: string; url: string; active: boolean }[]>;
+    listTabs(options?: { emit?: boolean }): Promise<{ id: string; host?: string; kind: "web" | "dapp"; title: string; url: string; active: boolean }[]>;
     getTab(reference: string | { mention: string } | { url: string }): Promise<IabTab>;
-    newTab(url?: string, options?: { kind?: "web" | "dapp" }): Promise<IabTab>;
+    newTab(url?: string, options?: { kind?: "web" | "dapp"; host?: string }): Promise<IabTab>;
   };
 };
 

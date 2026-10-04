@@ -17,18 +17,22 @@ const contract = <const C extends string, Req extends z.ZodType, Res extends z.Z
 ) => ({ channel, namespace: "computerUse" as const, request, response, version: IPC_VERSION })
 
 /**
- * What Desktop knows about native app control: whether this platform supports it, whether the
- * embedded cua-driver service runs, and, on macOS, the grants Cypheria holds. `null` means the
- * platform has no such permission.
+ * What Desktop knows about Computer Use on this device: its name, which device surfaces it can
+ * serve, whether the embedded cua-driver service runs, and, on macOS, the grants Cypheria holds.
+ * `null` means the platform has no such permission.
  */
 export const ComputerUseStatusSchema = z
   .object({
     accessibility: z.boolean().nullable(),
+    /** The name the Server shows for this device, such as its host name. */
+    deviceName: z.string().min(1),
     driver: z.enum(["running", "stopped", "missing", "unsupported"]),
     driverError: z.string().nullable(),
     screenRecording: z
       .enum(["granted", "denied", "not-determined", "restricted", "unknown"])
       .nullable(),
+    /** Whether this device can drive the person's external browsers and its native apps. */
+    surfaces: z.object({ browsers: z.boolean(), computer: z.boolean() }).strict(),
   })
   .strict()
 export type ComputerUseStatus = z.infer<typeof ComputerUseStatusSchema>

@@ -2071,6 +2071,7 @@ describe("executeAutomationCommand", () => {
           { kind: "image", url: "https://example.com/logo.png" },
           { kind: "stylesheet", url: "https://example.com/style.css" },
         ],
+        totalCount: 2,
       },
     })
   })

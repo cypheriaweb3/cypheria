@@ -1,7 +1,7 @@
 import type { BrowserAutomationRequest, ServerMessage } from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
-import { createBrowserActions } from "./browser.js"
+import { createBrowserHostActions } from "./browser-host.js"
 import type { ConnectionState, ServerClient } from "./server-client.js"
 
 const browserId = "5b8f7b43-86a4-4c65-9f79-3a3a3d35f0c1"
@@ -48,19 +48,19 @@ const createFakeClient = () => {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-describe("browser actions", () => {
+describe("browser host actions", () => {
   it("registers after each reconnect and unregisters on release", async () => {
     const fake = createFakeClient()
-    const release = createBrowserActions(fake.client).registerHost({
-      hostKind: "desktop app",
+    const host = createBrowserHostActions(fake.client).register({
       onCommand: vi.fn(),
-      supportedCommands: ["snapshot"],
+      registration: () => ({ hostKind: "desktop app", supportedCommands: ["snapshot"] }),
     })
     fake.setState({ status: "connected" })
     fake.setState({ status: "connected" })
     fake.setState({ reason: "lost", status: "disconnected" })
     fake.setState({ status: "connected" })
-    await release()
+    await flush()
+    await host.release()
 
     expect(fake.requestBrowser.mock.calls.map(([type]) => type)).toEqual([
       "browser.host.register.request",
@@ -78,10 +78,9 @@ describe("browser actions", () => {
     const onCommand = vi
       .fn<(request: BrowserAutomationRequest) => Promise<never>>()
       .mockRejectedValueOnce(new Error("guest crashed"))
-    createBrowserActions(fake.client).registerHost({
-      hostKind: "desktop app",
+    createBrowserHostActions(fake.client).register({
       onCommand,
-      supportedCommands: ["snapshot"],
+      registration: () => ({ hostKind: "desktop app", supportedCommands: ["snapshot"] }),
     })
     fake.emit({
       payload: { automationId: "a-1", command: { args: { browserId }, command: "snapshot" } },

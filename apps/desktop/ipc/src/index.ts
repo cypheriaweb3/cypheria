@@ -21,6 +21,7 @@ import {
   browserDataClearContract,
   browserDevToolsOpenContract,
   browserFocusContract,
+  browserLiveListContract,
   browserShortcutPolicySetContract,
   browserUnregisterContract,
 } from "./browser.js"
@@ -79,6 +80,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   computerUseStatusRead: CYPHERIA_COMPUTER_USE_CHANNELS.statusRead,
   browserDevToolsOpen: CYPHERIA_BROWSER_CHANNELS.devToolsOpen,
   browserFocus: CYPHERIA_BROWSER_CHANNELS.focus,
+  browserLiveList: CYPHERIA_BROWSER_CHANNELS.liveList,
   browserShortcutPolicySet: CYPHERIA_BROWSER_CHANNELS.shortcutPolicySet,
   browserUnregister: CYPHERIA_BROWSER_CHANNELS.unregister,
   dappProviderRequest: "dapp.provider.request",
@@ -247,7 +249,10 @@ export const AppearanceSettingsWriteSchema = AppearanceSettingsSchema
 export type AppearanceSettingsWrite = z.infer<typeof AppearanceSettingsWriteSchema>
 export const CYPHERIA_APPEARANCE_ARGUMENT_PREFIX = "--cypheria-appearance="
 export const CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX = "--cypheria-development="
-export const CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX = "--cypheria-window-role="
+export const CYPHERIA_WINDOW_LAYOUT_ARGUMENT_PREFIX = "--cypheria-window-layout="
+/** The main window's stable client ID, which makes it the same Computer Use host every launch. */
+export const CYPHERIA_CLIENT_ID_ARGUMENT_PREFIX = "--cypheria-client-id="
+export const DesktopClientIdSchema = z.string().regex(/^cid_[A-Za-z0-9-]{8,120}$/u)
 
 export const SupportedLocaleSchema = z.enum(["en", "zh-CN"])
 export type SupportedLocale = z.infer<typeof SupportedLocaleSchema>
@@ -344,7 +349,6 @@ export type ClientSettingCategory =
   | "locale"
   | "notifications"
   | "panel"
-  | "popout"
   | "sidebar"
 
 export type ClientSettingDefinition<Value> = Readonly<{
@@ -414,8 +418,6 @@ export const ClientPreferencesSnapshotSchema = z
     showContextWindowUsage: z.boolean(),
     composerEnterBehavior: z.enum(["enter", "cmdIfMultiline", "cmdAlways"]),
     followUpQueueMode: z.enum(["queue", "steer"]),
-    hotkeyWindowHotkey: z.string().nullable(),
-    hotkeyWindowProjectlessDefaultEnabled: z.boolean(),
     notificationsTurnMode: z.enum(["off", "unfocused", "always"]),
     notificationsPermissionsEnabled: z.boolean(),
     notificationsQuestionsEnabled: z.boolean(),
@@ -437,8 +439,6 @@ export type ClientSettingDefinitions = Readonly<{
   followUpQueueMode: ClientSettingDefinition<"queue" | "steer">
   defaultTerminalLocation: ClientSettingDefinition<"bottom" | "right">
   showBottomPanelControl: ClientSettingDefinition<boolean>
-  hotkeyWindowHotkey: ClientSettingDefinition<string | null>
-  hotkeyWindowProjectlessDefaultEnabled: ClientSettingDefinition<boolean>
   notificationsTurnMode: ClientSettingDefinition<"off" | "unfocused" | "always">
   notificationsPermissionsEnabled: ClientSettingDefinition<boolean>
   notificationsQuestionsEnabled: ClientSettingDefinition<boolean>
@@ -542,20 +542,6 @@ export const clientSettingDefinitions: ClientSettingDefinitions = {
     category: "panel",
     defaultValue: true,
     key: "showBottomPanelControl",
-    schema: z.boolean(),
-    version: 1,
-  }),
-  hotkeyWindowHotkey: defineClientSetting({
-    category: "popout",
-    defaultValue: null as string | null,
-    key: "hotkeyWindowHotkey",
-    schema: z.string().trim().min(1).nullable(),
-    version: 1,
-  }),
-  hotkeyWindowProjectlessDefaultEnabled: defineClientSetting({
-    category: "popout",
-    defaultValue: false,
-    key: "hotkeyWindowProjectlessDefaultEnabled",
     schema: z.boolean(),
     version: 1,
   }),
@@ -1406,6 +1392,7 @@ export const ipcContracts = {
   browserDataClear: browserDataClearContract,
   browserDevToolsOpen: browserDevToolsOpenContract,
   browserFocus: browserFocusContract,
+  browserLiveList: browserLiveListContract,
   browserShortcutPolicySet: browserShortcutPolicySetContract,
   browserUnregister: browserUnregisterContract,
   computerUseDriverRestart: computerUseDriverRestartContract,
@@ -1443,7 +1430,10 @@ export type CypheriaPreloadApi = {
     readonly appearance: AppearanceSettingsWrite
     readonly development: boolean
     readonly language: LanguageBootstrap
-    readonly windowRole: "main" | "popout"
+    /** Whether this window keeps Thread panel layouts across launches; only the primary does. */
+    readonly persistLayout: boolean
+    /** The Desktop's persistent client ID, which every window and Electron main share. */
+    readonly clientId: string | null
   }
   readonly app: {
     readonly platform: NodeJS.Platform
@@ -1470,7 +1460,7 @@ export type CypheriaPreloadApi = {
       threadId: string
     }) => Promise<{ completed: true }>
   }
-  /** Present only in the main window, whose renderer may host `<webview>` browser tabs. */
+  /** Every window's renderer may host `<webview>` browser tabs. */
   readonly browser?: {
     readonly dappPartition: string
     readonly webPartition: string
@@ -1482,6 +1472,8 @@ export type CypheriaPreloadApi = {
     }) => Promise<{ updated: true }>
     readonly focus: (browserId: string) => Promise<{ focused: boolean }>
     readonly openDevTools: (browserId: string) => Promise<{ opened: boolean }>
+    /** Tabs that have a live guest in any window. */
+    readonly listLive: () => Promise<{ browserIds: string[] }>
     readonly executeAutomation: (
       request: BrowserAutomationRequest
     ) => Promise<BrowserAutomationOutcome>
@@ -1497,7 +1489,7 @@ export type CypheriaPreloadApi = {
     readonly onShortcutInput: (handler: (input: BrowserShortcutInput) => void) => () => void
     readonly onReservedShortcut: (handler: (input: BrowserReservedShortcut) => void) => () => void
   }
-  /** Native app control: the embedded cua-driver service and the macOS grants it relies on. */
+  /** Computer Use on this device: its status and the macOS grants it relies on. */
   readonly computerUse: {
     readonly status: () => Promise<ComputerUseStatus>
     readonly requestPermission: (

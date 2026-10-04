@@ -9,8 +9,8 @@ type BrowserId = "chrome" | "edge" | "brave" | "vivaldi" | "opera" | "chromium";
 
 declare const cua: {
   browsers: {
-    list(options?: { emit?: boolean }): Promise<{ id: BrowserId; name: string; installed: boolean; connectable: boolean; setup?: string }[]>;
-    get(id: BrowserId): Promise<ExternalBrowser>;
+    list(options?: { host?: string; emit?: boolean }): Promise<{ id: BrowserId; host: string; name: string; installed: boolean; connectable: boolean; setup?: string }[]>;
+    get(id: BrowserId, options?: { host?: string }): Promise<ExternalBrowser>;
     getTab(reference: { mention: string }): Promise<ExternalTab>;
   };
 };
@@ -18,6 +18,7 @@ declare const cua: {
 interface ExternalBrowser {
   readonly id: BrowserId;
   readonly name: string;
+  readonly host: string; // the device it runs on
   tabs(options?: { emit?: boolean }): Promise<{ id: string; title: string; url: string; controlled: boolean }[]>;
   claimTab(tabId: string): Promise<ExternalTab>;
   newTab(url?: string): Promise<ExternalTab>;

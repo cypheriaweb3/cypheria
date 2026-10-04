@@ -160,7 +160,7 @@ client.integrations
 client.terminals
 client.git
 client.artifacts
-client.browser
+client.computerHost
 client.settings
 client.server
 ```
@@ -188,13 +188,19 @@ Server 以请求 ID 关联并审计 Git 修改请求的开始和结果。审计�
 
 `client.extensions` 覆盖 `extensions` 能力：插件 extension catalog、MCP App 实例及其请求、模型上下文、结构化设置、提及，以及 extension 调用产生的表单；消息列表见 [Plugin Extensions](plugin-extensions.zh-CN.md#协议)。App 文档以每段最多 200,000 个字符分段到达，因此中继的消息上限不会截断它。`client.codeReview` 覆盖 `code-review` 能力：`codeReview.setup.get` 报告 ChatGPT 登录状态及 GitHub、GitLab 连接，`codeReview.provider` 为 App 的宿主请求执行固定列表中的某个 GitLab 或 GitHub 后端操作，`codeReview.tool.call` 为没有 App 的宿主界面调用某个 `pull_requests.*` 工具，`codeReview.pullRequests.list/save/remove` 保存提供方账户已固定和最近打开的拉取请求，并以 `codeReview.pullRequests.changed.notification` 通知变更。工具、App 和宿主扩展见[代码审查](code-review.zh-CN.md)。
 
-## 浏览器 Host 与 Computer Use
+## Computer Use host
 
-`browser` capability 让 Desktop session 充当浏览器 host。`client.browser.registerHost()` 发送带有 host 类型和所支持命令的 `browser.host.register.request`，每次重连后会重新发送，并通过 `browser.host.unregister.request` 释放。只有 `desktop` session 可以注册；session 关闭时 host 会被移除。
+Computer Use 通过两种 host 注册到达 Desktop，按界面归属划分。两者都只存在于 Server 内存中：client 和 host 都不持久化；Server 重启后，或重连超过 session 宽限期后，每个客户端会重新注册。
 
-Server 为每条命令发送一条 `browser.automation.command.notification`，其中包含 automation ID、命令，以及调用方 Thread 的 ID 和工作目录。Host 用 `browser.automation.result.request` 回复，payload 为类型化结果或类型化错误。命令包括 `list_tabs`、`new_tab`、`close_tab`、`resize`、`snapshot`、`screenshot`、`logs`、`wait`、`click`、`fill`、`type`、`keypress`、`hover`、`select`、`drag`、`upload`、`scroll`、`navigate`、`back`、`forward`、`reload`、`evaluate`、`mark_deliverable`、`mark_handoff`、`request_manual_handoff`、`scan_qr` 和 `extract_assets`（针对标签页），以及 `list_mcp_apps` 和 `mcp_app`（针对窗口为该 Thread 挂载的 MCP App）；`mcp_app` 携带一个 DOM 操作（`snapshot`、`screenshot`、`click`、`fill`、`type`、`press`、`select`、`check` 或 `scroll`）。错误包括 `browser_disabled`、`browser_no_host`、`browser_tab_not_found`、`browser_stale_ref`、`browser_timeout`、`browser_denied` 和 `browser_unsupported`；两种结果都会报告已处理的页面对话框。
+**Browser host** 是一个窗口：它的内置浏览器标签页和它显示的 MCP App。具备 `browser` capability 时，`client.browserHost.register()` 发送 `browser.host.register.request`，其中包含 host 类型、设备名称和所支持的命令；每次重连后以及调用 `refresh()` 时会重新注册，并通过 `browser.host.unregister.request` 释放。只有 `desktop` session 可以注册。每个窗口在自己的 transport 上注册，即使多个窗口共用一个 client ID，Server 也为每次注册分配独立的 host ID，因此每个窗口保有各自的标签页和 App；transport 关闭时移除该窗口的 host。
 
-Server broker 记住每个标签页属于哪个 host，汇总所有 host 的 `list_tabs`；host 断开时，待处理命令以可重试的 `browser_no_host` 失败；命令 15 秒后超时。Agent 通过 [Computer Use](computer-use.zh-CN.md) 所述的 `cua_repl` 使用 broker；每个请求带有接收它的 host socket 所属的 Cypheria Thread，因此只能操作该 Thread 的标签页和 App。每个标签页都属于某个 Thread，因此 host 会拒绝不带 Thread 的命令。在 Server 配置中设置 `computerUse.inAppBrowser` 或 `computerUse.mcpApps` 之前，broker 保持关闭。会改变状态的命令以 automation ID 审计，记录 Thread 和命令名称，不记录参数；初始审计写入失败时命令不会开始。
+**Computer host** 是设备：用户的外部浏览器和本机原生应用。具备 `computer-host` capability 时，`client.computerHost.register()` 发送 `computer.host.register.request`，其中包含设备名称和它提供的界面（`browsers`、`computer`）；每次重连后以及调用 `refresh()` 时会重新注册，并通过 `computer.host.unregister.request` 释放。只有 `desktop` session 可以注册。Server 以 client ID 作为 host 的键。Desktop 从 Electron main 注册它；Electron main 的连接与每个窗口一样，使用 Desktop 为该 Cypheria home 保留的 client ID，因此它们都加入同一个 session，设备的各个 browser host 与 computer host 属于同一台设备。如果一个 client 的多条连接都注册了它，请求发给仍连接的最新一条；最后一条关闭时，该 host 消失。
+
+Server 为每条窗口命令发送一条 `browser.automation.command.notification`，其中包含 automation ID、命令，以及调用方 Thread 的 ID 和工作目录。窗口用 `browser.automation.result.request` 应答，其 payload 是带类型的结果或带类型的错误。命令包括面向标签页的 `list_tabs`、`new_tab`、`close_tab`、`resize`、`snapshot`、`screenshot`、`logs`、`wait`、`click`、`fill`、`type`、`keypress`、`hover`、`select`、`drag`、`upload`、`scroll`、`navigate`、`back`、`forward`、`reload`、`evaluate`、`mark_deliverable`、`mark_handoff`、`request_manual_handoff`、`scan_qr` 和 `extract_assets`；列出窗口所显示 App 实例的 `list_mcp_apps`；以及对其中一个 App 执行单个 DOM 操作（`snapshot`、`screenshot`、`click`、`fill`、`type`、`press`、`select`、`check` 或 `scroll`）的 `mcp_app`。错误包括 `browser_disabled`、`browser_no_host`、`browser_tab_not_found`、`browser_stale_ref`、`browser_timeout`、`browser_denied` 和 `browser_unsupported`；已处理的页面对话框会随结果和错误一起报告。
+
+对于设备请求，Server 发送 `computer.host.command.notification`，其中包含 command ID、请求，以及调用方 Thread 的 ID 和工作目录。请求是一个 record，其语法由 `@cypheria/cua` 定义；Server 在发送前校验，设备会再次校验。设备用 `computer.host.result.request` 应答，携带结果值或错误代码与消息。
+
+Broker 把窗口命令发给命令指定的窗口；否则发给指定设备的最新窗口；再否则发给拥有该标签页的窗口。两者都未指定的新标签页命令，在所有窗口属于同一个 client 时发给最近注册的窗口，否则失败；尚无窗口认领的标签页（例如重连之后）会先向每个窗口查询其标签页再查找。Broker 汇总所有窗口的 `list_tabs`，跳过失败的窗口，除非全部失败。因超时（窗口命令 15 秒，设备请求 120 秒）或断开而未得到应答的命令会失败；只有只读命令和可重复的设备请求会标为可重试，其他命令的错误会说明它可能已经执行。Agent 通过 `cua_repl` 访问这两种 host，详见 [Computer Use](computer-use.zh-CN.md#host)；每个请求都带有接收它的 host socket 所属的 Cypheria Thread。每个标签页都属于某个 Thread，因此窗口会拒绝不带 Thread 的命令。在 Server 配置中设置 `computerUse.inAppBrowser` 或 `computerUse.mcpApps` 之前，标签页和 MCP App 命令会被拒绝；设备请求则由 `cua` host 按界面分别控制。会改变状态的标签页和 App 命令以 automation ID 连同 Thread 与命令名审计，不记录参数；初始审计写入失败时命令不会开始。
 
 ## 校验规则
 

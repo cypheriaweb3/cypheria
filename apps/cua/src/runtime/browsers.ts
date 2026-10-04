@@ -1,5 +1,5 @@
 import type { BrowserFamily } from "../families.ts"
-import type { CuaImage, ExternalBrowserInfo, ExternalTabInfo, PageAction } from "../protocol.ts"
+import type { CuaImage, ExternalTabInfo, HostedBrowserInfo, PageAction } from "../protocol.ts"
 import type { SnapshotHistory } from "./diff.ts"
 import type { Documentation } from "./docs.ts"
 import { absoluteUrl, call, decodeBase64, emitImage, scriptSource, writeText } from "./host.ts"
@@ -20,10 +20,18 @@ type ActionResponse = {
 export class ExternalTab {
   readonly id: string
   readonly browserId: BrowserFamily
+  /** The device the browser runs on. */
+  readonly host: string
   #info: ExternalTabInfo
   readonly #history: SnapshotHistory
 
-  constructor(browserId: BrowserFamily, info: ExternalTabInfo, history: SnapshotHistory) {
+  constructor(
+    host: string,
+    browserId: BrowserFamily,
+    info: ExternalTabInfo,
+    history: SnapshotHistory
+  ) {
+    this.host = host
     this.browserId = browserId
     this.id = info.id
     this.#info = info
@@ -41,12 +49,7 @@ export class ExternalTab {
   async snapshot(options: EmitOption & { full?: boolean } = {}): Promise<string> {
     const response = await this.#act({ full: options.full, type: "snapshot" })
     const header = `Tab ${this.id} in ${this.browserId}: ${response.tab?.title ?? this.title()} — ${response.tab?.url ?? this.url()}`
-    const body = this.#history.render(
-      `browser:${this.browserId}:${this.id}`,
-      "this tab",
-      response.text ?? "",
-      options.full
-    )
+    const body = this.#history.render(this.#key, "this tab", response.text ?? "", options.full)
     const text = `${header}\n${body}`
     if (options.emit !== false) writeText(text)
     return text
@@ -143,7 +146,7 @@ export class ExternalTab {
   /** Closes a tab this task opened. A claimed user tab is released instead. */
   async close(): Promise<void> {
     await this.#act({ type: "close" })
-    this.#history.forget(`browser:${this.browserId}:${this.id}`)
+    this.#history.forget(this.#key)
   }
   async markDeliverable(): Promise<void> {
     await this.#act({ disposition: "deliverable", type: "mark" })
@@ -152,10 +155,15 @@ export class ExternalTab {
     await this.#act({ disposition: "handoff", type: "mark" })
   }
 
+  get #key(): string {
+    return `browser:${this.host}:${this.browserId}:${this.id}`
+  }
+
   async #act(action: PageAction): Promise<ActionResponse> {
     const response = await call<ActionResponse>({
       action,
       browserId: this.browserId,
+      host: this.host,
       op: "browsers.act",
       tabId: this.id,
     })
@@ -169,24 +177,36 @@ export class ExternalTab {
 export class ExternalBrowser {
   readonly id: BrowserFamily
   readonly name: string
+  /** The device the browser runs on. */
+  readonly host: string
   readonly #history: SnapshotHistory
 
-  constructor(info: ExternalBrowserInfo, history: SnapshotHistory) {
+  constructor(info: HostedBrowserInfo, history: SnapshotHistory) {
     this.id = info.id
     this.name = info.name
+    this.host = info.host
     this.#history = history
   }
 
   /** The browser's open tabs, including the user's own. */
   async tabs(options: EmitOption = {}): Promise<ExternalTabInfo[]> {
-    const tabs = await call<ExternalTabInfo[]>({ browserId: this.id, op: "browsers.tabs" })
+    const tabs = await call<ExternalTabInfo[]>({
+      browserId: this.id,
+      host: this.host,
+      op: "browsers.tabs",
+    })
     if (options.emit !== false) writeText(JSON.stringify(tabs))
     return tabs
   }
 
   /** Takes control of an open tab, by an ID from `tabs()`, leaving it where the user put it. */
   async claimTab(tabId: string): Promise<ExternalTab> {
-    const info = await call<ExternalTabInfo>({ browserId: this.id, op: "browsers.claim", tabId })
+    const info = await call<ExternalTabInfo>({
+      browserId: this.id,
+      host: this.host,
+      op: "browsers.claim",
+      tabId,
+    })
     return this.#enter(info)
   }
 
@@ -194,6 +214,7 @@ export class ExternalBrowser {
   async newTab(url?: string): Promise<ExternalTab> {
     const info = await call<ExternalTabInfo>({
       browserId: this.id,
+      host: this.host,
       op: "browsers.new",
       url: url ? absoluteUrl(url) : undefined,
     })
@@ -201,17 +222,20 @@ export class ExternalBrowser {
   }
 
   async #enter(info: ExternalTabInfo): Promise<ExternalTab> {
-    const tab = new ExternalTab(this.id, info, this.#history)
-    this.#history.forget(`browser:${this.id}:${tab.id}`)
+    const tab = new ExternalTab(this.host, this.id, info, this.#history)
+    this.#history.forget(`browser:${this.host}:${this.id}:${tab.id}`)
     await tab.snapshot()
     return tab
   }
 }
 
+/** `host` picks the device; by default it is the one the person wrote from. */
+type HostOption = { host?: string }
+
 export const createBrowsersApi = (history: SnapshotHistory, docs: Documentation) => {
-  const get = async (id: string): Promise<ExternalBrowser> => {
+  const get = async (id: string, options: HostOption = {}): Promise<ExternalBrowser> => {
     docs.enter("browsers")
-    const browsers = await call<ExternalBrowserInfo[]>({ op: "browsers.list" })
+    const browsers = await call<HostedBrowserInfo[]>({ host: options.host, op: "browsers.list" })
     const info = browsers.find((browser) => browser.id === id)
     if (!info) {
       throw new Error(
@@ -222,9 +246,9 @@ export const createBrowsersApi = (history: SnapshotHistory, docs: Documentation)
     return new ExternalBrowser(info, history)
   }
   return {
-    async list(options: EmitOption = {}): Promise<ExternalBrowserInfo[]> {
+    async list(options: EmitOption & HostOption = {}): Promise<HostedBrowserInfo[]> {
       docs.enter("browsers")
-      const browsers = await call<ExternalBrowserInfo[]>({ op: "browsers.list" })
+      const browsers = await call<HostedBrowserInfo[]>({ host: options.host, op: "browsers.list" })
       if (options.emit !== false) writeText(JSON.stringify(browsers))
       return browsers
     },
@@ -237,7 +261,7 @@ export const createBrowsersApi = (history: SnapshotHistory, docs: Documentation)
       if (mention.plugin !== "chrome" || !mention.browserId) {
         throw new Error("This mention names a built-in browser tab; use cua.iab.getTab().")
       }
-      const browser = await get(mention.browserId)
+      const browser = await get(mention.browserId, mention.host ? { host: mention.host } : {})
       const tab = (await browser.tabs({ emit: false })).find((item) => item.id === mention.tabId)
       if (!tab) throw new Error("The mentioned tab is no longer open.")
       assertMentionCurrent(mention, tab)

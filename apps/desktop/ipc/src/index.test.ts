@@ -36,6 +36,7 @@ describe("desktop IPC contracts", () => {
       "browserDataClear",
       "browserDevToolsOpen",
       "browserFocus",
+      "browserLiveList",
       "browserShortcutPolicySet",
       "browserUnregister",
       "computerUseDriverRestart",

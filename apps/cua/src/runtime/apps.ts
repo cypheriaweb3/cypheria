@@ -17,10 +17,13 @@ type Modifier = "cmd" | "ctrl" | "alt" | "shift" | "fn"
 
 /** A bound window of a native app. Element indices come from its latest state. */
 export class App {
+  /** The device the app runs on. */
+  readonly host: string
   readonly #binding: AppBinding
   readonly #history: SnapshotHistory
 
-  constructor(binding: AppBinding, history: SnapshotHistory) {
+  constructor(host: string, binding: AppBinding, history: SnapshotHistory) {
+    this.host = host
     this.#binding = binding
     this.#history = history
   }
@@ -43,6 +46,7 @@ export class App {
   async getScreenshot(options: EmitOption = {}): Promise<Uint8Array> {
     const observation = await call<CuaObservation>({
       handle: this.#handle,
+      host: this.host,
       op: "apps.observe",
       screenshot: true,
       tree: false,
@@ -115,12 +119,13 @@ export class App {
   }
 
   get #key() {
-    return `app:${this.#binding.pid}:${this.#binding.windowId}`
+    return appKey(this.host, this.#binding)
   }
 
   async #observe(options: StateOptions, screenshot: boolean): Promise<CuaObservation> {
     const observation = await call<CuaObservation>({
       handle: this.#handle,
+      host: this.host,
       op: "apps.observe",
       query: options.query,
       screenshot,
@@ -137,37 +142,55 @@ export class App {
   }
 
   async #act(action: AppAction): Promise<ActionResult> {
-    const result = await call<ActionResult>({ action, handle: this.#handle, op: "apps.act" })
+    const result = await call<ActionResult>({
+      action,
+      handle: this.#handle,
+      host: this.host,
+      op: "apps.act",
+    })
     if (result.notice) writeText(result.notice)
     return result
   }
 }
 
+const appKey = (host: string, binding: AppBinding) =>
+  `app:${host}:${binding.pid}:${binding.windowId}`
+
+/** `host` picks the device; by default it is the one the person wrote from. */
+type HostOption = { host?: string }
+
 export const createAppsApi = (history: SnapshotHistory, docs: Documentation) => ({
-  async getApp(target: string | { windowId: number }): Promise<App> {
+  async getApp(target: string | { windowId: number }, options: HostOption = {}): Promise<App> {
     docs.enter("computer")
-    const opened = await call<{ binding: AppBinding; observation: CuaObservation }>({
+    const opened = await call<{ binding: AppBinding; host: string; observation: CuaObservation }>({
       app: target,
+      host: options.host,
       op: "apps.get",
     })
-    const app = new App(opened.binding, history)
-    const key = `app:${opened.binding.pid}:${opened.binding.windowId}`
+    const app = new App(opened.host, opened.binding, history)
+    const key = appKey(opened.host, opened.binding)
     history.forget(key)
     writeText(history.render(key, app.name, opened.observation.text))
     if (opened.observation.image) await emitImage(opened.observation.image)
     return app
   },
 
-  async listApps(options: EmitOption = {}): Promise<AppInfo[]> {
+  async listApps(options: EmitOption & HostOption = {}): Promise<AppInfo[]> {
     docs.enter("computer")
-    const apps = await call<AppInfo[]>({ op: "apps.list" })
+    const apps = await call<AppInfo[]>({ host: options.host, op: "apps.list" })
     if (options.emit !== false) writeText(JSON.stringify(apps))
     return apps
   },
 
-  async listWindows(options: EmitOption & { pid?: number } = {}): Promise<WindowInfo[]> {
+  async listWindows(
+    options: EmitOption & HostOption & { pid?: number } = {}
+  ): Promise<WindowInfo[]> {
     docs.enter("computer")
-    const windows = await call<WindowInfo[]>({ op: "apps.windows", pid: options.pid })
+    const windows = await call<WindowInfo[]>({
+      host: options.host,
+      op: "apps.windows",
+      pid: options.pid,
+    })
     if (options.emit !== false) writeText(JSON.stringify(windows))
     return windows
   },

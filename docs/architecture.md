@@ -36,7 +36,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 
 ### Desktop
 
-`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, browser guest hardening and the dApp provider boundary, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients. The main window renderer hosts browser tabs as sandboxed `<webview>` guests and acts as the Server's browser host for [Computer Use](computer-use.md); see [Desktop](desktop.md#browser-and-dapp-boundary). Electron main also hosts the cua-driver daemon for native app control, because macOS attributes its Accessibility and Screen Recording grants to the app that starts it.
+`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, browser guest hardening and the dApp provider boundary, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients. Each window's renderer hosts browser tabs as sandboxed `<webview>` guests and registers them with the MCP Apps it shows as that window's browser host, while Electron main registers the device's [Computer Use](computer-use.md#hosts) host for external browsers and native apps; see [Desktop](desktop.md#browser-and-dapp-boundary). Electron main executes the device's share of Computer Use: it runs agent-browser against the user's browsers and hosts the cua-driver daemon for native app control, because macOS attributes its Accessibility and Screen Recording grants to the app that starts it. The Server keeps Computer Use policy, routing, and audit but never drives a browser or app itself.
 
 ### Expo and CLI
 
@@ -95,7 +95,7 @@ Pairing establishes end-to-end keys between client and Server. The relay routes 
 - Desktop renderer, Expo, CLI, plugins, Agent processes, and dApp pages are untrusted callers of scoped APIs.
 - Electron preload exposes a narrow typed surface; renderers do not receive Node.js access.
 - dApp provider permissions, sessions, and injected provider state are isolated by origin. dApp tabs share one browser profile separate from web tabs; first-party storage stays per origin, cross-site cookies are removed, and Chromium partitions the HTTP cache and third-party storage by top-level site. Web tabs never receive a wallet provider.
-- The main window renderer can script browser guests, including dApp pages. It still cannot reach private keys or signers, and every signing intent from a dApp page passes Server policy.
+- A window's renderer can script its browser guests, including dApp pages. It still cannot reach private keys or signers, and every signing intent from a dApp page passes Server policy.
 - Private keys are encrypted outside ordinary SQLite tables and are used only by Server-owned signing services.
 - Server plugins run in controlled child processes. Desktop extensions do not receive ambient filesystem, Node.js, or secret access.
 

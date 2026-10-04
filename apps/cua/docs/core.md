@@ -17,6 +17,12 @@ Each surface has its own API, documented the first time you enter it:
 
 `await cua.getState()` returns an inventory of every enabled surface. A disabled surface throws when used; tell the user it can be enabled in Cypheria's Computer Use settings instead of working around it.
 
+## Devices
+
+The user may run Cypheria Desktop on more than one computer. `await cua.hosts()` lists the connected devices with their `id`, `name`, the surfaces each offers, and `current`, which marks the device the user wrote this turn from. Built-in browser tabs, external browsers, and native apps run on one device; their handles keep working on it.
+
+New tabs, external browsers, and apps come from the current device by default, or from the only device that offers the surface. When several devices could serve a request and none is current, the call fails with the list; pass `{ host: id }` with the device the user means, or ask them. Never move work to another device without a reason the user would agree with.
+
 ## Working loop
 
 1. Observe: entry points show the target's current state. Afterwards call `getState()` on an `App` or `snapshot()` on a tab.

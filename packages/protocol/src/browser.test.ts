@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   BrowserAutomationCommandSchema,
   BrowserAutomationOutcomeSchema,
-  BrowserHostCapabilitySchema,
+  BrowserHostRegistrationSchema,
   BrowserTabInfoSchema,
 } from "./browser.js"
 import {
@@ -72,9 +72,9 @@ describe("browser automation protocol", () => {
 
   it("deduplicates host capabilities and requires at least one command", () => {
     expect(
-      BrowserHostCapabilitySchema.parse({ supportedCommands: ["snapshot", "snapshot"] })
+      BrowserHostRegistrationSchema.parse({ supportedCommands: ["snapshot", "snapshot"] })
     ).toEqual({ hostKind: "browser host", supportedCommands: ["snapshot"] })
-    expect(BrowserHostCapabilitySchema.safeParse({ supportedCommands: [] }).success).toBe(false)
+    expect(BrowserHostRegistrationSchema.safeParse({ supportedCommands: [] }).success).toBe(false)
   })
 
   it("carries host registration, commands, and results in session envelopes", () => {

@@ -23,6 +23,13 @@ import {
   DEFAULT_CODE_REVIEW_SETTINGS,
 } from "./code-review.ts"
 import {
+  COMPUTER_HOST_CLIENT_SCHEMAS,
+  COMPUTER_HOST_RESPONSE_TYPES,
+  COMPUTER_HOST_SERVER_SCHEMAS,
+  type ComputerHostClientMessage,
+  type ComputerHostServerMessage,
+} from "./computer-host.ts"
+import {
   EXTENSION_CLIENT_SCHEMAS,
   EXTENSION_RESPONSE_TYPES,
   EXTENSION_SERVER_SCHEMAS,
@@ -115,6 +122,7 @@ export * from "./code-review.ts"
 export * from "./code-review-app.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
+export * from "./computer-host.ts"
 export * from "./extension.ts"
 export * from "./file-transfer-binary.ts"
 export * from "./git.ts"
@@ -142,6 +150,7 @@ const CYPHERIA_CBOR_MAX_DEPTH = 64
 export const SERVER_CAPABILITIES = {
   agentManager: "agent.manager",
   browser: "browser",
+  computerHost: "computer-host",
   codexHarness: "harness.codex",
   harnessManagement: "harness.management",
   projectThread: "project-thread",
@@ -805,6 +814,7 @@ export type SessionInboundMessage =
   | z.infer<typeof NetworkProxyTestRequestSchema>
   | AgentManagementClientMessage
   | BrowserClientMessage
+  | ComputerHostClientMessage
   | IntegrationClientMessage
   | GitClientMessage
   | CodexHarnessClientMessage
@@ -829,6 +839,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   NetworkProxyTestRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...BROWSER_CLIENT_SCHEMAS,
+  ...COMPUTER_HOST_CLIENT_SCHEMAS,
   ...INTEGRATION_CLIENT_SCHEMAS,
   ...GIT_CLIENT_SCHEMAS,
   ...CODEX_HARNESS_CLIENT_SCHEMAS,
@@ -923,6 +934,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof NetworkProxyUpdatedNotificationSchema>
   | AgentManagementServerMessage
   | BrowserServerMessage
+  | ComputerHostServerMessage
   | IntegrationServerMessage
   | GitServerMessage
   | z.infer<typeof GitRepositoryChangedNotificationSchema>
@@ -951,6 +963,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   NetworkProxyUpdatedNotificationSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...BROWSER_SERVER_SCHEMAS,
+  ...COMPUTER_HOST_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
   ...GIT_SERVER_SCHEMAS,
   GitRepositoryChangedNotificationSchema,
@@ -996,6 +1009,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
   ...BROWSER_RESPONSE_TYPES,
+  ...COMPUTER_HOST_RESPONSE_TYPES,
   ...INTEGRATION_RESPONSE_TYPES,
   ...GIT_RESPONSE_TYPES,
   ...HARNESS_RESPONSE_TYPES,

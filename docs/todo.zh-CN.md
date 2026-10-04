@@ -59,8 +59,12 @@ title: 当前路线图
 - [ ] 通过各自的 harness adapter，为 Pi、OpenCode 和 ACP Agent 提供 `cua_repl` server，使用与 Codex、Claude 相同的按 Thread 划分的 host。
 - [ ] 在开发版和打包版 Electron 中端到端验证 Computer Use：Codex 与 Claude Thread 在每个界面上的使用、macOS、Windows 和 Linux 上的外部浏览器、MCP App 的截图与操作，以及使用内嵌 cua-driver daemon 及其 macOS 授权的原生应用。
 - [ ] 在 Desktop 打包流程就绪后，将获取的 cua-driver 可执行文件放在 ASAR 之外随 Desktop 应用一并签名。
-- [ ] 支持在 composer 中提及外部浏览器标签页（`plugin://chrome@cypheria-bundled?mention=tab-v1&…`），并提供按浏览器的开关。
-- [ ] 在 Agent 首次操作某个桌面应用或认领外部浏览器标签页之前询问用户，并支持按应用和按站点的授权。
+- [ ] 支持在 composer 中提及外部浏览器标签页（`plugin://chrome@cypheria-bundled?mention=tab-v1&host=…&…`），并提供按浏览器的开关。
+- [ ] 在 Agent 首次操作某个桌面应用或认领外部浏览器标签页之前询问用户，并支持按应用和按站点的授权，Thread 的任何客户端都可以回应。
+- [ ] 通过 Server 发布内置浏览器标签页的元数据，使每个客户端的 Browser 面板和 composer 提及都能显示 Thread 在其他设备上的标签页。
+- [ ] 按 Thread 广播 Computer Use 活动（设备、目标、操作），并在每个客户端提供停止控件。
+- [ ] 在停放层中按需挂载 MCP App，使 Agent 能操作当前没有窗口显示的 Thread App。
+- [ ] 在同一设备上为多个 Thread 的原生应用操控做仲裁。
 
 ## Codex 桌面版对齐
 

@@ -11,7 +11,6 @@ import {
   app,
   BrowserWindow,
   dialog,
-  globalShortcut,
   Menu,
   Notification,
   nativeImage,
@@ -45,15 +44,18 @@ import {
   browserDataClearContract,
   browserDevToolsOpenContract,
   browserFocusContract,
+  browserLiveListContract,
   browserShortcutPolicySetContract,
   browserUnregisterContract,
   type ClientPreferencesSnapshot,
+  type ComputerUseStatus,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_BROWSER_CHANNELS,
+  CYPHERIA_CLIENT_ID_ARGUMENT_PREFIX,
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
-  CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX,
+  CYPHERIA_WINDOW_LAYOUT_ARGUMENT_PREFIX,
   computerUseDriverRestartContract,
   computerUseMcpAppExecuteContract,
   computerUsePermissionRequestContract,
@@ -114,6 +116,7 @@ import {
   clientSettingHasMainSideEffect,
   readAppearance,
   readClientPreferences,
+  readDesktopClientId,
   readLocaleBootstrap,
 } from "./client-settings.js"
 import {
@@ -149,8 +152,6 @@ let desktopStorageDatabase: DesktopClientStorageDatabase | null = null
 let currentAppearanceSettings: AppearanceSettingsWrite | null = null
 let currentPreferences: ClientPreferencesSnapshot | null = null
 let menuBarTray: Tray | null = null
-let popoutWindow: BrowserWindow | null = null
-let registeredPopoutHotkey: string | null = null
 let sleepBlockerId: number | null = null
 let currentSoundPreview: ChildProcess | null = null
 const runningThreadIds = new Set<string>()
@@ -344,51 +345,6 @@ const focusMainWindow = (): void => {
   mainWindow.focus()
 }
 
-const openPopoutWindow = async (): Promise<void> => {
-  if (popoutWindow && !popoutWindow.isDestroyed()) {
-    popoutWindow.focus()
-    return
-  }
-  if (!desktopStorageDatabase) throw new Error("Desktop storage is unavailable")
-  const appearance = await readAppearance(desktopStorageDatabase.keyValue)
-  const language = await readLocaleBootstrap(
-    desktopStorageDatabase.keyValue,
-    app.getPreferredSystemLanguages()
-  )
-  const url = new URL("/", getRendererUrl() ?? "cypheria://app/")
-  if (!currentPreferences?.hotkeyWindowProjectlessDefaultEnabled && mainWindow) {
-    const projectId = new URL(mainWindow.webContents.getURL()).searchParams.get("project")
-    if (projectId) url.searchParams.set("project", projectId)
-  }
-  const window = new BrowserWindow({
-    width: 520,
-    height: 680,
-    minWidth: 400,
-    minHeight: 450,
-    title: "Cypheria",
-    backgroundColor: getActiveChromeTheme(appearance).surface,
-    webPreferences: {
-      additionalArguments: [
-        `${CYPHERIA_APPEARANCE_ARGUMENT_PREFIX}${encodeURIComponent(JSON.stringify(appearance))}`,
-        `${CYPHERIA_LANGUAGE_ARGUMENT_PREFIX}${encodeURIComponent(JSON.stringify(language))}`,
-        `${CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX}${isDevelopmentShell ? "1" : "0"}`,
-        `${CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX}popout`,
-      ],
-      contextIsolation: true,
-      nodeIntegration: false,
-      preload: preloadPath,
-      sandbox: true,
-      webSecurity: true,
-    },
-  })
-  popoutWindow = window
-  window.on("closed", () => {
-    if (popoutWindow === window) popoutWindow = null
-  })
-  await window.loadURL(url.toString())
-  window.show()
-}
-
 const syncSleepBlocker = (): void => {
   if (currentPreferences?.preventSleepWhileRunning && runningThreadIds.size > 0) {
     sleepBlockerId ??= powerSaveBlocker.start("prevent-app-suspension")
@@ -399,19 +355,6 @@ const syncSleepBlocker = (): void => {
 }
 
 const applyDesktopPreferences = (preferences: ClientPreferencesSnapshot): void => {
-  const nextHotkey = preferences.hotkeyWindowHotkey
-  if (nextHotkey !== registeredPopoutHotkey) {
-    if (registeredPopoutHotkey) globalShortcut.unregister(registeredPopoutHotkey)
-    registeredPopoutHotkey = null
-    if (nextHotkey) {
-      if (
-        !globalShortcut.register(nextHotkey, () => void openPopoutWindow().catch(logFatalError))
-      ) {
-        throw new Error(`Could not register the Popout Window hotkey: ${nextHotkey}`)
-      }
-      registeredPopoutHotkey = nextHotkey
-    }
-  }
   currentPreferences = preferences
   if (process.platform === "darwin") {
     if (preferences.macMenuBarEnabled && !menuBarTray) {
@@ -580,6 +523,9 @@ const registerBrowserIpc = (client: CypheriaClient): void => {
     contents?.openDevTools({ mode: "detach" })
     return { opened: contents !== null }
   })
+  registerIpcRoute(browserLiveListContract, () => ({
+    browserIds: getBrowserWebviewRegistry().listBrowserIds(),
+  }))
   registerIpcRoute(browserAutomationExecuteContract, (request, event) =>
     executeBrowserAutomationForHost(event.sender, request)
   )
@@ -614,7 +560,9 @@ const registerIpcHandlers = (
     }
   })
   registerIpcRoute(appMetadataReadContract, () => appMetadata)
-  registerIpcRoute(appDeepLinkTakeContract, () => {
+  registerIpcRoute(appDeepLinkTakeContract, (_input, event) => {
+    // Deep links go to the primary window; an additional window never takes them.
+    if (event.sender.id !== mainWindow?.webContents.id) return { links: [] }
     rendererReceivesDeepLinks = true
     return { links: pendingDeepLinks.splice(0) }
   })
@@ -769,7 +717,7 @@ const registerIpcHandlers = (
         })
         await stageNotificationSounds(nextPreferences)
         currentAppearanceSettings = nextAppearance
-        applyNativeAppearance(mainWindow, nextAppearance)
+        applyNativeAppearanceToWindows(nextAppearance)
         applyDesktopPreferences(nextPreferences)
       } catch (error) {
         if (previous) applyDesktopPreferences(previous)
@@ -787,7 +735,7 @@ const registerIpcHandlers = (
       const appearance = await readAppearance(storageDatabase.keyValue)
       const preferences = await readClientPreferences(storageDatabase.keyValue)
       currentAppearanceSettings = appearance
-      applyNativeAppearance(mainWindow, appearance)
+      applyNativeAppearanceToWindows(appearance)
       applyDesktopPreferences(preferences)
     }
     for (const window of BrowserWindow.getAllWindows()) {
@@ -859,16 +807,13 @@ const applyNativeAppearance = (
   }
 }
 
-const refreshNativeWindowChrome = (): void => {
-  if (!currentAppearanceSettings || !mainWindow || mainWindow.isDestroyed()) {
-    return
-  }
+const applyNativeAppearanceToWindows = (settings: AppearanceSettingsWrite): void => {
+  nativeTheme.themeSource = settings.theme
+  for (const window of BrowserWindow.getAllWindows()) applyNativeAppearance(window, settings)
+}
 
-  const activeTheme = getActiveChromeTheme(currentAppearanceSettings)
-  mainWindow.setBackgroundColor(activeTheme.surface)
-  if (process.platform === "win32") {
-    mainWindow.setTitleBarOverlay({ color: activeTheme.surface, symbolColor: activeTheme.ink })
-  }
+const refreshNativeWindowChrome = (): void => {
+  if (currentAppearanceSettings) applyNativeAppearanceToWindows(currentAppearanceSettings)
 }
 
 const registerDeveloperContextMenu = (window: BrowserWindow): void => {
@@ -900,9 +845,66 @@ const registerDeveloperContextMenu = (window: BrowserWindow): void => {
   })
 }
 
-const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> => {
+/**
+ * What every Cypheria window enforces, whichever opened it: its renderer may host browser tabs
+ * as hardened `<webview>` guests, it never opens renderer-owned windows, MCP Apps stay on their
+ * sandbox origin, and its browser registrations end with it.
+ */
+const installWindowBoundaries = (window: BrowserWindow): void => {
+  registerDeveloperContextMenu(window)
+  installBrowserGuards(window, {
+    browserPreloadPath,
+    dappPreloadPath,
+    developerTools: !isPackagedRuntime,
+  })
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const target = new URL(url)
+      if (target.protocol === "http:" || target.protocol === "https:") {
+        void shell.openExternal(target.href).catch((error: unknown) => {
+          console.error("Failed to open external URL", error)
+        })
+      }
+    } catch {
+      // Reject malformed URLs and never create a renderer-owned browser window.
+    }
+    return { action: "deny" }
+  })
+
+  // MCP Apps stay on their sandbox origin; their links go through `ui/open-link`.
+  window.webContents.on("will-frame-navigate", (event) => {
+    if (event.isMainFrame || isAllowedSandboxNavigation(event.url)) return
+    const origin = event.frame?.origin ?? ""
+    const parentOrigin = event.frame?.parent?.origin ?? ""
+    if (
+      origin.startsWith(`${MCP_APP_SANDBOX_SCHEME}://`) ||
+      parentOrigin.startsWith(`${MCP_APP_SANDBOX_SCHEME}://`)
+    ) {
+      event.preventDefault()
+    }
+  })
+
+  const hostWebContentsId = window.webContents.id
+  window.on("closed", () => {
+    unregisterBrowserHost(hostWebContentsId)
+    browserKeyboard.detachHost(hostWebContentsId)
+  })
+}
+
+/**
+ * Opens a Cypheria window. Every window has the same layout and may host browser tabs. The
+ * primary window, the first of a launch, also keeps Thread panel layouts across launches, takes
+ * deep links, and on macOS hides instead of closing; additional windows from File → New Window
+ * keep their layout in memory and close for good.
+ */
+const createWindow = async (
+  paths: DesktopAppPaths,
+  options: { readonly primary: boolean }
+): Promise<BrowserWindow> => {
   if (!desktopStorageDatabase) throw new Error("Desktop storage is unavailable")
   const appearance = await readAppearance(desktopStorageDatabase.keyValue)
+  const clientId = await readDesktopClientId(desktopStorageDatabase.keyValue)
   const language = await readLocaleBootstrap(
     desktopStorageDatabase.keyValue,
     app.getPreferredSystemLanguages()
@@ -948,7 +950,8 @@ const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> 
         appearanceArgument,
         developmentArgument,
         languageArgument,
-        `${CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX}main`,
+        `${CYPHERIA_WINDOW_LAYOUT_ARGUMENT_PREFIX}${options.primary ? "persistent" : "memory"}`,
+        `${CYPHERIA_CLIENT_ID_ARGUMENT_PREFIX}${clientId}`,
       ],
       contextIsolation: true,
       nodeIntegration: false,
@@ -962,60 +965,27 @@ const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> 
     width: 1280,
   })
 
-  registerDeveloperContextMenu(window)
-  installBrowserGuards(window, {
-    browserPreloadPath,
-    dappPreloadPath,
-    developerTools: !isPackagedRuntime,
-  })
-
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const target = new URL(url)
-      if (target.protocol === "http:" || target.protocol === "https:") {
-        void shell.openExternal(target.href).catch((error: unknown) => {
-          console.error("Failed to open external URL", error)
-        })
-      }
-    } catch {
-      // Reject malformed URLs and never create a renderer-owned browser window.
-    }
-    return { action: "deny" }
-  })
+  installWindowBoundaries(window)
 
   window.once("ready-to-show", () => {
     window.show()
   })
 
-  window.on("close", (event) => {
-    if (process.platform !== "darwin" || isQuitting) return
-    event.preventDefault()
-    window.hide()
-  })
-
-  window.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
-    if (isMainFrame) rendererReceivesDeepLinks = false
-  })
-
-  // MCP Apps stay on their sandbox origin; their links go through `ui/open-link`.
-  window.webContents.on("will-frame-navigate", (event) => {
-    if (event.isMainFrame || isAllowedSandboxNavigation(event.url)) return
-    const origin = event.frame?.origin ?? ""
-    const parentOrigin = event.frame?.parent?.origin ?? ""
-    if (
-      origin.startsWith(`${MCP_APP_SANDBOX_SCHEME}://`) ||
-      parentOrigin.startsWith(`${MCP_APP_SANDBOX_SCHEME}://`)
-    ) {
+  if (options.primary) {
+    window.on("close", (event) => {
+      if (process.platform !== "darwin" || isQuitting) return
       event.preventDefault()
-    }
-  })
+      window.hide()
+    })
 
-  const hostWebContentsId = window.webContents.id
-  window.on("closed", () => {
-    unregisterBrowserHost(hostWebContentsId)
-    browserKeyboard.detachHost(hostWebContentsId)
-    if (mainWindow === window) mainWindow = null
-  })
+    window.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
+      if (isMainFrame) rendererReceivesDeepLinks = false
+    })
+
+    window.on("closed", () => {
+      if (mainWindow === window) mainWindow = null
+    })
+  }
 
   const rendererUrl = getRendererUrl()
   if (rendererUrl) {
@@ -1033,6 +1003,41 @@ const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> 
   }
 
   return window
+}
+
+/** Opens another window; it becomes the primary window when none is open. */
+const openNewWindow = async (): Promise<void> => {
+  if (!desktopRuntimePaths) throw new Error("Desktop paths are unavailable")
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    await createWindow(desktopRuntimePaths, { primary: false })
+    return
+  }
+  mainWindow = await createWindow(desktopRuntimePaths, { primary: true })
+}
+
+/** Electron's default menus, with File → New Window. */
+const installApplicationMenu = (): void => {
+  const isMac = process.platform === "darwin"
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(isMac ? [{ role: "appMenu" as const }] : []),
+      {
+        label: "File",
+        submenu: [
+          {
+            accelerator: "CmdOrCtrl+Shift+N",
+            click: () => void openNewWindow().catch(logFatalError),
+            label: "New Window",
+          },
+          { type: "separator" },
+          isMac ? { role: "close" as const } : { role: "quit" as const },
+        ],
+      },
+      { role: "editMenu" as const },
+      { role: "viewMenu" as const },
+      { role: "windowMenu" as const },
+    ])
+  )
 }
 
 /** Deep links wait here until the renderer has asked for them and can receive more. */
@@ -1098,7 +1103,7 @@ const registerLifecycleHandlers = (): void => {
     if (BrowserWindow.getAllWindows().length === 0) {
       if (!desktopClient || !desktopRuntimePaths) throw new Error("Desktop client is unavailable")
       await desktopClient.ensureConnected()
-      mainWindow = await createMainWindow(desktopRuntimePaths)
+      mainWindow = await createWindow(desktopRuntimePaths, { primary: true })
     }
   })
 
@@ -1110,7 +1115,6 @@ const registerLifecycleHandlers = (): void => {
 
   app.on("before-quit", (event) => {
     isQuitting = true
-    globalShortcut.unregisterAll()
     if (sleepBlockerId !== null) {
       powerSaveBlocker.stop(sleepBlockerId)
       sleepBlockerId = null
@@ -1136,8 +1140,13 @@ const registerLifecycleHandlers = (): void => {
 
 let computerUse: ComputerUseHost | undefined
 
-/** Starts the cua-driver service the Server uses for native app control, and its IPC. */
-const registerComputerUse = (paths: DesktopAppPaths): void => {
+/**
+ * Starts this device's Computer Use side, the cua-driver service and the external browser
+ * backend, and registers it as the device's computer host over Electron main's own connection.
+ * The host belongs to the Desktop, not to a window: it stays registered while every window is
+ * closed, and device requests run here without passing through a renderer.
+ */
+const registerComputerUse = (paths: DesktopAppPaths, client: CypheriaClient): void => {
   const host = new ComputerUseHost({
     cypheriaHome: paths.cypheriaHome,
     hostBundleId: process.env.__CFBundleIdentifier ?? "app.cypheria.desktop",
@@ -1146,14 +1155,35 @@ const registerComputerUse = (paths: DesktopAppPaths): void => {
       join(app.getAppPath(), "dist", "cypheria-server", "cua"),
       join(process.resourcesPath, "cypheria-server", "cua"),
     ],
+    scratchDir: join(app.getPath("temp"), "cypheria-cua"),
   })
   computerUse = host
+  const registration = client.computerHost.register({
+    onCommand: ({ cwd, request, threadId }) =>
+      host.execute(request, { threadId, ...(cwd ? { cwd } : {}) }),
+    onRegistrationError: (error) => console.warn("[computer-use] host registration failed", error),
+    registration: async () => {
+      const status = await host.status()
+      return {
+        name: status.deviceName,
+        surfaces: [
+          ...(status.surfaces.browsers ? (["browsers"] as const) : []),
+          ...(status.surfaces.computer ? (["computer"] as const) : []),
+        ],
+      }
+    },
+  })
+  // A grant or a restarted driver can change the surfaces this device serves.
+  const refreshed = (status: ComputerUseStatus) => {
+    registration.refresh()
+    return status
+  }
   registerIpcRoute(computerUseStatusReadContract, () => host.status())
-  registerIpcRoute(computerUsePermissionRequestContract, ({ permission }) =>
-    host.requestPermission(permission)
+  registerIpcRoute(computerUsePermissionRequestContract, async ({ permission }) =>
+    refreshed(await host.requestPermission(permission))
   )
-  registerIpcRoute(computerUseDriverRestartContract, () => host.restart())
-  void host.start()
+  registerIpcRoute(computerUseDriverRestartContract, async () => refreshed(await host.restart()))
+  void host.start().then(() => registration.refresh())
 }
 
 const startDesktopApp = async (): Promise<void> => {
@@ -1199,6 +1229,9 @@ const startDesktopApp = async (): Promise<void> => {
   const server = await desktopServerManager.ensureRunning()
   desktopClient = createCypheriaClient({
     appVersion: app.getVersion(),
+    // Electron main shares the windows' client ID, so its connection joins their session and
+    // the computer host it registers is the same device the windows' browser hosts belong to.
+    clientId: await readDesktopClientId(desktopStorageDatabase.keyValue),
     clientType: "desktop",
     reconnect: { enabled: true },
     url: server.url,
@@ -1222,8 +1255,9 @@ const startDesktopApp = async (): Promise<void> => {
   registerRendererProtocol(runtimePaths.codexHome)
   registerMcpAppSandboxProtocol()
   registerIpcHandlers(runtimePaths, desktopClient, desktopStorageDatabase)
-  registerComputerUse(runtimePaths)
-  mainWindow = await createMainWindow(runtimePaths)
+  registerComputerUse(runtimePaths, desktopClient)
+  installApplicationMenu()
+  mainWindow = await createWindow(runtimePaths, { primary: true })
 }
 
 process.on("uncaughtException", logFatalError)

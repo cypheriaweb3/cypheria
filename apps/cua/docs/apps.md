@@ -5,12 +5,13 @@ type Point = [x: number, y: number];
 type Target = number | Point; // an element index from the latest state, or screenshot pixels
 
 declare const cua: {
-  getApp(target: string | { windowId: number }): Promise<App>;
-  listApps(options?: { emit?: boolean }): Promise<AppInfo[]>;
-  listWindows(options?: { pid?: number; emit?: boolean }): Promise<WindowInfo[]>;
+  getApp(target: string | { windowId: number }, options?: { host?: string }): Promise<App>;
+  listApps(options?: { host?: string; emit?: boolean }): Promise<AppInfo[]>;
+  listWindows(options?: { pid?: number; host?: string; emit?: boolean }): Promise<WindowInfo[]>;
 };
 
 interface App {
+  readonly host: string; // the device it runs on
   readonly name: string;
   readonly pid: number;
   readonly windowId: number;

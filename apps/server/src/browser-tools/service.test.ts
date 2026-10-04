@@ -11,8 +11,10 @@ const setup = (enabled = true) => {
   const service = new BrowserToolsService({ audit: { append }, enabled: () => enabled })
   const notifications: BrowserServerMessage[] = []
   const session = {
+    clientId: "cid_desktop",
     id: "ses_desktop",
     kind: "desktop" as const,
+    transport: {},
     notify: (message: BrowserServerMessage) => {
       notifications.push(message)
       if (message.type !== "browser.automation.command.notification") return
@@ -51,7 +53,11 @@ const register = async (context: ReturnType<typeof setup>) => {
   const replies: BrowserServerMessage[] = []
   await context.service.handle(
     {
-      payload: { hostKind: "desktop app", supportedCommands: ["back", "screenshot", "close_tab"] },
+      payload: {
+        hostKind: "desktop app",
+        name: "Studio Mac",
+        supportedCommands: ["back", "screenshot", "close_tab"],
+      },
       requestId: "host-1",
       type: "browser.host.register.request",
     },
@@ -141,9 +147,31 @@ describe("BrowserToolsService", () => {
   it("drops a host when its session closes", async () => {
     const context = setup()
     await register(context)
-    expect(context.service.broker.hostCount).toBe(1)
+    expect(context.service.broker.hosts()).toEqual([
+      expect.objectContaining({ clientId: "cid_desktop", name: "Studio Mac" }),
+    ])
     context.service.sessionClosed(context.session.id)
     expect(context.service.broker.hostCount).toBe(0)
+  })
+
+  it("registers each window of a client as its own host", async () => {
+    const context = setup()
+    await register(context)
+    const popout = { ...context.session, transport: {} }
+    await context.service.handle(
+      {
+        payload: { hostKind: "desktop app", name: "Studio Mac", supportedCommands: ["back"] },
+        requestId: "host-2",
+        type: "browser.host.register.request",
+      },
+      popout,
+      () => undefined
+    )
+    const hosts = context.service.broker.hosts()
+    expect(hosts.map((host) => host.clientId)).toEqual(["cid_desktop", "cid_desktop"])
+    expect(new Set(hosts.map((host) => host.id)).size).toBe(2)
+    context.service.transportClosed(popout.transport)
+    expect(context.service.broker.hostCount).toBe(1)
   })
 
   it("tracks tab disposition and cleans up temporary tabs on turn end", async () => {

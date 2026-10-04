@@ -13,9 +13,15 @@ import { BrowserToolsBroker, type BrowserToolsExecuteInput, browserToolsFailure 
 
 export type TabTurnDisposition = "temporary" | "deliverable" | "handoff"
 
+/** One window's connection: its session, its client, and the transport it speaks over. */
 export type BrowserHostSession = {
   readonly id: string
+  /** The client the window belongs to; every window of a Desktop shares it. */
+  readonly clientId: string
   readonly kind: ClientKind
+  /** The window's own transport, which identifies its registration. */
+  readonly transport: object
+  /** Sends to this window only. */
   notify(message: BrowserServerMessage): void
 }
 
@@ -35,14 +41,18 @@ const error = (code: string, message: string) => ({
 })
 
 /**
- * Server boundary for the Desktop browser host: host registration, the enable switch, tab turn
+ * Server boundary for browser hosts, one per window: registration, the enable switch, tab turn
  * dispositions, and audit. `cua_repl` reaches built-in browser tabs and MCP Apps through it.
  */
 export class BrowserToolsService {
   readonly broker: BrowserToolsBroker
   readonly #audit: Pick<AuditLogService, "append"> | undefined
   readonly #enabled: () => boolean
-  readonly #releases = new Map<string, () => void>()
+  /** Each window's registration, by its transport. */
+  readonly #registrations = new Map<
+    object,
+    { readonly sessionId: string; readonly hostId: string; readonly release: () => void }
+  >()
   readonly #tabsByThread = new Map<string, Map<string, TabTurnDisposition>>()
 
   constructor(options: BrowserToolsServiceOptions) {
@@ -113,17 +123,21 @@ export class BrowserToolsService {
           })
           return true
         }
-        this.#releases.get(session.id)?.()
-        this.#releases.set(
-          session.id,
-          this.broker.registerClient({
+        this.transportClosed(session.transport)
+        const hostId = randomUUID()
+        this.#registrations.set(session.transport, {
+          hostId,
+          release: this.broker.registerClient({
+            clientId: session.clientId,
             hostKind: message.payload.hostKind,
-            id: session.id,
+            id: hostId,
+            name: message.payload.name ?? message.payload.hostKind,
             send: (request: BrowserAutomationRequest) =>
               session.notify({ payload: request, type: "browser.automation.command.notification" }),
             supportedCommands: message.payload.supportedCommands,
-          })
-        )
+          }),
+          sessionId: session.id,
+        })
         reply({
           payload: ok({ succeeded: true as const }),
           requestId: message.requestId,
@@ -132,27 +146,39 @@ export class BrowserToolsService {
         return true
       }
       case "browser.host.unregister.request":
-        this.sessionClosed(session.id)
+        this.transportClosed(session.transport)
         reply({
           payload: ok({ succeeded: true as const }),
           requestId: message.requestId,
           type: "browser.host.unregister.response",
         })
         return true
-      case "browser.automation.result.request":
+      case "browser.automation.result.request": {
+        const hostId = this.#registrations.get(session.transport)?.hostId
         reply({
-          payload: ok({ accepted: this.broker.receiveOutcome(session.id, message.payload) }),
+          payload: ok({
+            accepted: hostId ? this.broker.receiveOutcome(hostId, message.payload) : false,
+          }),
           requestId: message.requestId,
           type: "browser.automation.result.response",
         })
         return true
+      }
     }
   }
 
+  /** Drops the registration of a window whose connection closed. */
+  transportClosed(transport: object): void {
+    const registration = this.#registrations.get(transport)
+    this.#registrations.delete(transport)
+    registration?.release()
+  }
+
+  /** Drops every window of a session that ended. */
   sessionClosed(sessionId: string): void {
-    const release = this.#releases.get(sessionId)
-    this.#releases.delete(sessionId)
-    release?.()
+    for (const [transport, registration] of this.#registrations) {
+      if (registration.sessionId === sessionId) this.transportClosed(transport)
+    }
   }
 
   async execute(input: BrowserToolsExecuteInput): Promise<BrowserAutomationOutcome> {

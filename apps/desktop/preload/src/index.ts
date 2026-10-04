@@ -14,13 +14,15 @@ import {
   BrowserShortcutInputSchema,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_BROWSER_CHANNELS,
+  CYPHERIA_CLIENT_ID_ARGUMENT_PREFIX,
   CYPHERIA_COMPUTER_USE_CHANNELS,
   CYPHERIA_DAPP_BROWSER_PARTITION,
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
   CYPHERIA_WEB_BROWSER_PARTITION,
-  CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX,
+  CYPHERIA_WINDOW_LAYOUT_ARGUMENT_PREFIX,
+  DesktopClientIdSchema,
   LanguageBootstrapSchema,
   StorageKeyValueChangeSchema,
 } from "../../ipc/src/index.js"
@@ -50,10 +52,18 @@ const readBootstrapLanguage = () => {
 const readBootstrapDevelopment = () =>
   process.argv.some((value) => value === `${CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX}1`)
 
-const readWindowRole = (): "main" | "popout" =>
-  process.argv.some((value) => value === `${CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX}popout`)
-    ? "popout"
-    : "main"
+const readClientId = (): string | null => {
+  const argument = process.argv.find((value) =>
+    value.startsWith(CYPHERIA_CLIENT_ID_ARGUMENT_PREFIX)
+  )
+  const parsed = DesktopClientIdSchema.safeParse(
+    argument?.slice(CYPHERIA_CLIENT_ID_ARGUMENT_PREFIX.length)
+  )
+  return parsed.success ? parsed.data : null
+}
+
+const readPersistLayout = (): boolean =>
+  process.argv.some((value) => value === `${CYPHERIA_WINDOW_LAYOUT_ARGUMENT_PREFIX}persistent`)
 
 const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) as Promise<T>
 
@@ -85,6 +95,7 @@ const browserApi: NonNullable<CypheriaPreloadApi["browser"]> = {
   focus: (browserId) => ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.focus, { browserId }),
   openDevTools: (browserId) =>
     ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.devToolsOpen, { browserId }),
+  listLive: () => ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.liveList, {}),
   executeAutomation: (request) =>
     ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.automationExecute, request),
   executeMcpApp: (input) => ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.mcpAppExecute, input),
@@ -106,8 +117,9 @@ const cypheriaApi: CypheriaPreloadApi = {
   bootstrap: {
     appearance: readBootstrapAppearance(),
     development: readBootstrapDevelopment(),
+    clientId: readClientId(),
     language: readBootstrapLanguage(),
-    windowRole: readWindowRole(),
+    persistLayout: readPersistLayout(),
   },
   app: {
     platform: process.platform,
@@ -133,8 +145,8 @@ const cypheriaApi: CypheriaPreloadApi = {
     workspaceFileAction: (input) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appWorkspaceFileAction, input),
   },
-  // Only the main window allows <webview>; the popout window does not host browser tabs.
-  ...(readWindowRole() === "main" ? { browser: browserApi } : {}),
+  // Every window allows <webview> and may host browser tabs.
+  browser: browserApi,
   storage: {
     attachments: {
       getPathForFile: (file) => webUtils.getPathForFile(file),

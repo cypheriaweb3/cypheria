@@ -11,6 +11,8 @@ import {
   type CodeReviewServerMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
+  type ComputerHostClientMessage,
+  type ComputerHostServerMessage,
   type CypheriaBinaryFrame,
   type ExtensionClientMessage,
   type ExtensionServerMessage,
@@ -40,6 +42,16 @@ import {
   type WSHelloMessage,
   wrapServerSessionMessage,
 } from "@cypheria/protocol"
+
+/** One transport of a client session, as a host service sees it. */
+export type HostConnection<Message> = {
+  readonly id: string
+  readonly clientId: string
+  readonly kind: ClientKind
+  readonly transport: SessionTransport
+  /** Sends to this transport only. */
+  notify(message: Message): void
+}
 
 export type SessionTransport = {
   bufferedAmount?(): number
@@ -122,14 +134,16 @@ export type SessionHost = {
     message: Web3ClientMessage,
     send: (message: Web3ServerMessage) => void
   ): Promise<boolean>
+  /** A window's connection, which owns its browser host or carries its device's host. */
   handleBrowserMessage?(
     message: BrowserClientMessage,
-    session: {
-      readonly id: string
-      readonly kind: ClientKind
-      notify(message: BrowserServerMessage): void
-    },
+    session: HostConnection<BrowserServerMessage>,
     send: (message: BrowserServerMessage) => void
+  ): Promise<boolean>
+  handleComputerHostMessage?(
+    message: ComputerHostClientMessage,
+    session: HostConnection<ComputerHostServerMessage>,
+    send: (message: ComputerHostServerMessage) => void
   ): Promise<boolean>
 }
 
@@ -395,9 +409,28 @@ export class ClientSession {
           (await this.#host.handleBrowserMessage(
             message as BrowserClientMessage,
             {
+              clientId: this.#client.id,
               id: this.id,
               kind: this.#client.kind,
-              notify: (notification) => this.send(notification),
+              notify: (notification) => this.sendTo(source, notification),
+              transport: source,
+            },
+            (response) => this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("computer.host.") &&
+          this.#host.handleComputerHostMessage &&
+          (await this.#host.handleComputerHostMessage(
+            message as ComputerHostClientMessage,
+            {
+              clientId: this.#client.id,
+              id: this.id,
+              kind: this.#client.kind,
+              notify: (notification) => this.sendTo(source, notification),
+              transport: source,
             },
             (response) => this.sendTo(source, response)
           ))
