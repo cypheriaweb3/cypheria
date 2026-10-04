@@ -9,6 +9,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "@cypheria/node-repl#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "internal/assets/files/**"]
+    },
     "@cypheria/server#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]

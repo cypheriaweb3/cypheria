@@ -2,8 +2,6 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs"
 import { writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { HookEngine } from "../integration/hook-engine.js"
-
 import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
@@ -15,6 +13,7 @@ import {
 } from "@cypheria/db"
 import type { AgentId, ServerMessage, ThreadConfig, ThreadContextUsage } from "@cypheria/protocol"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { HookEngine } from "../integration/hook-engine.js"
 
 import type {
   ThreadHarnessAdapter,

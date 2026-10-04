@@ -228,11 +228,11 @@ import {
 } from "./extensions/workspace-context.js"
 import { fileTabId, parseFileTabId, withOpenedTab } from "./file-tabs.js"
 import { type AgentReviewComment, GitReviewPanel } from "./git-review-panel.js"
+import { type HookStats, HookStatsButton } from "./hook-stats-dialog.js"
 import { ProjectCreateDialog } from "./project-create-dialog.js"
 import { type ThreadFileRef, ThreadFilesPanel } from "./thread-files-panel.js"
 import { ThreadGitActions } from "./thread-git-actions.js"
 import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal.js"
-import { HookStatsButton } from "./hook-stats-dialog.js"
 
 const agentDisplayNames: Partial<Record<string, string>> = {
   claude: "Claude",
@@ -355,8 +355,8 @@ function TimelineItemView({
           )}
         </ChatTimelineItem>
         <div className="absolute -bottom-7 right-0 flex items-center gap-1 opacity-0 transition-opacity group-hover/message:opacity-100 data-[state=open]:opacity-100">
-          {item.role === "assistant" && (item as { hookStats?: any }).hookStats ? (
-            <HookStatsButton stats={(item as { hookStats?: any }).hookStats} />
+          {item.role === "assistant" && (item as { hookStats?: HookStats | null }).hookStats ? (
+            <HookStatsButton stats={(item as { hookStats?: HookStats | null }).hookStats} />
           ) : null}
           {forkAction || rewindAction ? (
             <DropdownMenu>

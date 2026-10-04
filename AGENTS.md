@@ -35,7 +35,7 @@ pnpm format
 pnpm lint
 ```
 
-The relay additionally requires Go. Package-specific commands are documented in [Development](docs/development.md).
+The relay and node-repl additionally require Go. Package-specific commands are documented in [Development](docs/development.md).
 
 ## Documentation
 

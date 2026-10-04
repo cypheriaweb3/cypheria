@@ -1,8 +1,7 @@
-import { useState } from "react"
-import { Trans } from "@lingui/react/macro"
 import { Button } from "@cypheria/ui/components/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@cypheria/ui/components/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@cypheria/ui/components/tooltip"
+import { Trans } from "@lingui/react/macro"
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,6 +10,7 @@ import {
   ShieldAlert,
   Webhook,
 } from "lucide-react"
+import { useState } from "react"
 
 export type HookRunEntry = {
   kind: "error" | "feedback" | "stop" | "warning"
@@ -137,8 +137,10 @@ function HookRunItem({ run }: { run: HookRunRecord }) {
 
   return (
     <div className="rounded-md border border-border bg-card p-2.5 text-xs">
-      <div
-        className="flex items-center justify-between cursor-pointer select-none"
+      <button
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between cursor-pointer select-none text-left"
+        type="button"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -153,7 +155,7 @@ function HookRunItem({ run }: { run: HookRunRecord }) {
           <span className="capitalize">{run.status}</span>
           {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </div>
-      </div>
+      </button>
 
       {expanded ? (
         <div className="mt-2.5 pt-2 border-t border-border/60 space-y-2">
@@ -165,6 +167,7 @@ function HookRunItem({ run }: { run: HookRunRecord }) {
 
           {run.entries.map((entry, idx) => (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: entries are append-only hook output with no identity
               key={idx}
               className={`p-2 rounded font-mono text-[11px] whitespace-pre-wrap break-words ${
                 entry.kind === "error"

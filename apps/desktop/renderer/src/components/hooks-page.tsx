@@ -19,11 +19,9 @@ import { Trans } from "@lingui/react/macro"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertTriangle,
-  Check,
   CheckCircle2,
   Code2,
   FileCode,
-  Info,
   Lock,
   RefreshCw,
   Search,
@@ -205,6 +203,7 @@ export function HooksPage() {
             </AlertTitle>
             <AlertDescription className="space-y-1 text-sm">
               {data.errors.map((err: { message: string; path: string | null }, idx: number) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: load errors are a static list and may repeat
                 <div key={idx}>
                   {err.path ? <span className="font-mono">{err.path}: </span> : null}
                   {err.message}
@@ -457,8 +456,9 @@ function HookCard({
       </div>
 
       {/* Command or Tool Display */}
-      <div
-        className="cursor-pointer rounded-lg bg-muted/60 p-2.5 font-mono text-xs text-foreground transition-colors hover:bg-muted/90"
+      <button
+        className="block w-full cursor-pointer rounded-lg bg-muted/60 p-2.5 text-left font-mono text-xs text-foreground transition-colors hover:bg-muted/90"
+        type="button"
         onClick={onSelect}
       >
         {hook.handlerType === "command" ? (
@@ -470,7 +470,7 @@ function HookCard({
         ) : (
           <div className="text-muted-foreground">(unsupported handler type)</div>
         )}
-      </div>
+      </button>
 
       {/* Meta Footer */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">

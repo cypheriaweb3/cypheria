@@ -27,6 +27,9 @@ func Ensure() (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read embedded assets: %w", err)
 	}
+	if _, err := fs.Stat(assets.Files, "files/kernel.js"); err != nil {
+		return nil, fmt.Errorf("embedded node_repl kernel is missing; run `pnpm --filter @cypheria/node-repl build:js` before building: %w", err)
+	}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
