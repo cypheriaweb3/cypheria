@@ -10,7 +10,7 @@ This guide is the canonical reference for the workspace, toolchain, generated ar
 
 - Node.js 24 or newer
 - pnpm 11.1.3, as pinned by the root `packageManager`
-- Go 1.25 for `apps/relay`
+- Go 1.25 for `apps/relay` and `apps/node-repl`
 - A compatible Codex binary when regenerating Codex App Server artifacts
 
 Use pnpm for JavaScript and TypeScript workspace commands. The repository uses Turborepo for task orchestration and Biome for formatting and linting.
@@ -26,7 +26,7 @@ Implemented applications:
 | `apps/expo` | Expo Router foundation and static web export |
 | `apps/cli` | Non-TUI protocol client and local Server lifecycle commands |
 | `apps/relay` | Go encrypted relay data plane |
-| `apps/node-repl` | Go node_repl MCP server and supervisor for persistent sandboxed JavaScript execution |
+| `apps/node-repl` | Go node_repl MCP server and supervisor, plus the TypeScript kernel it embeds, for persistent sandboxed JavaScript execution |
 | `apps/website` | TanStack Start marketing and Fumadocs site on Cloudflare Workers |
 
 Implemented packages:
@@ -177,6 +177,14 @@ pnpm --filter @cypheria/protocol generate:agent-acp-registry
 ```
 
 This maintainer command downloads, validates, normalizes, and writes `packages/protocol/src/generated/acp/registry.json` plus the reviewed subset in `agent-ids.ts`. Every approved ID must exist in the snapshot. Both files are committed and reviewed together. Normal builds and checks validate only the local snapshot and never fetch registry data.
+
+The node_repl kernel and trusted worker are written in TypeScript under `apps/node-repl/src/` and bundled by Vite into `apps/node-repl/internal/assets/files/`, which the Go binary embeds. Third-party dependencies such as `meriyah` go into a minified `vendor.js` chunk with their notices in `THIRD_PARTY_LICENSES.txt`, while Cypheria sources stay unminified for debugging:
+
+```sh
+pnpm --filter @cypheria/node-repl build:js
+```
+
+The bundle is ignored by Git except `package.json`. The package `build`, `check`, and `test` scripts regenerate it before running Go, so run `build:js` first only when invoking `go` directly.
 
 ## Testing strategy
 

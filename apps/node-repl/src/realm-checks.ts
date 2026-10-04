@@ -7,20 +7,16 @@
 
 const arrayBufferByteLengthGetter = Object.getOwnPropertyDescriptor(
   ArrayBuffer.prototype,
-  "byteLength",
-).get;
+  "byteLength"
+)?.get as (this: ArrayBuffer) => number
 
-function isArrayBuffer(value) {
-  if (value == null || typeof value !== "object") return false;
+export function isArrayBuffer(value: unknown): value is ArrayBuffer {
+  if (value == null || typeof value !== "object") return false
   try {
     // Applying the native getter performs a realm-independent brand check.
-    Reflect.apply(arrayBufferByteLengthGetter, value, []);
-    return true;
+    Reflect.apply(arrayBufferByteLengthGetter, value, [])
+    return true
   } catch {
-    return false;
+    return false
   }
 }
-
-module.exports = {
-  isArrayBuffer,
-};

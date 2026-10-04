@@ -10,7 +10,7 @@ title: 开发指南
 
 - Node.js 24 或更高版本
 - 根目录 `packageManager` 固定的 pnpm 11.1.3
-- 开发 `apps/relay` 所需的 Go 1.25
+- 开发 `apps/relay` 与 `apps/node-repl` 所需的 Go 1.25
 - 重新生成 Codex App Server 产物时所需的兼容 Codex 二进制文件
 
 JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turborepo 编排任务，使用 Biome 格式化和 lint。
@@ -26,7 +26,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `apps/expo` | Expo Router 基础和静态 web 导出 |
 | `apps/cli` | 非 TUI 协议客户端和本地 Server 生命周期命令 |
 | `apps/relay` | Go 加密 relay 数据平面 |
-| `apps/node-repl` | Go node_repl MCP 服务端与 supervisor，用于持久化沙箱 JavaScript 执行 |
+| `apps/node-repl` | Go node_repl MCP 服务端与 supervisor，以及其内嵌的 TypeScript kernel，用于持久化沙箱 JavaScript 执行 |
 | `apps/website` | 部署于 Cloudflare Workers 的 TanStack Start 官网与 Fumadocs 文档站 |
 
 已实现包：
@@ -161,6 +161,14 @@ pnpm --filter @cypheria/protocol generate:agent-acp-registry
 ```
 
 该维护者命令会下载、校验并规范化 registry，然后写入 `packages/protocol/src/generated/acp/registry.json`，并把审核子集写入 `agent-ids.ts`。每个批准的 ID 都必须存在于快照中。两个文件必须一起提交和审查。普通构建与检查只校验本地快照，绝不会获取 registry 网络数据。
+
+node_repl kernel 与 trusted worker 以 TypeScript 编写，位于 `apps/node-repl/src/`，由 Vite 打包到 `apps/node-repl/internal/assets/files/`，供 Go 二进制内嵌。`meriyah` 等第三方依赖进入经过压缩的 `vendor.js` chunk，其许可声明位于 `THIRD_PARTY_LICENSES.txt`；Cypheria 自身源码保持未压缩，便于调试：
+
+```sh
+pnpm --filter @cypheria/node-repl build:js
+```
+
+除 `package.json` 外，打包产物均被 Git 忽略。该包的 `build`、`check` 与 `test` 脚本会在运行 Go 之前重新生成产物，因此只有直接调用 `go` 时才需要先运行 `build:js`。
 
 ## 测试策略
 
