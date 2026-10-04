@@ -436,10 +436,29 @@ export const DEFAULT_GIT_SETTINGS: GitSettings = {
   worktreeKeepCount: 15,
 }
 
-/** Agent access to Desktop browser tabs. Off by default because tabs share signed-in state. */
-export const BrowserToolsSettingsSchema = z.object({ enabled: z.boolean() }).strict()
-export type BrowserToolsSettings = z.infer<typeof BrowserToolsSettingsSchema>
-export const DEFAULT_BROWSER_TOOLS_SETTINGS: BrowserToolsSettings = { enabled: false }
+/**
+ * The UI an Agent may operate through Computer Use (`cua_repl`). Each surface is off by default
+ * because it acts with the person's signed-in state or on their computer.
+ */
+export const ComputerUseSettingsSchema = z
+  .object({
+    /** Cypheria's built-in browser tabs. */
+    inAppBrowser: z.boolean(),
+    /** The person's own Chromium browsers, attached over remote debugging. */
+    externalBrowsers: z.boolean(),
+    /** MCP Apps a Desktop window shows. */
+    mcpApps: z.boolean(),
+    /** Native desktop apps, through the cua-driver service Desktop hosts. */
+    desktopApps: z.boolean(),
+  })
+  .strict()
+export type ComputerUseSettings = z.infer<typeof ComputerUseSettingsSchema>
+export const DEFAULT_COMPUTER_USE_SETTINGS: ComputerUseSettings = {
+  desktopApps: false,
+  externalBrowsers: false,
+  inAppBrowser: false,
+  mcpApps: false,
+}
 
 export const NetworkProxyProtocolSchema = z.enum(["http", "https", "socks4", "socks5"])
 export type NetworkProxyProtocol = z.infer<typeof NetworkProxyProtocolSchema>
@@ -545,7 +564,7 @@ export const PersistedServerConfigSchema = z
       }),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     codeReview: CodeReviewSettingsSchema.default(DEFAULT_CODE_REVIEW_SETTINGS),
-    browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),
+    computerUse: ComputerUseSettingsSchema.default(DEFAULT_COMPUTER_USE_SETTINGS),
     extensions: z
       .object({
         /**
@@ -630,7 +649,7 @@ export const PersistedServerConfigPatchSchema = z
       .optional(),
     git: GitSettingsSchema.partial().strict().optional(),
     codeReview: CodeReviewSettingsSchema.partial().strict().optional(),
-    browserTools: BrowserToolsSettingsSchema.partial().strict().optional(),
+    computerUse: ComputerUseSettingsSchema.partial().strict().optional(),
     extensions: z
       .object({ preferredFileViewers: PreferredFileViewersSchema.optional() })
       .strict()

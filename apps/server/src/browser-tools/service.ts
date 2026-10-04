@@ -9,12 +9,7 @@ import {
   type BrowserServerMessage,
   type ClientKind,
 } from "@cypheria/protocol"
-import type { v2 } from "@cypheria/protocol/codex-types"
-import type { CodexDynamicToolCallContext } from "../agent/codex-dynamic-tools.js"
-import type { AppToolMcpResult, AppToolMcpTool } from "../app-tools/service.js"
-import { toMcpResult } from "../app-tools/service.js"
 import { BrowserToolsBroker, type BrowserToolsExecuteInput, browserToolsFailure } from "./broker.js"
-import { browserCommandForTool, browserToolResponse, browserToolSpecs } from "./tools.js"
 
 export type TabTurnDisposition = "temporary" | "deliverable" | "handoff"
 
@@ -39,7 +34,10 @@ const error = (code: string, message: string) => ({
   ok: false as const,
 })
 
-/** Server boundary for browser tools: host registration, the enable switch, and audit. */
+/**
+ * Server boundary for the Desktop browser host: host registration, the enable switch, tab turn
+ * dispositions, and audit. `cua_repl` reaches built-in browser tabs and MCP Apps through it.
+ */
 export class BrowserToolsService {
   readonly broker: BrowserToolsBroker
   readonly #audit: Pick<AuditLogService, "append"> | undefined
@@ -163,7 +161,8 @@ export class BrowserToolsService {
       return browserToolsFailure({
         automationId,
         code: "browser_disabled",
-        message: "Browser tools are turned off. Enable them in Cypheria settings.",
+        message:
+          "The built-in browser and MCP Apps are turned off in Cypheria's Computer Use settings.",
       })
     }
     const name = (input.command as { command?: unknown }).command
@@ -206,76 +205,5 @@ export class BrowserToolsService {
     }
 
     return outcome
-  }
-
-  mcpTools(): AppToolMcpTool[] {
-    return browserToolSpecs().flatMap((spec) =>
-      spec.type === "function"
-        ? [
-            {
-              description: spec.description,
-              inputSchema: spec.inputSchema as Record<string, unknown>,
-              name: spec.name,
-            },
-          ]
-        : []
-    )
-  }
-
-  async callMcpTool(
-    name: string,
-    args: unknown,
-    context: { threadId?: string; cwd?: string }
-  ): Promise<AppToolMcpResult> {
-    const response = await this.callCodexTool(
-      {
-        arguments: (args ?? {}) as v2.DynamicToolCallParams["arguments"],
-        callId: `mcp-${randomUUID()}`,
-        namespace: null,
-        threadId: context.threadId ?? "",
-        tool: name,
-        turnId: "",
-      },
-      context
-    )
-    return toMcpResult(response)
-  }
-
-  /** Codex dynamic tool handler. Browser scope follows the calling Cypheria Thread. */
-  async callCodexTool(
-    request: v2.DynamicToolCallParams,
-    context: CodexDynamicToolCallContext
-  ): Promise<v2.DynamicToolCallResponse> {
-    const command = browserCommandForTool(request.tool)
-    if (!command) {
-      return browserToolResponse(
-        browserToolsFailure({
-          automationId: request.callId,
-          code: "browser_unsupported",
-          message: `Unknown browser tool ${request.tool}.`,
-        })
-      )
-    }
-    if (!context.threadId) {
-      return browserToolResponse(
-        browserToolsFailure({
-          automationId: request.callId,
-          code: "browser_denied",
-          message: "Browser tools require a Cypheria thread.",
-        })
-      )
-    }
-    const args =
-      request.arguments &&
-      typeof request.arguments === "object" &&
-      !Array.isArray(request.arguments)
-        ? request.arguments
-        : {}
-    const outcome = await this.execute({
-      command: { args, command } as BrowserToolsExecuteInput["command"],
-      ...(context.cwd ? { cwd: context.cwd } : {}),
-      threadId: context.threadId,
-    })
-    return browserToolResponse(outcome)
   }
 }

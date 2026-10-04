@@ -14,6 +14,7 @@ import (
 // Server implements an MCP stdio server.
 type Server struct {
 	supervisor *supervisor.Supervisor
+	overrides  *ToolOverrides
 }
 
 type rpcRequest struct {
@@ -36,10 +37,11 @@ type rpcError struct {
 	Data    any    `json:"data,omitempty"`
 }
 
-// NewServer creates a new MCP Server with the given supervisor.
-func NewServer(sup *supervisor.Supervisor) *Server {
+// NewServer creates a new MCP Server with the given supervisor. Overrides may be nil.
+func NewServer(sup *supervisor.Supervisor, overrides *ToolOverrides) *Server {
 	return &Server{
 		supervisor: sup,
+		overrides:  overrides,
 	}
 }
 
@@ -122,7 +124,7 @@ func (s *Server) handleRequest(ctx context.Context, req rpcRequest) *rpcResponse
 					"name":    "rmcp",
 					"version": "1.5.0",
 				},
-				"instructions": "Use `js` for `node_repl` execution with persistent, redeclarable top-level bindings, `js_reset` to clear bindings, and `js_add_node_module_dir` to add package directories.",
+				"instructions": s.overrides.instructions("Use `js` for `node_repl` execution with persistent, redeclarable top-level bindings, `js_reset` to clear bindings, and `js_add_node_module_dir` to add package directories."),
 			},
 		}
 
@@ -158,6 +160,12 @@ func (s *Server) handleRequest(ctx context.Context, req rpcRequest) *rpcResponse
 }
 
 func (s *Server) toolDefinitions() []map[string]any {
+	tools := baseToolDefinitions()
+	s.overrides.apply(tools)
+	return tools
+}
+
+func baseToolDefinitions() []map[string]any {
 	return []map[string]any{
 		{
 			"name":        "js",

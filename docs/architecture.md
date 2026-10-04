@@ -36,7 +36,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 
 ### Desktop
 
-`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, browser guest hardening and the dApp provider boundary, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients. The main window renderer hosts browser tabs as sandboxed `<webview>` guests and acts as the Server's browser host for Agent browser tools; see [Desktop](desktop.md#browser-and-dapp-boundary).
+`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, browser guest hardening and the dApp provider boundary, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients. The main window renderer hosts browser tabs as sandboxed `<webview>` guests and acts as the Server's browser host for [Computer Use](computer-use.md); see [Desktop](desktop.md#browser-and-dapp-boundary). Electron main also hosts the cua-driver daemon for native app control, because macOS attributes its Accessibility and Screen Recording grants to the app that starts it.
 
 ### Expo and CLI
 

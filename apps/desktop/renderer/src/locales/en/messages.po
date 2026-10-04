@@ -148,11 +148,6 @@ msgid "chat.agent"
 msgstr "Agent"
 
 #. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.agentTools"
-msgstr "Agent browser tools"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.permissions.agentConfig"
 msgstr "Agent defaults"
@@ -1746,11 +1741,6 @@ msgstr "Leave empty to generate"
 #: renderer/src/components/create-pull-request-dialog.tsx
 msgid "createPr.bodyPlaceholder"
 msgstr "Leave empty to generate"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/browser-settings-section.tsx
-msgid "settings.browser.agentToolsDescription"
-msgstr "Lets Agents open and control browser tabs in their own conversation, including signed-in pages and dApp tabs. Wallet signing still follows your policies and approvals."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/context-usage.tsx
@@ -3902,3 +3892,104 @@ msgstr "Worktrees created by Cypheria will appear here"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.worktree.gitRequired"
 msgstr "Worktrees require the project's first source folder to be a Git repository."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.accessibility"
+msgstr "Accessibility"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.accessibilityDescription"
+msgstr "Lets Cypheria read app windows and act in them."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.desktopApps"
+msgstr "Desktop apps"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.desktopAppsDescription"
+msgstr "Lets Agents read and operate apps on this computer in the background, with their own cursor. They may take screenshots while working."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.externalBrowsers"
+msgstr "Your browsers"
+
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.externalBrowsersDescription"
+msgstr "Lets Agents use Chrome, Edge, Brave, Vivaldi, Opera, or Chromium with your signed-in sessions. Turn on remote debugging in the browser at its inspect page, for example chrome://inspect/#remote-debugging, and allow the connection when it asks."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.grant"
+msgstr "Grant"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.granted"
+msgstr "Granted"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.inAppBrowser"
+msgstr "Built-in browser"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.inAppBrowserDescription"
+msgstr "Lets Agents open and control tabs of the built-in browser in their own conversation, including dApp tabs. Wallet signing still follows your policies and approvals."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.mcpApps"
+msgstr "MCP Apps"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.mcpAppsDescription"
+msgstr "Lets Agents operate the plugin Apps shown in their conversation."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.restart"
+msgstr "Restart"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.screenRecording"
+msgstr "Screen Recording"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.screenRecordingDescription"
+msgstr "Lets Cypheria take screenshots of the app windows it works in."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.section"
+msgstr "Computer Use"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.service"
+msgstr "Computer Use service"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.serviceDescription"
+msgstr "Restart it after changing a permission so it applies."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.serviceMissing"
+msgstr "The cua-driver service is not included in this build."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.start"
+msgstr "Start"

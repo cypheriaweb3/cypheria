@@ -5,6 +5,10 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
+    "@cypheria/cua#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
     "@cypheria/expo#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]

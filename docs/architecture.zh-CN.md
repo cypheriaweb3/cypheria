@@ -36,7 +36,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 ### Desktop
 
-`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、浏览器 guest 加固与 dApp provider 边界、preload IPC、客户端 KV／Replica／附件后端、更新、安全存储和操作系统集成。Renderer 使用 Jotai + 客户端 KV 管理设备本地状态，并通过 `@cypheria/client` + TanStack Query 使用 Server 共享状态。设备本地状态有意不在客户端之间同步。主窗口 renderer 以沙箱化 `<webview>` guest 承载浏览器标签页，并作为 Agent 浏览器工具的 Server 浏览器 host；参见 [Desktop](desktop.zh-CN.md#浏览器与-dapp-边界)。
+`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、浏览器 guest 加固与 dApp provider 边界、preload IPC、客户端 KV／Replica／附件后端、更新、安全存储和操作系统集成。Renderer 使用 Jotai + 客户端 KV 管理设备本地状态，并通过 `@cypheria/client` + TanStack Query 使用 Server 共享状态。设备本地状态有意不在客户端之间同步。主窗口 renderer 以沙箱化 `<webview>` guest 承载浏览器标签页，并作为 [Computer Use](computer-use.zh-CN.md) 的 Server 浏览器 host；参见 [Desktop](desktop.zh-CN.md#浏览器与-dapp-边界)。Electron main 还托管用于原生应用操控的 cua-driver daemon，因为 macOS 会把它的辅助功能和屏幕录制授权归属到启动它的应用。
 
 ### Expo 与 CLI
 

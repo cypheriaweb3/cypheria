@@ -56,6 +56,8 @@ export const BROWSER_AUTOMATION_COMMAND_NAMES = [
   "request_manual_handoff",
   "scan_qr",
   "extract_assets",
+  "list_mcp_apps",
+  "mcp_app",
 ] as const
 
 export const BrowserAutomationCommandNameSchema = z.enum(BROWSER_AUTOMATION_COMMAND_NAMES)
@@ -73,6 +75,7 @@ export const BROWSER_AUTOMATION_READ_ONLY_COMMANDS: ReadonlySet<BrowserAutomatio
     "extract_assets",
     "mark_deliverable",
     "mark_handoff",
+    "list_mcp_apps",
   ])
 
 export const BrowserIdSchema = z
@@ -290,6 +293,43 @@ export const BrowserAutomationExtractAssetsCommandSchema = command(
   })
 )
 
+/**
+ * One action on an MCP App a Desktop window shows. Apps are driven through their DOM with
+ * synthetic events: there is no native input, navigation, or coordinate addressing.
+ */
+export const BrowserMcpAppActionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("snapshot") }).strict(),
+  z.object({ type: z.literal("screenshot") }).strict(),
+  z.object({ ref: BrowserRefSchema, type: z.literal("click") }).strict(),
+  z.object({ ref: BrowserRefSchema, type: z.literal("fill"), value: z.string() }).strict(),
+  z
+    .object({ ref: BrowserRefSchema.optional(), text: z.string(), type: z.literal("type") })
+    .strict(),
+  z
+    .object({ key: z.string().min(1), ref: BrowserRefSchema.optional(), type: z.literal("press") })
+    .strict(),
+  z.object({ ref: BrowserRefSchema, type: z.literal("select"), value: z.string() }).strict(),
+  z.object({ checked: z.boolean(), ref: BrowserRefSchema, type: z.literal("check") }).strict(),
+  z
+    .object({
+      deltaX: z.number().optional(),
+      deltaY: z.number(),
+      ref: BrowserRefSchema.optional(),
+      type: z.literal("scroll"),
+    })
+    .strict(),
+])
+export type BrowserMcpAppAction = z.infer<typeof BrowserMcpAppActionSchema>
+
+export const BrowserAutomationListMcpAppsCommandSchema = command(
+  "list_mcp_apps",
+  z.object({}).strict().default({})
+)
+export const BrowserAutomationMcpAppCommandSchema = command(
+  "mcp_app",
+  z.object({ action: BrowserMcpAppActionSchema, appId: z.string().min(1).max(256) }).strict()
+)
+
 export const BrowserAutomationCommandSchema = z.discriminatedUnion("command", [
   BrowserAutomationListTabsCommandSchema,
   BrowserAutomationNewTabCommandSchema,
@@ -318,6 +358,8 @@ export const BrowserAutomationCommandSchema = z.discriminatedUnion("command", [
   BrowserAutomationRequestManualHandoffCommandSchema,
   BrowserAutomationScanQrCommandSchema,
   BrowserAutomationExtractAssetsCommandSchema,
+  BrowserAutomationListMcpAppsCommandSchema,
+  BrowserAutomationMcpAppCommandSchema,
 ])
 export type BrowserAutomationCommand = z.infer<typeof BrowserAutomationCommandSchema>
 /** Command arguments before defaults are applied, as written by an Agent or test. */
@@ -379,6 +421,19 @@ export const BrowserAutomationNetworkLogEntrySchema = z
 export type BrowserAutomationNetworkLogEntry = z.infer<
   typeof BrowserAutomationNetworkLogEntrySchema
 >
+
+/** An MCP App mounted in a Desktop window for a Thread. */
+export const BrowserMcpAppInfoSchema = z
+  .object({
+    appId: z.string().min(1),
+    displayMode: z.string(),
+    pluginId: z.string().nullable(),
+    server: z.string(),
+    threadId: ProjectThreadIdSchema,
+    title: z.string(),
+  })
+  .strict()
+export type BrowserMcpAppInfo = z.infer<typeof BrowserMcpAppInfoSchema>
 
 export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("list_tabs"), tabs: z.array(BrowserTabInfoSchema) }).strict(),
@@ -479,6 +534,20 @@ export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
     assets: z.array(BrowserAssetItemSchema),
     totalCount: z.number(),
   }),
+  z
+    .object({ apps: z.array(BrowserMcpAppInfoSchema), command: z.literal("list_mcp_apps") })
+    .strict(),
+  z
+    .object({
+      /** The action's type, such as `snapshot` or `click`. */
+      action: z.string().min(1),
+      appId: z.string().min(1),
+      command: z.literal("mcp_app"),
+      dataBase64: z.string().min(1).optional(),
+      mimeType: z.literal("image/png").optional(),
+      snapshot: z.string().optional(),
+    })
+    .strict(),
 ])
 export type BrowserAutomationResult = z.infer<typeof BrowserAutomationResultSchema>
 

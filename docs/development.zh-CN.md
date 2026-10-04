@@ -26,6 +26,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `apps/expo` | Expo Router 基础和静态 web 导出 |
 | `apps/cli` | 非 TUI 协议客户端和本地 Server 生命周期命令 |
 | `apps/relay` | Go 加密 relay 数据平面 |
+| `apps/cua` | Computer Use 运行时：`cua_repl` 启动器与 `cua` API、Server 端各界面的 host、内嵌 cua-driver 的监管器，以及隐藏 `cua` 插件的模板 |
 | `apps/node-repl` | Go node_repl MCP 服务端与 supervisor，以及其内嵌的 TypeScript kernel，用于持久化沙箱 JavaScript 执行 |
 | `apps/website` | 部署于 Cloudflare Workers 的 TanStack Start 官网与 Fumadocs 文档站 |
 
@@ -48,7 +49,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `plugins` | 内置的 `cypheria-bundled` marketplace：Codex 与 Claude 的 marketplace 文件，与其列出的插件放在一起 |
 | `plugins/cypheria-app-tools` | App tools 插件：manifest 与 MCP relay，无需构建 |
 | `plugins/code-review` | `code-review` 插件及其包：manifest、`src/server` 中的 MCP relay，以及 `src/app` 中的代码审查 MCP App，构建为 `dist/app.html` |
-| `plugins/browser` | 内置浏览器自动化插件：manifest、browser-client 运行时及技能 |
+| `plugins/browser`、`plugins/chrome`、`plugins/computer-use` | Computer Use 各界面的 manifest 与图标；运行时位于 `apps/cua` |
 
 在源码 checkout 中，Agent 从 `plugins/` 安装内置插件。Server 构建会在 `apps/server/dist/marketplace` 中组装 marketplace，并以与 `node plugins/code-review/scripts/build.mjs --plugin-dir <dir>` 相同的方式打包 `code-review`，因此安装后的插件只包含 manifest、relay 与构建后的 App。
 
@@ -169,6 +170,13 @@ pnpm --filter @cypheria/node-repl build:js
 ```
 
 除 `package.json` 外，打包产物均被 Git 忽略。该包的 `build`、`check` 与 `test` 脚本会在运行 Go 之前重新生成产物，因此只有直接调用 `go` 时才需要先运行 `build:js`。
+
+Computer Use 的启动器与运行时由 Vite 构建到 `apps/cua/dist`。原生应用操控需要固定版本的 cua-driver 发行包，维护者在构建 Desktop 前以摘要校验的方式获取它，详见 [Computer Use](computer-use.zh-CN.md#桌面应用)：
+
+```sh
+pnpm --filter @cypheria/cua build
+pnpm --filter @cypheria/cua fetch:cua-driver
+```
 
 ## 测试策略
 

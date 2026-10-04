@@ -1,0 +1,9 @@
+{
+  "name": "cua",
+  "version": "0.1.0",
+  "description": "Cypheria-managed UI automation runtime for native apps, the built-in browser, external browsers, and MCP Apps.",
+  "author": {
+    "name": "Cypheria"
+  },
+  "mcpServers": "./.claude-mcp.json"
+}

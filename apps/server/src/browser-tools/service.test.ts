@@ -2,7 +2,6 @@ import type { BrowserServerMessage } from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
 import { BrowserToolsService } from "./service.js"
-import { browserToolName, browserToolSpecs } from "./tools.js"
 
 const browserId = "5b8f7b43-86a4-4c65-9f79-3a3a3d35f0c1"
 const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
@@ -124,42 +123,19 @@ describe("BrowserToolsService", () => {
     expect(context.notifications).toEqual([])
   })
 
-  it("serves Codex tool calls scoped to the calling thread", async () => {
+  it("sends commands scoped to the calling thread", async () => {
     const context = setup()
     await register(context)
-    const response = await context.service.callCodexTool(
-      {
-        arguments: { browserId },
-        callId: "call-1",
-        namespace: null,
-        threadId: "codex-session",
-        tool: browserToolName("screenshot"),
-        turnId: "turn-1",
-      },
-      { cwd: "/workspace", threadId }
-    )
-    expect(response.success).toBe(true)
-    expect(response.contentItems[1]).toEqual({
-      imageUrl: "data:image/png;base64,iVBORw0KGgo=",
-      type: "inputImage",
+    const outcome = await context.service.execute({
+      command: { args: { browserId }, command: "screenshot" },
+      cwd: "/workspace",
+      threadId,
     })
+    expect(outcome).toMatchObject({ ok: true, result: { command: "screenshot" } })
     expect(context.notifications[0]).toMatchObject({
       payload: { cwd: "/workspace", threadId },
       type: "browser.automation.command.notification",
     })
-    await expect(
-      context.service.callCodexTool(
-        {
-          arguments: {},
-          callId: "call-2",
-          namespace: null,
-          threadId: "codex-session",
-          tool: browserToolName("list_tabs"),
-          turnId: "turn-1",
-        },
-        {}
-      )
-    ).resolves.toMatchObject({ success: false })
   })
 
   it("drops a host when its session closes", async () => {
@@ -168,29 +144,6 @@ describe("BrowserToolsService", () => {
     expect(context.service.broker.hostCount).toBe(1)
     context.service.sessionClosed(context.session.id)
     expect(context.service.broker.hostCount).toBe(0)
-  })
-
-  it("exposes MCP tools matching command definitions", () => {
-    const context = setup()
-    const tools = context.service.mcpTools()
-    expect(tools).toHaveLength(27)
-    expect(tools.some((t) => t.name === "browser_navigate")).toBe(true)
-    expect(tools.some((t) => t.name === "browser_scan_qr")).toBe(true)
-    expect(tools.some((t) => t.name === "browser_mark_deliverable")).toBe(true)
-    expect(tools.some((t) => t.name === "browser_extract_assets")).toBe(true)
-  })
-
-  it("handles callMcpTool for MCP clients", async () => {
-    const context = setup()
-    await register(context)
-    const result = await context.service.callMcpTool(
-      "browser_screenshot",
-      { browserId },
-      { threadId }
-    )
-    expect(result.isError).toBeFalsy()
-    expect(result.content?.[0]?.type).toBe("text")
-    expect(result.content?.[1]?.type).toBe("image")
   })
 
   it("tracks tab disposition and cleans up temporary tabs on turn end", async () => {
@@ -231,17 +184,5 @@ describe("BrowserToolsService", () => {
         n.payload.command.args.browserId === tabDeliverable
     )
     expect(deliverableClose).toBeUndefined()
-  })
-})
-
-describe("browser tool specs", () => {
-  it("exposes one JSON-schema tool per command", () => {
-    const specs = browserToolSpecs()
-    expect(specs).toHaveLength(27)
-    const click = specs.find((spec) => spec.type === "function" && spec.name === "browser_click")
-    expect(click).toMatchObject({
-      inputSchema: { properties: { browserId: { type: "string" }, ref: { type: "string" } } },
-      type: "function",
-    })
   })
 })

@@ -23,6 +23,7 @@ import {
   BUNDLED_MARKETPLACE_NAME,
   BUNDLED_PLUGIN_NAMES,
   bundledMarketplaceDirectory,
+  isHiddenBundledPlugin,
   pluginImage,
   webUrl,
 } from "./plugin-utils.js"
@@ -113,34 +114,36 @@ export class CodexPluginProvider implements PluginProvider {
           name: marketplace.name,
           path: marketplace.path,
           plugins: await Promise.all(
-            marketplace.plugins.map(async (plugin) => ({
-              availability: plugin.availability,
-              brandColor: plugin.interface?.brandColor ?? null,
-              capabilities: plugin.interface?.capabilities ?? [],
-              category: plugin.interface?.category ?? null,
-              compatibility: ["codex" as const],
-              description:
-                plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? null,
-              developerName: plugin.interface?.developerName ?? null,
-              displayName: plugin.interface?.displayName ?? plugin.name,
-              ecosystem: "openai" as const,
-              enabled: plugin.enabled,
-              featured: featured.has(plugin.id),
-              id: plugin.id,
-              installed: plugin.installed,
-              installedScopes: [],
-              installPolicy: plugin.installPolicy,
-              logoUrl: await pluginImage(
-                plugin.interface?.logoUrl ?? plugin.interface?.composerIconUrl,
-                plugin.interface?.logo ?? plugin.interface?.composerIcon
-              ),
-              marketplaceName: marketplace.name,
-              marketplacePath: marketplace.path,
-              name: plugin.name,
-              harness: { agentId: "codex" as const, nativeId: plugin.id },
-              sourceType: plugin.source.type,
-              version: plugin.localVersion ?? plugin.version,
-            }))
+            marketplace.plugins
+              .filter((plugin) => !isHiddenBundledPlugin(marketplace.name, plugin.name))
+              .map(async (plugin) => ({
+                availability: plugin.availability,
+                brandColor: plugin.interface?.brandColor ?? null,
+                capabilities: plugin.interface?.capabilities ?? [],
+                category: plugin.interface?.category ?? null,
+                compatibility: ["codex" as const],
+                description:
+                  plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? null,
+                developerName: plugin.interface?.developerName ?? null,
+                displayName: plugin.interface?.displayName ?? plugin.name,
+                ecosystem: "openai" as const,
+                enabled: plugin.enabled,
+                featured: featured.has(plugin.id),
+                id: plugin.id,
+                installed: plugin.installed,
+                installedScopes: [],
+                installPolicy: plugin.installPolicy,
+                logoUrl: await pluginImage(
+                  plugin.interface?.logoUrl ?? plugin.interface?.composerIconUrl,
+                  plugin.interface?.logo ?? plugin.interface?.composerIcon
+                ),
+                marketplaceName: marketplace.name,
+                marketplacePath: marketplace.path,
+                name: plugin.name,
+                harness: { agentId: "codex" as const, nativeId: plugin.id },
+                sourceType: plugin.source.type,
+                version: plugin.localVersion ?? plugin.version,
+              }))
           ),
           sourceKind: sourceKind(marketplace.name),
         }))

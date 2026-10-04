@@ -1,0 +1,61 @@
+{
+  "name": "cua",
+  "version": "0.1.0",
+  "description": "Cypheria-managed UI automation runtime for native apps, the built-in browser, external browsers, and MCP Apps.",
+  "author": {
+    "name": "Cypheria"
+  },
+  "hooks": {
+    "hooks": {
+      "Interrupt": [
+        {
+          "hooks": [
+            {
+              "type": "mcp_tool",
+              "server": "cua_repl",
+              "tool": "turn_ended",
+              "input": {
+                "hook_event_name": "${hook_event_name}",
+                "session_id": "${session_id}",
+                "turn_id": "${turn_id}"
+              }
+            }
+          ]
+        }
+      ],
+      "SubagentStop": [
+        {
+          "hooks": [
+            {
+              "type": "mcp_tool",
+              "server": "cua_repl",
+              "tool": "turn_ended",
+              "input": {
+                "hook_event_name": "${hook_event_name}",
+                "session_id": "${agent_id}",
+                "turn_id": "${turn_id}"
+              }
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "mcp_tool",
+              "server": "cua_repl",
+              "tool": "turn_ended",
+              "input": {
+                "hook_event_name": "${hook_event_name}",
+                "session_id": "${session_id}",
+                "turn_id": "${turn_id}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "mcpServers": "./.mcp.json"
+}

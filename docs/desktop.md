@@ -183,9 +183,9 @@ Every browser tab, web or dApp, belongs to exactly one Thread and appears in tha
 
 Each tab has a kind. Web tabs share the `persist:cypheria-browser` profile and never receive a wallet. dApp tabs share the separate `persist:cypheria-dapp-browser` profile. Switching a tab's kind rebuilds its guest because a profile cannot change after a guest attaches. Electron main rejects any other partition or preload, denies device permissions, blocks non-HTTP(S) navigation, opens `window.open` popups that need `window.opener` as sandboxed windows without a preload, and turns other new-window requests into tabs of the same kind. The address bar focus and reload shortcuts are reserved in the guest; other keys stay with the page.
 
-### Agent browser tools
+### Agent control
 
-When **Settings → General → Agent browser tools** is on, the main window registers with the Server as a browser host and executes `browser_*` commands against the calling Thread's tabs. Snapshots expose accessibility-tree refs that expire when the page changes; clicks, keys, hovers, and drags use trusted input through the Chrome DevTools Protocol after the target is visible, enabled, and stable. JavaScript dialogs are handled and reported instead of blocking. Uploads accept only files inside the Thread's working directory after resolving symlinks. The Server contract is in [Protocol](protocol.md#browser-hosts-and-agent-browser-tools).
+When **Settings → General → Computer Use** enables the built-in browser or MCP Apps, the main window registers with the Server as a browser host and executes commands from [Computer Use](computer-use.md) against the calling Thread's tabs and mounted MCP Apps. Snapshots expose accessibility-tree refs that expire when the page changes; clicks, keys, hovers, and drags use trusted input through the Chrome DevTools Protocol after the target is visible, enabled, and stable. JavaScript dialogs are handled and reported instead of blocking. Uploads accept only files inside the Thread's working directory after resolving symlinks. MCP App actions run in the App's sandbox frame with synthetic events. Electron main also hosts the cua-driver daemon for native app control and requests its macOS permissions; see [Computer Use](computer-use.md#desktop-apps). The Server contract is in [Protocol](protocol.md#browser-hosts-and-computer-use).
 
 ### dApp tabs
 

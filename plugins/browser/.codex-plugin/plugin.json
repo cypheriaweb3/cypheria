@@ -1,81 +1,20 @@
 {
   "name": "browser",
-  "version": "0.6.0",
-  "hooks": {
-    "hooks": {
-      "Interrupt": [
-        {
-          "hooks": [
-            {
-              "type": "mcp_tool",
-              "server": "node_repl",
-              "tool": "turn_ended",
-              "input": {
-                "hook_event_name": "${hook_event_name}",
-                "session_id": "${session_id}",
-                "turn_id": "${turn_id}"
-              }
-            }
-          ]
-        }
-      ],
-      "SubagentStop": [
-        {
-          "hooks": [
-            {
-              "type": "mcp_tool",
-              "server": "node_repl",
-              "tool": "turn_ended",
-              "input": {
-                "hook_event_name": "${hook_event_name}",
-                "session_id": "${agent_id}",
-                "turn_id": "${turn_id}"
-              }
-            }
-          ]
-        }
-      ],
-      "Stop": [
-        {
-          "hooks": [
-            {
-              "type": "mcp_tool",
-              "server": "node_repl",
-              "tool": "turn_ended",
-              "input": {
-                "hook_event_name": "${hook_event_name}",
-                "session_id": "${session_id}",
-                "turn_id": "${turn_id}"
-              }
-            }
-          ]
-        }
-      ]
-    }
-  },
-  "description": "Browser / browser-use plugin\n\nUse Browser, the Cypheria in-app browser, when the user asks to open, inspect, navigate, test, click, type, or screenshot web targets such as localhost, 127.0.0.1, dApps, or in-app browser tabs.\n\nCypheria connects directly to the built-in desktop browser with full automation, visual snapshots, QR code recognition, and deliverable/handoff lifecycle management.",
+  "version": "0.7.0",
+  "description": "Browser: Cypheria's built-in browser.\n\nAliases: @browser, @browser-use, in-app browser.\n\nUse the built-in browser when the user asks to open, inspect, navigate, test, click, type, or screenshot local web targets such as localhost, 127.0.0.1, file URLs, dApps, or a built-in browser tab. After significant frontend changes to a local app, open the relevant local page in it when the target is known.\n\nThe agent controls it through Cypheria's Computer Use runtime (`cua_repl`, `cua.iab`).",
   "author": {
     "name": "Cypheria"
   },
-  "keywords": [
-    "browser",
-    "automation",
-    "web",
-    "cdp",
-    "in-app browser",
-    "node-repl",
-    "browser-client"
-  ],
-  "skills": "./skills/",
+  "keywords": ["browser", "in-app browser", "iab", "dapp", "localhost", "computer-use"],
   "interface": {
     "displayName": "Browser",
-    "shortDescription": "Control the in-app browser",
-    "longDescription": "Lets the Agent open, navigate, inspect, interact with, and screenshot web pages and local apps inside Cypheria's built-in browser via node-repl.",
+    "shortDescription": "Control the built-in browser",
+    "longDescription": "Lets the Agent open and operate tabs in Cypheria's built-in browser — local development pages, files, and dApps — to navigate, inspect, click, type, and take screenshots. Wallet requests from dApp tabs still go through Cypheria's signing policy and your approval.",
     "developerName": "Cypheria",
-    "category": "Automation",
+    "category": "Engineering",
     "capabilities": ["Interactive", "Read", "Write"],
-    "defaultPrompt": "Open localhost:3000 and inspect the page.",
-    "composerIcon": "./assets/composer-icon.png",
-    "logo": "./assets/browser.png"
+    "defaultPrompt": "Test my checkout flow on localhost:3000",
+    "composerIcon": "./assets/browser.svg",
+    "logo": "./assets/browser.svg"
   }
 }

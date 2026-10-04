@@ -20,6 +20,8 @@ export type CodexLaunchInput = {
   readonly worktreeConfig?: Record<string, unknown>
   /** Configuration for node_repl MCP server */
   readonly nodeReplConfig?: Record<string, unknown>
+  /** The Thread's `cua_repl` MCP server, which replaces the hidden `cua` plugin's disabled entry. */
+  readonly cuaReplConfig?: Record<string, unknown>
 }
 
 /**
@@ -31,6 +33,7 @@ export const codexThreadConfig = (input: CodexLaunchInput): Record<string, unkno
   const mcpServers = {
     ...((input.worktreeConfig?.mcp_servers as Record<string, unknown> | undefined) ?? {}),
     ...(input.nodeReplConfig ? { node_repl: input.nodeReplConfig } : {}),
+    ...(input.cuaReplConfig ? { cua_repl: input.cuaReplConfig } : {}),
   }
 
   return {

@@ -27,6 +27,7 @@ title: Cypheria 文档
 ## 产品界面
 
 - [Desktop](desktop.zh-CN.md)：Electron 边界、Server Manager、Sidebar、会话工作台与本地设置。
+- [Computer Use](computer-use.zh-CN.md)：让 Agent 操作内置浏览器、用户自己的浏览器、MCP App 和桌面应用的 `cua_repl` 运行时。
 - [本地 Git 设计](git.zh-CN.md)：Git 能力归属、后端选择、安全、持久状态与 Agent 工具。
 - [代码审查](code-review.zh-CN.md)：代码审查 MCP App、经由 OpenAI 后端的工具、私密审查与 Desktop 界面。
 - [Integrations](integrations.zh-CN.md)：Skills、MCP、plugins、marketplace 来源与 Codex Apps。

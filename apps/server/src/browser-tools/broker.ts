@@ -55,8 +55,9 @@ export const browserToolsFailure = (input: {
   ok: false,
 })
 
+/** The tab a command addresses; tab listing, new tabs, and MCP App commands address none. */
 const browserIdOf = (command: BrowserAutomationCommand): string | null =>
-  command.command === "list_tabs" || command.command === "new_tab" ? null : command.args.browserId
+  "browserId" in command.args ? command.args.browserId : null
 
 /**
  * Routes browser commands to connected hosts. It remembers which host owns each tab so later
@@ -297,6 +298,7 @@ export class BrowserToolsBroker {
       }
       return
     }
+    if (!("browserId" in result)) return
     this.#strandedHostByBrowserId.delete(result.browserId)
     if (result.command === "close_tab") this.#hostByBrowserId.delete(result.browserId)
     else this.#hostByBrowserId.set(result.browserId, clientId)

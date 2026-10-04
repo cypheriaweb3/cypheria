@@ -16,6 +16,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { z } from "zod"
 
+import { registerMountedMcpApp } from "../browser/mcp-app-registry.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 
 /** A Cypheria host request a bundled plugin's App sends next to the MCP Apps messages. */
@@ -256,6 +257,7 @@ export function McpAppHost({
     let disposed = false
     let bridge: AppBridge | null = null
     let instance: ExtensionAppInstance | null = null
+    let unregisterApp: (() => void) | undefined
     let unsubscribe: (() => void) | null = null
     const observer = new MutationObserver(() => {
       if (!bridge || !contextRef.current) return
@@ -421,6 +423,17 @@ export function McpAppHost({
         attributes: true,
       })
       setOrigin(sandbox)
+      if (opened.threadId) {
+        unregisterApp = registerMountedMcpApp({
+          appId: opened.id,
+          displayMode: String(contextRef.current?.displayMode ?? displayMode),
+          origin: sandbox,
+          pluginId: opened.pluginId ?? null,
+          server: opened.server,
+          threadId: opened.threadId,
+          title: opened.title,
+        })
+      }
     }
     start().catch((failure: unknown) => {
       if (disposed) return
@@ -429,6 +442,7 @@ export function McpAppHost({
     })
     return () => {
       disposed = true
+      unregisterApp?.()
       observer.disconnect()
       unsubscribe?.()
       callbacks.current.onNotifier?.(null)

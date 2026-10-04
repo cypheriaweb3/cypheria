@@ -14,6 +14,7 @@ import {
   BrowserShortcutInputSchema,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_BROWSER_CHANNELS,
+  CYPHERIA_COMPUTER_USE_CHANNELS,
   CYPHERIA_DAPP_BROWSER_PARTITION,
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
@@ -86,6 +87,7 @@ const browserApi: NonNullable<CypheriaPreloadApi["browser"]> = {
     ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.devToolsOpen, { browserId }),
   executeAutomation: (request) =>
     ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.automationExecute, request),
+  executeMcpApp: (input) => ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.mcpAppExecute, input),
   setShortcutPolicy: (policy) =>
     ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.shortcutPolicySet, policy),
   clearData: (input) => ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.dataClear, input),
@@ -192,6 +194,12 @@ const cypheriaApi: CypheriaPreloadApi = {
         }),
       clear: () => invoke(CYPHERIA_IPC_CHANNELS.storageReplicaClear),
     },
+  },
+  computerUse: {
+    requestPermission: (permission) =>
+      ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.permissionRequest, { permission }),
+    restartDriver: () => ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.driverRestart, {}),
+    status: () => ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.statusRead, {}),
   },
   settings: {
     listOpenTargets: () => invoke<OpenTarget[]>(CYPHERIA_IPC_CHANNELS.settingsOpenTargetsList),

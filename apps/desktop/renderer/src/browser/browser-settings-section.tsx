@@ -1,14 +1,10 @@
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
-import { Switch } from "@cypheria/ui/components/switch"
 import { Trans } from "@lingui/react/macro"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import type { ReactNode } from "react"
 
 import type { BrowserClearData } from "../../../ipc/src/browser.js"
-import { ensureCypheriaClient } from "../cypheria-client.js"
-
-const serverConfigKey = ["settings", "server-config"] as const
 
 type SettingRowProps = Readonly<{
   children: ReactNode
@@ -29,22 +25,11 @@ function SettingRow({ children, description, title, titleClassName }: SettingRow
   )
 }
 
-/** Browser controls for General settings: Agent access and clearing browser profiles. */
+/** Browser controls for General settings: clearing the built-in browser profiles. */
 export function BrowserSettingsSection({
   headingClassName,
   titleClassName,
 }: Readonly<{ headingClassName: string; titleClassName: string }>) {
-  const queryClient = useQueryClient()
-  const config = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).server.config(),
-    queryKey: serverConfigKey,
-    retry: false,
-  })
-  const toggle = useMutation({
-    mutationFn: async (enabled: boolean) =>
-      (await ensureCypheriaClient()).server.patchConfig({ browserTools: { enabled } }),
-    onSuccess: (snapshot) => queryClient.setQueryData(serverConfigKey, snapshot),
-  })
   const clear = useMutation({
     mutationFn: async (input: BrowserClearData) => {
       const bridge = window.cypheria?.browser
@@ -52,8 +37,7 @@ export function BrowserSettingsSection({
       return bridge.clearData(input)
     },
   })
-  const enabled = config.data?.config.browserTools.enabled ?? false
-  const error = toggle.error ?? clear.error ?? config.error
+  const error = clear.error
 
   return (
     <section className="grid gap-3">
@@ -61,24 +45,6 @@ export function BrowserSettingsSection({
         <Trans id="settings.browser.section">Browser</Trans>
       </h2>
       <div className="rounded-xl border border-border bg-card px-4 shadow-xs">
-        <SettingRow
-          title={<Trans id="settings.browser.agentTools">Agent browser tools</Trans>}
-          description={
-            <Trans id="settings.browser.agentToolsDescription">
-              Lets Agents open and control browser tabs in their own conversation, including
-              signed-in pages and dApp tabs. Wallet signing still follows your policies and
-              approvals.
-            </Trans>
-          }
-          titleClassName={titleClassName}
-        >
-          <Switch
-            aria-label="Agent browser tools"
-            checked={enabled}
-            disabled={!config.data || toggle.isPending}
-            onCheckedChange={(checked) => toggle.mutate(checked)}
-          />
-        </SettingRow>
         <SettingRow
           title={<Trans id="settings.browser.clearWeb">Web browsing data</Trans>}
           description={

@@ -20,8 +20,20 @@
     {
       "name": "browser",
       "source": "./browser",
-      "description": "Cypheria built-in browser automation tools backed by the Cypheria Server.",
-      "category": "Automation"
+      "description": "Cypheria's built-in browser, operated through Computer Use.",
+      "category": "Engineering"
+    },
+    {
+      "name": "chrome",
+      "source": "./chrome",
+      "description": "Your own Chromium browsers, operated through Computer Use.",
+      "category": "Productivity"
+    },
+    {
+      "name": "computer-use",
+      "source": "./computer-use",
+      "description": "Desktop apps on your computer, operated through Computer Use.",
+      "category": "Productivity"
     }
   ]
 }

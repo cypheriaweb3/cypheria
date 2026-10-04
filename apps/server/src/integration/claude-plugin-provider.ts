@@ -39,6 +39,7 @@ import {
   BUNDLED_MARKETPLACE_NAME,
   BUNDLED_PLUGIN_NAMES,
   bundledMarketplaceDirectory,
+  isHiddenBundledPlugin,
 } from "./plugin-utils.js"
 
 const OFFICIAL_MARKETPLACE_SOURCE = "anthropics/claude-plugins-official"
@@ -279,6 +280,7 @@ export class ClaudePluginProvider implements PluginProvider {
         version: string | undefined,
         installs: ClaudeInstalledPlugin[]
       ) => {
+        if (isHiddenBundledPlugin(marketplace.name, name)) return
         const entry = entries.get(name)
         plugins.push(
           this.#pluginView({

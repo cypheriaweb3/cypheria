@@ -50,10 +50,17 @@ title: 当前路线图
 
 ## 内置浏览器
 
-- [ ] 通过各自的 harness adapter，为 Claude、Pi、OpenCode 和 ACP Agent 提供 `browser_*` 工具，沿用与 Codex 相同的 Server broker 和 Thread 范围。
 - [ ] 在开发版和打包版 Electron 中端到端验证内置浏览器：标签页常驻与停放标签页截图、Agent 命令、弹窗，以及 dApp provider smoke test。
 - [ ] 测量第三方 frame 中的 `document.cookie` 是否绕过 dApp Cookie 过滤，并为共享的 dApp 配置加入跳转追踪（bounce tracking）防护。
 - [ ] 在 Server 提供按 origin 的权限管理后，为 dApp 标签页加入已连接账户、断开连接和撤销权限的控制。
+
+## Computer Use
+
+- [ ] 通过各自的 harness adapter，为 Pi、OpenCode 和 ACP Agent 提供 `cua_repl` server，使用与 Codex、Claude 相同的按 Thread 划分的 host。
+- [ ] 在开发版和打包版 Electron 中端到端验证 Computer Use：Codex 与 Claude Thread 在每个界面上的使用、macOS、Windows 和 Linux 上的外部浏览器、MCP App 的截图与操作，以及使用内嵌 cua-driver daemon 及其 macOS 授权的原生应用。
+- [ ] 在 Desktop 打包流程就绪后，将获取的 cua-driver 可执行文件放在 ASAR 之外随 Desktop 应用一并签名。
+- [ ] 支持在 composer 中提及外部浏览器标签页（`plugin://chrome@cypheria-bundled?mention=tab-v1&…`），并提供按浏览器的开关。
+- [ ] 在 Agent 首次操作某个桌面应用或认领外部浏览器标签页之前询问用户，并支持按应用和按站点的授权。
 
 ## Codex 桌面版对齐
 

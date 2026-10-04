@@ -34,7 +34,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := mcp.NewServer(sup)
+	overrides, err := mcp.ToolOverridesFromEnv()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	srv := mcp.NewServer(sup, overrides)
 	if err := srv.Serve(ctx, os.Stdin, os.Stdout); err != nil && err != context.Canceled {
 		fmt.Fprintf(os.Stderr, "server exited with error: %v\n", err)
 		os.Exit(1)

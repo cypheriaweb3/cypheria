@@ -1,261 +1,111 @@
 import { createConnection } from "node:net"
 import { createInterface } from "node:readline"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { BrowserToolsService } from "../browser-tools/service.js"
+import { CuaHostError } from "@cypheria/cua/host"
+import { afterEach, describe, expect, it, vi } from "vitest"
+
 import { NodeReplHostManager } from "./host-manager.js"
 import { NodeReplHostService } from "./host-service.js"
 
+const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
+
+const rpc = async (pipePath: string, message: unknown) => {
+  const socket = createConnection(pipePath)
+  await new Promise<void>((resolve) => socket.once("connect", resolve))
+  const response = await new Promise<Record<string, unknown>>((resolve) => {
+    createInterface({ input: socket }).once("line", (line) => resolve(JSON.parse(line)))
+    socket.write(`${JSON.stringify(message)}\n`)
+  })
+  socket.destroy()
+  return response
+}
+
 describe("NodeReplHostService", () => {
-  let mockBrowserTools: BrowserToolsService
-  let service: NodeReplHostService
-  let pipePath: string
-
-  beforeEach(async () => {
-    mockBrowserTools = {
-      execute: vi.fn(
-        async (input: { command: { command: string; args?: Record<string, unknown> } }) => {
-          switch (input.command.command) {
-            case "new_tab":
-              return {
-                ok: true,
-                result: {
-                  browserId: "b-tab-123",
-                  command: "new_tab",
-                  kind: "web",
-                  threadId: "test-thread",
-                  url: "about:blank",
-                },
-              }
-            case "list_tabs":
-              return {
-                ok: true,
-                result: {
-                  command: "list_tabs",
-                  tabs: [
-                    {
-                      browserId: "b-tab-123",
-                      isActive: true,
-                      isLoading: false,
-                      kind: "web",
-                      threadId: "test-thread",
-                      title: "Test Page",
-                      url: "http://localhost:3000",
-                    },
-                  ],
-                },
-              }
-            case "screenshot":
-              return {
-                ok: true,
-                result: {
-                  command: "screenshot",
-                  dataBase64:
-                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-                  height: 1,
-                  mimeType: "image/png",
-                  width: 1,
-                },
-              }
-            case "evaluate":
-              return {
-                ok: true,
-                result: {
-                  command: "evaluate",
-                  resultJson: JSON.stringify({ hello: "world" }),
-                  truncated: false,
-                },
-              }
-            default:
-              return {
-                ok: true,
-                result: { command: input.command.command },
-              }
-          }
-        }
-      ),
-    } as unknown as BrowserToolsService
-
-    service = new NodeReplHostService({
-      browserTools: mockBrowserTools,
-      threadId: "test-thread-1",
-    })
-    pipePath = await service.start()
-  })
-
+  let service: NodeReplHostService | undefined
   afterEach(async () => {
-    await service.close()
+    await service?.close()
   })
 
-  const sendRpc = async (socket: ReturnType<typeof createConnection>, msg: unknown) => {
-    return new Promise<Record<string, unknown>>((resolve) => {
-      const rl = createInterface({ input: socket })
-      rl.once("line", (line) => {
-        resolve(JSON.parse(line))
-      })
-      socket.write(`${JSON.stringify(msg)}\n`)
-    })
-  }
-
-  it("handles ensureService", async () => {
-    const socket = createConnection(pipePath)
-    await new Promise<void>((resolve) => socket.once("connect", resolve))
-
-    const response = await sendRpc(socket, {
+  it("answers cua requests for its Thread and working directory", async () => {
+    const handle = vi.fn(async (request: unknown) => ({ echoed: request }))
+    service = new NodeReplHostService({ cua: { handle }, cwd: "/work", threadId })
+    const pipePath = await service.start()
+    await expect(
+      rpc(pipePath, { id: 1, jsonrpc: "2.0", method: "cua", params: { op: "state" } })
+    ).resolves.toEqual({
       id: 1,
       jsonrpc: "2.0",
-      method: "ensureService",
+      result: { echoed: { op: "state" } },
     })
-
-    expect(response).toEqual({
-      id: 1,
-      jsonrpc: "2.0",
-      result: { ok: true },
-    })
-
-    socket.destroy()
+    expect(handle).toHaveBeenCalledWith({ op: "state" }, { cwd: "/work", threadId })
   })
 
-  it("handles browser setup", async () => {
-    const socket = createConnection(pipePath)
-    await new Promise<void>((resolve) => socket.once("connect", resolve))
-
-    const response = await sendRpc(socket, {
-      id: 2,
-      jsonrpc: "2.0",
-      method: "browser",
-      params: { method: "setup", params: {} },
-    })
-
-    expect(response.id).toBe(2)
-    const result = response.result as Record<string, unknown>
-    expect(result.apiManifest).toBeDefined()
-    expect(result.disabledMemberIds).toBeInstanceOf(Array)
-    expect(result.credentialRecoveryErrorVersion).toBe(1)
-
-    socket.destroy()
-  })
-
-  it("handles browser create_tab, list_tabs, and evaluate", async () => {
-    const socket = createConnection(pipePath)
-    await new Promise<void>((resolve) => socket.once("connect", resolve))
-
-    // create_tab
-    const createResp = await sendRpc(socket, {
-      id: 3,
-      jsonrpc: "2.0",
-      method: "browser",
-      params: { method: "execute", params: { command: "create_tab" } },
-    })
-    expect(createResp).toEqual({
-      id: 3,
-      jsonrpc: "2.0",
-      result: {
-        browser_id: "iab",
-        id: "b-tab-123",
-        title: "",
-        url: "about:blank",
-      },
-    })
-
-    // list_tabs
-    const listResp = await sendRpc(socket, {
-      id: 4,
-      jsonrpc: "2.0",
-      method: "browser",
-      params: { method: "execute", params: { command: "list_tabs" } },
-    })
-    expect(listResp).toEqual({
-      id: 4,
-      jsonrpc: "2.0",
-      result: {
-        tabs: [
-          {
-            browser_id: "iab",
-            id: "b-tab-123",
-            title: "Test Page",
-            url: "http://localhost:3000",
-          },
-        ],
-      },
-    })
-
-    // evaluate
-    const evalResp = await sendRpc(socket, {
-      id: 5,
-      jsonrpc: "2.0",
-      method: "browser",
-      params: {
-        method: "execute",
-        params: {
-          browserId: "b-tab-123",
-          command: "playwright_evaluate",
-          expression: "() => ({ hello: 'world' })",
+  it("returns host refusals as errors with their message", async () => {
+    service = new NodeReplHostService({
+      cua: {
+        handle: async () => {
+          throw new CuaHostError("disabled", "External browser control is disabled.")
         },
       },
+      threadId,
     })
-    expect(evalResp).toEqual({
-      id: 5,
+    const pipePath = await service.start()
+    await expect(
+      rpc(pipePath, { id: 2, jsonrpc: "2.0", method: "cua", params: {} })
+    ).resolves.toEqual({
+      error: { code: -32000, message: "External browser control is disabled." },
+      id: 2,
       jsonrpc: "2.0",
-      result: { value: { hello: "world" } },
     })
-
-    socket.destroy()
   })
 
-  it("returns -32601 placeholder errors for chrome and sky services", async () => {
-    const socket = createConnection(pipePath)
-    await new Promise<void>((resolve) => socket.once("connect", resolve))
-
-    const chromeResp = await sendRpc(socket, {
-      id: 10,
-      jsonrpc: "2.0",
-      method: "chrome",
-    })
-    expect(chromeResp).toMatchObject({
-      error: {
-        code: -32601,
-        message: expect.stringContaining("Chrome extension"),
-      },
-      id: 10,
-    })
-
-    const skyResp = await sendRpc(socket, {
-      id: 11,
-      jsonrpc: "2.0",
-      method: "sky",
-    })
-    expect(skyResp).toMatchObject({
-      error: {
-        code: -32601,
-        message: expect.stringContaining("Computer use"),
-      },
-      id: 11,
-    })
-
-    socket.destroy()
+  it("rejects other services", async () => {
+    service = new NodeReplHostService({ cua: { handle: vi.fn() }, threadId })
+    const pipePath = await service.start()
+    const response = await rpc(pipePath, { id: 3, jsonrpc: "2.0", method: "sky", params: {} })
+    expect(response.error).toMatchObject({ code: -32601 })
   })
 })
 
 describe("NodeReplHostManager", () => {
-  it("creates and manages host services and returns node_repl config", async () => {
-    const mockBrowserTools = {
-      execute: vi.fn(),
-    } as unknown as BrowserToolsService
-
+  it("gives a Codex Thread a plain node_repl and a cua_repl bound to its host", async () => {
+    const closeThread = vi.fn()
     const manager = new NodeReplHostManager({
-      browserTools: mockBrowserTools,
+      cua: { closeThread, handle: vi.fn() } as never,
       resolveCodexPath: () => "/usr/local/bin/codex",
+      surfaces: () => ["iab", "computer"],
     })
+    const { config, cuaReplConfig, pipePath } = await manager.ensureHostService(threadId)
+    expect(config.env).toEqual({
+      CODEX_CLI_PATH: "/usr/local/bin/codex",
+      NODE_REPL_NODE_PATH: process.execPath,
+      NODE_REPL_SESSION_ID: threadId,
+    })
+    expect(cuaReplConfig).toMatchObject({
+      command: process.execPath,
+      enabled: true,
+      enabled_tools: ["js", "js_reset", "turn_ended"],
+      env: {
+        CODEX_CLI_PATH: "/usr/local/bin/codex",
+        CUA_REPL_ENABLED_SURFACES: "iab,computer",
+        NODE_REPL_HOST_SERVICES_PIPE_PATH: pipePath,
+      },
+    })
+    expect(manager.sessionEnvironment(threadId)).toEqual({
+      CYPHERIA_CUA_HOST_PIPE: pipePath,
+      CYPHERIA_CUA_SURFACES: "iab,computer",
+    })
+    await manager.closeHostService(threadId)
+    expect(closeThread).toHaveBeenCalledWith(threadId)
+  })
 
-    const { config, pipePath } = await manager.ensureHostService("thread-abc")
-    expect(pipePath).toContain("thread-abc")
-    expect(config.command).toBeDefined()
-    expect(config.env.CODEX_CLI_PATH).toBe("/usr/local/bin/codex")
-    expect(config.env.NODE_REPL_NODE_PATH).toBe(process.execPath)
-    expect(config.env.NODE_REPL_HOST_SERVICES_PIPE_PATH).toBe(pipePath)
-    expect(config.env.NODE_REPL_TRUSTED_RPC_ENABLED).toBe("1")
-
+  it("disables cua_repl when no surface is enabled", async () => {
+    const manager = new NodeReplHostManager({
+      cua: { closeThread: vi.fn(), handle: vi.fn() } as never,
+      surfaces: () => [],
+    })
+    const { cuaReplConfig } = await manager.ensureHostService(threadId)
+    expect(cuaReplConfig.enabled).toBe(false)
     await manager.closeAll()
   })
 })

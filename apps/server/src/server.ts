@@ -5,6 +5,7 @@ import type { Server as HttpServer } from "node:http"
 import { homedir, hostname } from "node:os"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
+import type { CuaHost } from "@cypheria/cua/host"
 import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
@@ -88,7 +89,6 @@ import {
   toMcpResult,
 } from "./app-tools/service.js"
 import { BrowserToolsService } from "./browser-tools/service.js"
-import { browserToolSpecs } from "./browser-tools/tools.js"
 import { CodeReviewBackend } from "./code-review/backend.js"
 import { ChatGptSession } from "./code-review/chatgpt-session.js"
 import { CodeReviewHostService } from "./code-review/host-service.js"
@@ -96,6 +96,7 @@ import { PrivateReviews } from "./code-review/private-reviews.js"
 import { accountKey, CODE_REVIEW_APP_URI, CODE_REVIEW_SERVER } from "./code-review/schemas.js"
 import { CodeReviewTools } from "./code-review/tools.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
+import { createCuaHost } from "./computer-use/cua-host.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
 import { BundledMcpHost } from "./extensions/bundled-host.js"
@@ -108,9 +109,11 @@ import { PullRequestCreateService } from "./git/pull-request-create-service.js"
 import { HarnessService } from "./harness-service.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
+import { materializeBundledMarketplace } from "./integration/bundled-marketplace.js"
 import {
   BUNDLED_MARKETPLACE_NAME,
   bundledMarketplaceDirectory,
+  configureBundledMarketplace,
 } from "./integration/plugin-utils.js"
 import { IntegrationService } from "./integration-service.js"
 import { MagpieManager } from "./magpie/magpie-manager.js"
@@ -181,6 +184,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
   readonly browserTools: BrowserToolsService
+  readonly cua: CuaHost
   readonly nodeReplHostManager: NodeReplHostManager
   readonly projectThread: ProjectThreadService
   readonly appTools: AppToolService
@@ -235,11 +239,30 @@ export class CypheriaServer implements HttpAppHost {
     this.web3 = new ServerWeb3Service(this.database, this.runtime.paths)
     this.browserTools = new BrowserToolsService({
       audit: this.web3.audit,
-      enabled: () => this.configStore.getSnapshot().config.browserTools.enabled,
+      enabled: () => {
+        const settings = this.configStore.getSnapshot().config.computerUse
+        return settings.inAppBrowser || settings.mcpApps
+      },
     })
-    this.nodeReplHostManager = new NodeReplHostManager({
+    const computerUse = createCuaHost({
+      audit: this.web3.audit,
       browserTools: this.browserTools,
+      cacheDir: this.runtime.paths.cacheDir,
+      cypheriaHome: this.runtime.paths.cypheriaHome,
+      logger: this.logger.child({ service: "computer-use" }),
+      settings: () => this.configStore.getSnapshot().config.computerUse,
+    })
+    this.cua = computerUse.host
+    configureBundledMarketplace((source) =>
+      materializeBundledMarketplace(
+        source,
+        join(this.runtime.paths.cypheriaHome, "plugins", "cypheria-bundled")
+      )
+    )
+    this.nodeReplHostManager = new NodeReplHostManager({
+      cua: this.cua,
       logger: this.logger.child({ service: "node-repl" }),
+      surfaces: () => [...computerUse.surfaces()],
       resolveCodexPath: async () => {
         const receipt = await this.agentManager.installer
           .readCurrent("codex")
@@ -305,6 +328,7 @@ export class CypheriaServer implements HttpAppHost {
       },
       prepareAppTools: (agentId) => this.integrations.ensureBundledPlugin(agentId),
       appToolsThreadEnvironment: (threadId) => ({
+        ...this.nodeReplHostManager.sessionEnvironment(threadId),
         CYPHERIA_APP_TOOLS_TOKEN: this.appToolGrants.forThread(threadId),
         CYPHERIA_SERVER_URL: this.#appToolsServerUrl(),
       }),
@@ -411,7 +435,10 @@ export class CypheriaServer implements HttpAppHost {
         await this.inputFiles.releaseThread(threadId)
       },
       onTurnCompleted: async (threadId) => {
-        await this.browserTools.cleanupTurnTabs(threadId)
+        await Promise.all([
+          this.browserTools.cleanupTurnTabs(threadId),
+          this.cua.turnEnded({ threadId }),
+        ])
       },
       inputFiles: this.inputFiles,
       resolveReference: (reference, context) => this.composerReferences.resolve(reference, context),
@@ -716,9 +743,6 @@ export class CypheriaServer implements HttpAppHost {
       await applyDatabaseMigrations(this.database.client)
       await this.web3.initialize()
       await this.agentManager.start()
-      this.agentManager.registerCodexDynamicTools(browserToolSpecs(), (request, context) =>
-        this.browserTools.callCodexTool(request, context)
-      )
       await this.projectThread.initialize()
       await this.threadManager.initialize()
       await this.inputFiles.cleanup()
@@ -1371,7 +1395,6 @@ export class CypheriaServer implements HttpAppHost {
       return server === "review_context" ? this.privateReviews.contextTools() : undefined
     }
     if (server === "cypheria_app_tools") return await this.appTools.mcpTools()
-    if (server === "browser") return this.browserTools.mcpTools()
     if (server === CODE_REVIEW_SERVER) {
       return grant.kind === "codex"
         ? this.codeReviewTools.list()
@@ -1421,9 +1444,6 @@ export class CypheriaServer implements HttpAppHost {
       }
     }
     const callContext = { ...context, ...(signal ? { signal } : {}) }
-    if (request.server === "browser") {
-      return this.browserTools.callMcpTool(request.name, request.arguments ?? {}, callContext)
-    }
     return toMcpResult(
       await this.appTools.call(
         { arguments: request.arguments ?? {}, tool: request.name },

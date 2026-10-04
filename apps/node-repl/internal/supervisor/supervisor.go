@@ -230,6 +230,16 @@ func (s *Supervisor) listenLoop(reader *bufio.Reader) {
 				go s.handleTrustedServiceRequest(req.ID, req.Service, req.Request)
 			}
 
+		case "trusted_service_hooks":
+			// Host services run outside the kernel and register no after-code
+			// hooks, so the kernel's request completes immediately.
+			var req struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(line, &req); err == nil && req.ID != "" {
+				_ = s.writeToKernel(map[string]any{"id": req.ID, "ok": true, "value": nil})
+			}
+
 		case "emit_image":
 			var req struct {
 				ID       string `json:"id"`
@@ -336,6 +346,17 @@ func (s *Supervisor) Exec(ctx context.Context, code string, timeoutMs int, title
 	case res := <-p.result:
 		duration := time.Since(start)
 		output := res.Output
+		// Named outputs are writes the code labelled with a content item ID; keep them.
+		for _, raw := range res.NamedOutputs {
+			var named string
+			if json.Unmarshal(raw, &named) == nil && named != "" {
+				if output != "" {
+					output = named + "\n" + output
+				} else {
+					output = named
+				}
+			}
+		}
 		isErr := !res.OK
 		if res.Error != nil && *res.Error != "" {
 			if output != "" {
@@ -391,7 +412,10 @@ func (s *Supervisor) AddNodeModuleDir(dir string) error {
 
 // TurnEnded notifies the kernel that a turn completed.
 func (s *Supervisor) TurnEnded(eventName, sessionID, turnID string) error {
-	if s.cmd == nil {
+	s.mu.Lock()
+	running := s.cmd != nil
+	s.mu.Unlock()
+	if !running {
 		return nil
 	}
 	reqID := fmt.Sprintf("turn-%d", time.Now().UnixNano())

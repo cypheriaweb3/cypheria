@@ -1,0 +1,8 @@
+{
+  "name": "chrome",
+  "version": "0.1.0",
+  "description": "Chrome: the user's own Chromium browsers — Google Chrome, Microsoft Edge, Brave, Vivaldi, Opera, and Chromium — with their tabs and signed-in sessions.\n\nUse it only for tasks that depend on that existing browser state. Prefer purpose-built connectors, APIs, or CLIs; if one fails because authentication is missing or expired, ask the user to sign in again or to approve using their browser instead.\n\nThe agent controls these browsers through Cypheria's Computer Use runtime (`cua_repl`, `cua.browsers`), which attaches over remote debugging once the user enables it in the browser.",
+  "author": {
+    "name": "Cypheria"
+  }
+}

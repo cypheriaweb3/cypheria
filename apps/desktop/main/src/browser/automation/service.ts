@@ -433,6 +433,10 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
     executeListTabs(automationId, threadId, registry),
   new_tab: ({ automationId }) =>
     fail(automationId, "browser_unsupported", "browser_new_tab is handled by the app runtime."),
+  list_mcp_apps: ({ automationId }) =>
+    fail(automationId, "browser_unsupported", "MCP Apps are listed by the app runtime."),
+  mcp_app: ({ automationId }) =>
+    fail(automationId, "browser_unsupported", "MCP App actions are handled by the app runtime."),
   snapshot: ({ command, automationId, threadId, registry, snapshotEngine }) => {
     const snapshotCommand = command as Extract<BrowserAutomationCommand, { command: "snapshot" }>
     return executeSnapshot(

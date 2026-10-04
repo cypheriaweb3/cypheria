@@ -44,8 +44,9 @@ type HostError struct {
 	Data    any    `json:"data,omitempty"`
 }
 
+// Error returns the host's message unchanged: model code reads it directly.
 func (e *HostError) Error() string {
-	return fmt.Sprintf("host service error (%d): %s", e.Code, e.Message)
+	return e.Message
 }
 
 // NewHostBridge creates a new HostBridge for the given pipe path.

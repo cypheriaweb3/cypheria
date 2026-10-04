@@ -1,0 +1,8 @@
+{
+  "name": "computer-use",
+  "version": "0.1.0",
+  "description": "Computer Use: control the desktop apps on the user's computer by reading their accessibility tree and screenshots and acting in the background. Prefer purpose-built connectors, APIs, or CLIs.\n\nThe agent controls apps through Cypheria's Computer Use runtime (`cua_repl`, `cua.getApp`), backed by the cua-driver service Cypheria Desktop hosts.",
+  "author": {
+    "name": "Cypheria"
+  }
+}

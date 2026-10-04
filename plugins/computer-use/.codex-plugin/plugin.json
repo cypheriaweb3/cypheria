@@ -1,0 +1,19 @@
+{
+  "name": "computer-use",
+  "version": "0.1.0",
+  "description": "Computer Use: control the desktop apps on the user's computer by reading their accessibility tree and screenshots and acting in the background. Prefer purpose-built connectors, APIs, or CLIs.\n\nThe agent controls apps through Cypheria's Computer Use runtime (`cua_repl`, `cua.getApp`), backed by the cua-driver service Cypheria Desktop hosts.",
+  "author": {
+    "name": "Cypheria"
+  },
+  "keywords": ["computer-use", "desktop", "automation", "accessibility"],
+  "interface": {
+    "displayName": "Computer Use",
+    "shortDescription": "Control desktop apps",
+    "longDescription": "Lets the Agent use apps on your computer: it reads their windows and acts in the background with its own cursor, without taking over your mouse or keyboard. It may take screenshots while working. You grant Cypheria the macOS Accessibility and Screen Recording permissions once, and you can turn Computer Use off at any time.",
+    "developerName": "Cypheria",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": "Open Calendar and find a free hour this week",
+    "logo": "./assets/computer-use.svg"
+  }
+}

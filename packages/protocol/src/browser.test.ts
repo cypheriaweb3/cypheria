@@ -130,10 +130,12 @@ describe("browser automation protocol", () => {
     ).toBe(false)
   })
 
-  it("accepts browser tool settings patches", () => {
-    expect(PersistedServerConfigPatchSchema.parse({ browserTools: { enabled: true } })).toEqual({
-      browserTools: { enabled: true },
-    })
+  it("accepts computer use settings patches", () => {
+    expect(PersistedServerConfigPatchSchema.parse({ computerUse: { inAppBrowser: true } })).toEqual(
+      {
+        computerUse: { inAppBrowser: true },
+      }
+    )
   })
 
   it("validates direct selector, point, and new commands", () => {

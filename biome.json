@@ -32,9 +32,7 @@
       "!packages/db/drizzle/meta",
       "!packages/protocol/src/generated/codex/messages.ts",
       "!packages/protocol/src/generated",
-      "!apps/node-repl/internal/assets/files",
-      "!plugins/browser/docs/api.json",
-      "!plugins/browser/scripts/browser-client.mjs"
+      "!apps/node-repl/internal/assets/files"
     ]
   },
   "formatter": {

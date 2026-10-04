@@ -48,11 +48,30 @@ importers:
         specifier: ^4.1.7
         version: 4.1.11(@types/node@25.9.8)(jsdom@30.1.1(@noble/hashes@1.8.0))(vite@8.3.1(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  apps/cua:
+    dependencies:
+      agent-browser:
+        specifier: 0.38.2
+        version: 0.38.2
+      zod:
+        specifier: ^4.6.2
+        version: 4.6.5
+    devDependencies:
+      vite:
+        specifier: ^8.3.1
+        version: 8.3.1(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@25.9.8)(jsdom@30.1.1(@noble/hashes@1.8.0))(vite@8.3.1(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   apps/desktop:
     dependencies:
       '@cypheria/client':
         specifier: workspace:*
         version: link:../../packages/client
+      '@cypheria/cua':
+        specifier: workspace:*
+        version: link:../cua
       '@cypheria/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -300,6 +319,9 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 0.3.285
         version: 0.3.285(@anthropic-ai/sdk@0.124.0(zod@4.6.5))(@modelcontextprotocol/sdk@1.31.0(zod@4.6.5))(zod@4.6.5)
+      '@cypheria/cua':
+        specifier: workspace:*
+        version: link:../cua
       '@cypheria/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -5367,6 +5389,11 @@ packages:
   agent-base@9.0.0:
     resolution: {integrity: sha512-TQf59BsZnytt8GdJKLPfUZ54g/iaUL2OWDSFCCvMOhsHduDQxO8xC4PNeyIkVcA5KwL2phPSv0douC0fgWzmnA==}
     engines: {node: '>= 20'}
+
+  agent-browser@0.38.2:
+    resolution: {integrity: sha512-b/7hvo2RrqocvybjB9kwpX12kGkxkFvtdJ4XPDoott5TLK2n3aPX+lYg7ALd+2YvPi2LrTKGzQYu/rxZC2Y7ZA==}
+    engines: {node: '>=24.0.0', pnpm: '>=11.0.0'}
+    hasBin: true
 
   agent-cli-detector@0.1.7:
     resolution: {integrity: sha512-d8OWDVdZMgjhLUT9ZPgSv/BdFFF9pVuscC0JdUSz3bjwE15gcp6u/o0/JooM2yyAWC49KThFhXlgTXRa9B7yng==}
@@ -15761,6 +15788,8 @@ snapshots:
   agent-base@7.1.4: {}
 
   agent-base@9.0.0: {}
+
+  agent-browser@0.38.2: {}
 
   agent-cli-detector@0.1.7: {}
 

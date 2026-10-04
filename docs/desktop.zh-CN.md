@@ -183,9 +183,9 @@ Review 面板遵循仅显示最后一轮的模式。
 
 每个标签页都有类型。网页标签页共享 `persist:cypheria-browser` 配置，永远不会获得钱包。dApp 标签页共享独立的 `persist:cypheria-dapp-browser` 配置。切换标签页类型会重建 guest，因为 guest 挂载后配置无法更改。Electron main 拒绝其他 partition 或 preload，拒绝设备权限，阻止非 HTTP(S) 导航；需要 `window.opener` 的 `window.open` 弹窗以没有 preload 的沙箱窗口打开，其他新窗口请求会变成同类型的标签页。地址栏聚焦和重新加载快捷键在 guest 中保留，其他按键交给页面处理。
 
-### Agent 浏览器工具
+### Agent 操控
 
-开启 **设置 → 通用 → Agent 浏览器工具** 后，主窗口会向 Server 注册为浏览器 host，并对调用方 Thread 的标签页执行 `browser_*` 命令。快照提供无障碍树 ref，页面变化后 ref 失效；点击、按键、悬停和拖拽在目标可见、可用且稳定后，通过 Chrome DevTools Protocol 以可信输入执行。JavaScript 对话框会被处理并报告，不会阻塞。上传在解析符号链接后只接受 Thread 工作目录内的文件。Server 契约见 [Protocol](protocol.zh-CN.md#浏览器-host-与-agent-浏览器工具)。
+当 **设置 → 通用 → 电脑操控** 启用内置浏览器或 MCP 应用时，主窗口会向 Server 注册为浏览器 host，并对调用方 Thread 的标签页和已挂载的 MCP App 执行来自 [Computer Use](computer-use.zh-CN.md) 的命令。快照提供无障碍树 ref，页面变化后 ref 失效；点击、按键、悬停和拖拽在目标可见、可用且稳定后，通过 Chrome DevTools Protocol 以可信输入执行。JavaScript 对话框会被处理并报告，不会阻塞。上传在解析符号链接后只接受 Thread 工作目录内的文件。MCP App 操作在 App 的沙箱 frame 内以合成事件执行。Electron main 还托管用于原生应用操控的 cua-driver daemon，并申请其所需的 macOS 权限，详见 [Computer Use](computer-use.zh-CN.md#桌面应用)。Server 契约见 [Protocol](protocol.zh-CN.md#浏览器-host-与-computer-use)。
 
 ### dApp 标签页
 

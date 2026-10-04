@@ -11,6 +11,7 @@ import { X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import type { ClientPreferencesSnapshot, NotificationSound } from "../../../ipc/src/index.js"
 import { BrowserSettingsSection } from "../browser/browser-settings-section.js"
+import { ComputerUseSettingsSection } from "../browser/computer-use-settings-section.js"
 import {
   clientStateStore,
   composerEnterBehaviorAtom,
@@ -257,6 +258,10 @@ function GeneralSettingsRoute() {
             <Trans id="settings.general.title">General</Trans>
           </h1>
         </header>
+        <ComputerUseSettingsSection
+          headingClassName={uiFontSemiboldClass}
+          titleClassName={uiFontMediumClass}
+        />
         <BrowserSettingsSection
           headingClassName={uiFontSemiboldClass}
           titleClassName={uiFontMediumClass}

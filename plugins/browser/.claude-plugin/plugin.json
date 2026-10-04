@@ -1,7 +1,8 @@
 {
   "name": "browser",
-  "version": "0.6.0",
-  "description": "Cypheria built-in browser automation tools.",
-  "author": { "name": "Cypheria" },
-  "mcpServers": "./.claude-mcp.json"
+  "version": "0.7.0",
+  "description": "Browser: Cypheria's built-in browser.\n\nAliases: @browser, @browser-use, in-app browser.\n\nUse the built-in browser when the user asks to open, inspect, navigate, test, click, type, or screenshot local web targets such as localhost, 127.0.0.1, file URLs, dApps, or a built-in browser tab. After significant frontend changes to a local app, open the relevant local page in it when the target is known.\n\nThe agent controls it through Cypheria's Computer Use runtime (`cua_repl`, `cua.iab`).",
+  "author": {
+    "name": "Cypheria"
+  }
 }

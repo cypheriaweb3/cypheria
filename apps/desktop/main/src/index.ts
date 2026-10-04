@@ -54,6 +54,10 @@ import {
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
   CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX,
+  computerUseDriverRestartContract,
+  computerUseMcpAppExecuteContract,
+  computerUsePermissionRequestContract,
+  computerUseStatusReadContract,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
   parseCypheriaDeepLink,
@@ -83,6 +87,7 @@ import {
 } from "../../ipc/src/index.js"
 import { buildDesktopAppPaths, type DesktopAppPaths } from "./app-paths.js"
 import { executeBrowserAutomationForHost } from "./browser/automation/ipc.js"
+import { executeMcpAppAction } from "./browser/automation/mcp-app.js"
 import { DappProviderController } from "./browser/dapp.js"
 import { installBrowserGuards, pendingBrowserWindowOpenRequests } from "./browser/guard.js"
 import { BrowserKeyboard } from "./browser/keyboard/index.js"
@@ -115,6 +120,7 @@ import {
   createDesktopClientStorageDatabase,
   type DesktopClientStorageDatabase,
 } from "./client-storage-database.js"
+import { ComputerUseHost } from "./computer-use.js"
 import { registerIpcRoute } from "./ipc.js"
 import {
   handleMcpAppSandboxRequest,
@@ -576,6 +582,9 @@ const registerBrowserIpc = (client: CypheriaClient): void => {
   })
   registerIpcRoute(browserAutomationExecuteContract, (request, event) =>
     executeBrowserAutomationForHost(event.sender, request)
+  )
+  registerIpcRoute(computerUseMcpAppExecuteContract, (input, event) =>
+    executeMcpAppAction(event.sender, input)
   )
   registerIpcRoute(browserShortcutPolicySetContract, (policy, event) => {
     browserKeyboard.publish(event.sender.id, policy)
@@ -1114,6 +1123,7 @@ const registerLifecycleHandlers = (): void => {
         desktopStorageDatabase?.close(),
         desktopClient?.close(),
         desktopServerManager?.stopOwned(),
+        computerUse?.stop(),
       ])
     })()
       .catch(logFatalError)
@@ -1122,6 +1132,28 @@ const registerLifecycleHandlers = (): void => {
         app.quit()
       })
   })
+}
+
+let computerUse: ComputerUseHost | undefined
+
+/** Starts the cua-driver service the Server uses for native app control, and its IPC. */
+const registerComputerUse = (paths: DesktopAppPaths): void => {
+  const host = new ComputerUseHost({
+    cypheriaHome: paths.cypheriaHome,
+    hostBundleId: process.env.__CFBundleIdentifier ?? "app.cypheria.desktop",
+    roots: [
+      join(app.getAppPath(), "..", "cua"),
+      join(app.getAppPath(), "dist", "cypheria-server", "cua"),
+      join(process.resourcesPath, "cypheria-server", "cua"),
+    ],
+  })
+  computerUse = host
+  registerIpcRoute(computerUseStatusReadContract, () => host.status())
+  registerIpcRoute(computerUsePermissionRequestContract, ({ permission }) =>
+    host.requestPermission(permission)
+  )
+  registerIpcRoute(computerUseDriverRestartContract, () => host.restart())
+  void host.start()
 }
 
 const startDesktopApp = async (): Promise<void> => {
@@ -1190,6 +1222,7 @@ const startDesktopApp = async (): Promise<void> => {
   registerRendererProtocol(runtimePaths.codexHome)
   registerMcpAppSandboxProtocol()
   registerIpcHandlers(runtimePaths, desktopClient, desktopStorageDatabase)
+  registerComputerUse(runtimePaths)
   mainWindow = await createMainWindow(runtimePaths)
 }
 

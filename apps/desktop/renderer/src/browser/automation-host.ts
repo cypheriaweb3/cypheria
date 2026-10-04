@@ -7,7 +7,7 @@ import {
   type BrowserAutomationOutcomeInput,
   type BrowserAutomationRequest,
 } from "@cypheria/protocol"
-
+import { mountedMcpApp, mountedMcpApps } from "./mcp-app-registry.js"
 import {
   ensureResidentBrowserWebview,
   isBrowserAvailable,
@@ -141,6 +141,42 @@ const listTabs = async (
   return { ...live, result: { ...live.result, tabs: [...live.result.tabs, ...restored] } }
 }
 
+/** Runs one DOM action in an MCP App this window shows for the Thread. */
+const runMcpApp = async (
+  request: Request,
+  threadId: string,
+  args: Extract<Request["command"], { command: "mcp_app" }>["args"],
+  bridge: NonNullable<NonNullable<Window["cypheria"]>["browser"]>
+): Promise<BrowserAutomationOutcomeInput> => {
+  const app = mountedMcpApp(threadId, args.appId)
+  if (!app) {
+    return failure(
+      request,
+      "browser_tab_not_found",
+      `MCP App ${args.appId} is not open in this task.`
+    )
+  }
+  try {
+    const result = await bridge.executeMcpApp({
+      action: args.action,
+      appId: args.appId,
+      origin: app.origin,
+    })
+    return {
+      automationId: request.automationId,
+      ok: true,
+      result: { action: args.action.type, appId: args.appId, command: "mcp_app", ...result },
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return failure(
+      request,
+      /latest snapshot/u.test(message) ? "browser_stale_ref" : "browser_unknown_error",
+      message.replace(/^Error invoking remote method '[^']+': (Error: )?/u, "")
+    )
+  }
+}
+
 export const executeBrowserHostCommand = async (
   request: Request
 ): Promise<BrowserAutomationOutcomeInput> => {
@@ -162,6 +198,14 @@ export const executeBrowserHostCommand = async (
       return resize(request, threadId, command.args)
     case "list_tabs":
       return listTabs(request, threadId, bridge)
+    case "list_mcp_apps":
+      return {
+        automationId: request.automationId,
+        ok: true,
+        result: { apps: mountedMcpApps(threadId), command: "list_mcp_apps" },
+      }
+    case "mcp_app":
+      return runMcpApp(request, threadId, command.args, bridge)
     default: {
       const pending = await materialize(request, threadId, command.args.browserId)
       if (pending) return pending

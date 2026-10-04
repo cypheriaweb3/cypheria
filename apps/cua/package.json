@@ -1,0 +1,27 @@
+{
+  "name": "@cypheria/cua",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./driver-host": "./src/driver-host/index.ts",
+    "./host": "./src/host/index.ts",
+    "./plugin": "./src/plugin/index.ts"
+  },
+  "scripts": {
+    "build": "vite build",
+    "check": "pnpm build && pnpm typecheck && vitest run",
+    "fetch:cua-driver": "node scripts/fetch-cua-driver.mjs",
+    "test": "pnpm build && vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "agent-browser": "0.38.2",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1",
+    "vitest": "^4.1.11"
+  }
+}

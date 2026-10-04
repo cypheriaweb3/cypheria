@@ -203,8 +203,15 @@ export class ComposerReferenceService {
         (item) => item.browserId === block.id && item.threadId === context.threadId
       )
       if (!tab) throw new Error("Browser tab is no longer available")
+      const mention = new URL("plugin://browser@cypheria-bundled")
+      mention.search = new URLSearchParams({
+        mention: "tab-v1",
+        tabId: tab.browserId,
+        title: tab.title,
+        url: tab.url,
+      }).toString()
       return {
-        text: `Browser tab: ${tab.title} (${tab.url}), browserId: ${tab.browserId}. Use browser tools to inspect current page contents.`,
+        text: `Built-in browser tab "${tab.title}" (${tab.url}): ${mention.href} — open it in cua_repl with cua.iab.getTab({ mention }) to read its current contents.`,
         type: "text",
       }
     }

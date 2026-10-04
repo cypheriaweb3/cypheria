@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@cypheria/client": "workspace:*",
+    "@cypheria/cua": "workspace:*",
     "@cypheria/protocol": "workspace:*",
     "@cypheria/server": "workspace:*",
     "@cypheria/storage": "workspace:*",

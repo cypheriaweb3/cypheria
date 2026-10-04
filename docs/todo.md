@@ -50,10 +50,17 @@ The detailed future service boundary and threat model are in [Marketplace](marke
 
 ## Built-in browser
 
-- [ ] Give Claude, Pi, OpenCode, and ACP Agents the `browser_*` tools through their harness adapters, using the same Server broker and Thread scoping as Codex.
 - [ ] Verify the built-in browser end to end in development and packaged Electron builds: tab residency and screenshots of parked tabs, Agent commands, popups, and the dApp provider smoke test.
 - [ ] Measure whether `document.cookie` in third-party frames bypasses the dApp cookie filter, and add bounce-tracking protection for the shared dApp profile.
 - [ ] Add dApp tab controls for connected accounts, disconnect, and permission revocation once the Server exposes per-origin permission management.
+
+## Computer Use
+
+- [ ] Give Pi, OpenCode, and ACP Agents the `cua_repl` server through their harness adapters, with the same per-Thread host as Codex and Claude.
+- [ ] Verify Computer Use end to end in development and packaged Electron builds: Codex and Claude Threads on each surface, external browsers on macOS, Windows, and Linux, MCP App screenshots and actions, and native apps with the embedded cua-driver daemon and its macOS grants.
+- [ ] Bundle the fetched cua-driver executable outside ASAR and sign it with the Desktop app once Desktop packaging exists.
+- [ ] Add composer mentions of external browser tabs (`plugin://chrome@cypheria-bundled?mention=tab-v1&…`) and per-browser switches.
+- [ ] Ask the user before an Agent first operates a desktop app or claims an external browser tab, with per-app and per-site approvals.
 
 ## Codex desktop parity
 

@@ -26,6 +26,7 @@ Implemented applications:
 | `apps/expo` | Expo Router foundation and static web export |
 | `apps/cli` | Non-TUI protocol client and local Server lifecycle commands |
 | `apps/relay` | Go encrypted relay data plane |
+| `apps/cua` | The Computer Use runtime: the `cua_repl` launcher and `cua` API, the Server host for its surfaces, the embedded cua-driver supervisor, and the hidden `cua` plugin template |
 | `apps/node-repl` | Go node_repl MCP server and supervisor, plus the TypeScript kernel it embeds, for persistent sandboxed JavaScript execution |
 | `apps/website` | TanStack Start marketing and Fumadocs site on Cloudflare Workers |
 
@@ -48,7 +49,7 @@ Bundled plugins:
 | `plugins` | The bundled `cypheria-bundled` marketplace: Codex and Claude marketplace files beside the plugins they list |
 | `plugins/cypheria-app-tools` | The app tools plugin: manifests and the MCP relay, with no build |
 | `plugins/code-review` | The `code-review` plugin and its package: manifests, the MCP relay in `src/server`, and the Code Review MCP App in `src/app`, built into `dist/app.html` |
-| `plugins/browser` | The built-in browser automation plugin: manifests, browser-client runtime, and skills |
+| `plugins/browser`, `plugins/chrome`, `plugins/computer-use` | Manifests and icons of the Computer Use surfaces; their runtime is `apps/cua` |
 
 Agents install bundled plugins from `plugins/` in a checkout. A Server build assembles the marketplace in `apps/server/dist/marketplace` and packages `code-review` the way `node plugins/code-review/scripts/build.mjs --plugin-dir <dir>` does, so the installed plugin carries only its manifests, relay, and built App.
 
@@ -185,6 +186,13 @@ pnpm --filter @cypheria/node-repl build:js
 ```
 
 The bundle is ignored by Git except `package.json`. The package `build`, `check`, and `test` scripts regenerate it before running Go, so run `build:js` first only when invoking `go` directly.
+
+The Computer Use launcher and runtime are built by Vite into `apps/cua/dist`. Native app control needs the pinned cua-driver release, which a maintainer fetches with digest verification before a Desktop build; see [Computer Use](computer-use.md#desktop-apps):
+
+```sh
+pnpm --filter @cypheria/cua build
+pnpm --filter @cypheria/cua fetch:cua-driver
+```
 
 ## Testing strategy
 

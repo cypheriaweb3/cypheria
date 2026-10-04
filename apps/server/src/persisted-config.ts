@@ -2,8 +2,8 @@ import { mkdir, open, readFile, rename } from "node:fs/promises"
 import { resolve } from "node:path"
 
 import {
-  DEFAULT_BROWSER_TOOLS_SETTINGS,
   DEFAULT_CODE_REVIEW_SETTINGS,
+  DEFAULT_COMPUTER_USE_SETTINGS,
   DEFAULT_GIT_SETTINGS,
   type PersistedServerConfig,
   type PersistedServerConfigPatch,
@@ -19,7 +19,7 @@ export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
   },
   git: DEFAULT_GIT_SETTINGS,
   codeReview: DEFAULT_CODE_REVIEW_SETTINGS,
-  browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
+  computerUse: DEFAULT_COMPUTER_USE_SETTINGS,
   extensions: { preferredFileViewers: {} },
   workspace: { projectlessRoot: null },
   server: {

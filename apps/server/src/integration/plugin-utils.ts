@@ -39,15 +39,57 @@ export const pluginImage = async (
 }
 
 export const BUNDLED_MARKETPLACE_NAME = "cypheria-bundled"
-/** Plugins the bundled marketplace carries; Server keeps each one installed and current. */
-export const BUNDLED_PLUGIN_NAMES = ["cypheria-app-tools", "code-review", "browser"] as const
+/** Plugins the bundled marketplace carries in `plugins/`. */
+export const STATIC_BUNDLED_PLUGIN_NAMES = [
+  "cypheria-app-tools",
+  "code-review",
+  "browser",
+  "chrome",
+  "computer-use",
+] as const
+/** Plugins the Server generates into the bundled marketplace and hides from plugin lists. */
+export const HIDDEN_BUNDLED_PLUGIN_NAMES = ["cua"] as const
+/** Every plugin the Server keeps installed and current from the bundled marketplace. */
+export const BUNDLED_PLUGIN_NAMES = [
+  ...STATIC_BUNDLED_PLUGIN_NAMES,
+  ...HIDDEN_BUNDLED_PLUGIN_NAMES,
+] as const
+
+export const isHiddenBundledPlugin = (marketplace: string, plugin: string): boolean =>
+  marketplace === BUNDLED_MARKETPLACE_NAME &&
+  (HIDDEN_BUNDLED_PLUGIN_NAMES as readonly string[]).includes(plugin)
+
+let materializeMarketplace: ((source: string) => Promise<string>) | undefined
+let materialized: Promise<string> | undefined
 
 /**
- * Locates the bundled marketplace directory in a checkout or in the built
- * Server. `marker` is the ecosystem-specific manifest that proves the
- * directory carries that Agent's marketplace.
+ * Makes `bundledMarketplaceDirectory` return a generated copy of the bundled marketplace, such
+ * as one that adds the hidden `cua` plugin. Without it the checked-in directory is used as is.
+ */
+export const configureBundledMarketplace = (
+  materialize: ((source: string) => Promise<string>) | undefined
+): void => {
+  materializeMarketplace = materialize
+  materialized = undefined
+}
+
+/**
+ * The marketplace directory Agents install bundled plugins from. `marker` is the
+ * ecosystem-specific manifest that proves the directory carries that Agent's marketplace.
  */
 export const bundledMarketplaceDirectory = async (marker: string): Promise<string> => {
+  const source = await bundledMarketplaceSource(marker)
+  if (!materializeMarketplace) return source
+  const materialize = materializeMarketplace
+  materialized ??= materialize(source).catch((error: unknown) => {
+    materialized = undefined
+    throw error
+  })
+  return materialized
+}
+
+/** Locates the checked-in bundled marketplace in a checkout or in the built Server. */
+export const bundledMarketplaceSource = async (marker: string): Promise<string> => {
   const candidates = [
     new URL("../../../../plugins/", import.meta.url),
     new URL("./marketplace/", import.meta.url),

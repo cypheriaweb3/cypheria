@@ -188,13 +188,13 @@ Server 以请求 ID 关联并审计 Git 修改请求的开始和结果。审计�
 
 `client.extensions` 覆盖 `extensions` 能力：插件 extension catalog、MCP App 实例及其请求、模型上下文、结构化设置、提及，以及 extension 调用产生的表单；消息列表见 [Plugin Extensions](plugin-extensions.zh-CN.md#协议)。App 文档以每段最多 200,000 个字符分段到达，因此中继的消息上限不会截断它。`client.codeReview` 覆盖 `code-review` 能力：`codeReview.setup.get` 报告 ChatGPT 登录状态及 GitHub、GitLab 连接，`codeReview.provider` 为 App 的宿主请求执行固定列表中的某个 GitLab 或 GitHub 后端操作，`codeReview.tool.call` 为没有 App 的宿主界面调用某个 `pull_requests.*` 工具，`codeReview.pullRequests.list/save/remove` 保存提供方账户已固定和最近打开的拉取请求，并以 `codeReview.pullRequests.changed.notification` 通知变更。工具、App 和宿主扩展见[代码审查](code-review.zh-CN.md)。
 
-## 浏览器 Host 与 Agent 浏览器工具
+## 浏览器 Host 与 Computer Use
 
 `browser` capability 让 Desktop session 充当浏览器 host。`client.browser.registerHost()` 发送带有 host 类型和所支持命令的 `browser.host.register.request`，每次重连后会重新发送，并通过 `browser.host.unregister.request` 释放。只有 `desktop` session 可以注册；session 关闭时 host 会被移除。
 
-Server 为每条命令发送一条 `browser.automation.command.notification`，其中包含 automation ID、命令，以及调用方 Thread 的 ID 和工作目录。Host 用 `browser.automation.result.request` 回复，payload 为类型化结果或类型化错误。命令包括 `list_tabs`、`new_tab`、`close_tab`、`resize`、`snapshot`、`screenshot`、`logs`、`wait`、`click`、`fill`、`type`、`keypress`、`hover`、`select`、`drag`、`upload`、`scroll`、`navigate`、`back`、`forward`、`reload` 和 `evaluate`。错误包括 `browser_disabled`、`browser_no_host`、`browser_tab_not_found`、`browser_stale_ref`、`browser_timeout`、`browser_denied` 和 `browser_unsupported`；两种结果都会报告已处理的页面对话框。
+Server 为每条命令发送一条 `browser.automation.command.notification`，其中包含 automation ID、命令，以及调用方 Thread 的 ID 和工作目录。Host 用 `browser.automation.result.request` 回复，payload 为类型化结果或类型化错误。命令包括 `list_tabs`、`new_tab`、`close_tab`、`resize`、`snapshot`、`screenshot`、`logs`、`wait`、`click`、`fill`、`type`、`keypress`、`hover`、`select`、`drag`、`upload`、`scroll`、`navigate`、`back`、`forward`、`reload`、`evaluate`、`mark_deliverable`、`mark_handoff`、`request_manual_handoff`、`scan_qr` 和 `extract_assets`（针对标签页），以及 `list_mcp_apps` 和 `mcp_app`（针对窗口为该 Thread 挂载的 MCP App）；`mcp_app` 携带一个 DOM 操作（`snapshot`、`screenshot`、`click`、`fill`、`type`、`press`、`select`、`check` 或 `scroll`）。错误包括 `browser_disabled`、`browser_no_host`、`browser_tab_not_found`、`browser_stale_ref`、`browser_timeout`、`browser_denied` 和 `browser_unsupported`；两种结果都会报告已处理的页面对话框。
 
-Server broker 记住每个标签页属于哪个 host，汇总所有 host 的 `list_tabs`；host 断开时，待处理命令以可重试的 `browser_no_host` 失败；命令 15 秒后超时。Agent 通过名为 `browser_<command>` 的 Codex dynamic tools 使用 broker；工具调用带有 Cypheria Thread，因此只能操作该 Thread 的标签页。每个标签页都属于某个 Thread，因此 host 会拒绝不带 Thread 的命令。在 Server 配置中设置 `browserTools.enabled` 之前，浏览器工具保持关闭。会改变状态的命令以 automation ID 审计，记录 Thread 和命令名称，不记录参数；初始审计写入失败时命令不会开始。
+Server broker 记住每个标签页属于哪个 host，汇总所有 host 的 `list_tabs`；host 断开时，待处理命令以可重试的 `browser_no_host` 失败；命令 15 秒后超时。Agent 通过 [Computer Use](computer-use.zh-CN.md) 所述的 `cua_repl` 使用 broker；每个请求带有接收它的 host socket 所属的 Cypheria Thread，因此只能操作该 Thread 的标签页和 App。每个标签页都属于某个 Thread，因此 host 会拒绝不带 Thread 的命令。在 Server 配置中设置 `computerUse.inAppBrowser` 或 `computerUse.mcpApps` 之前，broker 保持关闭。会改变状态的命令以 automation ID 审计，记录 Thread 和命令名称，不记录参数；初始审计写入失败时命令不会开始。
 
 ## 校验规则
 

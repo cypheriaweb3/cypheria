@@ -47,17 +47,17 @@ Plugin views retain source type, marketplace identity, install policy, availabil
 
 Codex remote plugins have a catalog ID distinct from their displayed name. Server resolves that ID from a fresh `plugin/list` result before remote detail or install requests, so a visible plugin is not sent to Codex's install endpoint under its display name.
 
-When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs its plugins, `cypheria-app-tools`, `code-review`, and `browser`, in that Agent's managed home, as the official desktop bundles `codex-app-tools` and `code-review`. They are described in [Cypheria app tools](#cypheria-app-tools). They declare no OpenAI App ID and have no GitHub or GitLab connector credentials.
+When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs its plugins, `cypheria-app-tools`, `code-review`, `browser`, `chrome`, `computer-use`, and the hidden, generated `cua`, in that Agent's managed home, as the official desktop bundles `codex-app-tools`, `code-review`, and its Computer Use plugins. They are described in [Cypheria app tools](#cypheria-app-tools). They declare no OpenAI App ID and have no GitHub or GitLab connector credentials.
 The bundled marketplace is the dual-format `plugins/` directory: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, lists each plugin at `./<plugin>`, and each Agent's MCP declaration lives in its own file next to the plugin's server.
 When an installed bundled plugin is discovered after a Cypheria update, Server checks its local version and updates it from the bundled marketplace before returning the plugin list.
 
 ### Cypheria app tools
 
-The bundled plugins are how Codex and Claude reach Cypheria's own tools. Each declares one MCP server, and all run the same relay, which runs no tool itself: it lists and calls the tools of its server through `/api/v1/app-tools/*`, and Server executes each call for the calling Thread with the same code the clients use. Codex dynamic tools carry only the browser tools.
+The bundled plugins are how Codex and Claude reach Cypheria's own tools. Each declares one MCP server, and all run the same relay, which runs no tool itself: it lists and calls the tools of its server through `/api/v1/app-tools/*`, and Server executes each call for the calling Thread with the same code the clients use. The Computer Use plugins are described in [Computer Use](computer-use.md#plugins).
 
 - `cypheria-app-tools`, server `cypheria_app_tools`: the Thread, project, sidebar, worktree, handoff, and automation tools listed in [Agent harnesses](agent-harnesses.md#codex).
 - `code-review`, server `code-review`: the official plugin's 31 `pull_requests.*` tools and its MCP App `ui://pull-requests/app`. Only `pull_requests.checks` is visible to the model; it reads a GitHub pull request's checks or a GitLab merge request's pipelines through OpenAI's backend, without job logs. The other tools serve the App, which Desktop hosts as the Code Review page and the Thread pull request panel. Server serves the App resource and the tool list itself; see [Code Review](code-review.md).
-- `browser`: the built-in browser automation plugin. For Codex, it operates through `node-repl` and `browser-client.mjs` over a local Unix domain socket bridge, with `turn_ended` hooks for turn lifecycle and temporary tab cleanup. For Claude, it provides the browser automation MCP server.
+- `browser`, `chrome`, and `computer-use`: manifests and icons for Computer Use surfaces, which Agents operate through the hidden `cua` plugin's `cua_repl` server.
 
 Agents do local Git work with `git` and `gh` in their own commands; the Server Git protocol stays a client contract and is not offered to the model, as in the official desktop.
 

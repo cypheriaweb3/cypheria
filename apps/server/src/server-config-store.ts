@@ -5,8 +5,8 @@ import type {
   ServerConfigSnapshot,
 } from "@cypheria/protocol"
 import {
-  DEFAULT_BROWSER_TOOLS_SETTINGS,
   DEFAULT_CODE_REVIEW_SETTINGS,
+  DEFAULT_COMPUTER_USE_SETTINGS,
   DEFAULT_GIT_SETTINGS,
 } from "@cypheria/protocol"
 
@@ -95,7 +95,7 @@ export class ServerConfigStore {
       },
       git: DEFAULT_GIT_SETTINGS,
       codeReview: DEFAULT_CODE_REVIEW_SETTINGS,
-      browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
+      computerUse: DEFAULT_COMPUTER_USE_SETTINGS,
       extensions: { preferredFileViewers: {} },
       server: {
         logging: {

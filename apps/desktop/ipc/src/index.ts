@@ -1,6 +1,7 @@
 import {
   type BrowserAutomationOutcome,
   type BrowserAutomationRequest,
+  type BrowserMcpAppAction,
   type ThreadInputBlock,
   ThreadInputBlockSchema,
 } from "@cypheria/protocol"
@@ -24,6 +25,15 @@ import {
   browserUnregisterContract,
 } from "./browser.js"
 import { CYPHERIA_BROWSER_CHANNELS } from "./browser-channels.js"
+import {
+  type ComputerUseStatus,
+  CYPHERIA_COMPUTER_USE_CHANNELS,
+  computerUseDriverRestartContract,
+  computerUseMcpAppExecuteContract,
+  computerUsePermissionRequestContract,
+  computerUseStatusReadContract,
+  type McpAppExecuteResult,
+} from "./computer-use.js"
 
 export * from "./browser.js"
 export * from "./codex.js"
@@ -32,10 +42,19 @@ export * from "./integrations.js"
 
 export const IPC_PROTOCOL_VERSION = 1
 
-export const ipcNamespaces = ["app", "browser", "dapp", "settings", "storage"] as const
+export const ipcNamespaces = [
+  "app",
+  "browser",
+  "computerUse",
+  "dapp",
+  "settings",
+  "storage",
+] as const
 
 export const IpcNamespaceSchema = z.enum(ipcNamespaces)
 export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
+
+export * from "./computer-use.js"
 
 export const CYPHERIA_IPC_CHANNELS = {
   appHealthCheck: "app.health.check",
@@ -54,6 +73,10 @@ export const CYPHERIA_IPC_CHANNELS = {
   browserAttachedRegister: CYPHERIA_BROWSER_CHANNELS.attachedRegister,
   browserAutomationExecute: CYPHERIA_BROWSER_CHANNELS.automationExecute,
   browserDataClear: CYPHERIA_BROWSER_CHANNELS.dataClear,
+  computerUseDriverRestart: CYPHERIA_COMPUTER_USE_CHANNELS.driverRestart,
+  computerUseMcpAppExecute: CYPHERIA_COMPUTER_USE_CHANNELS.mcpAppExecute,
+  computerUsePermissionRequest: CYPHERIA_COMPUTER_USE_CHANNELS.permissionRequest,
+  computerUseStatusRead: CYPHERIA_COMPUTER_USE_CHANNELS.statusRead,
   browserDevToolsOpen: CYPHERIA_BROWSER_CHANNELS.devToolsOpen,
   browserFocus: CYPHERIA_BROWSER_CHANNELS.focus,
   browserShortcutPolicySet: CYPHERIA_BROWSER_CHANNELS.shortcutPolicySet,
@@ -1385,6 +1408,10 @@ export const ipcContracts = {
   browserFocus: browserFocusContract,
   browserShortcutPolicySet: browserShortcutPolicySetContract,
   browserUnregister: browserUnregisterContract,
+  computerUseDriverRestart: computerUseDriverRestartContract,
+  computerUseMcpAppExecute: computerUseMcpAppExecuteContract,
+  computerUsePermissionRequest: computerUsePermissionRequestContract,
+  computerUseStatusRead: computerUseStatusReadContract,
   dappProviderRequest: dappProviderRequestContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsOpenTargetsList: settingsOpenTargetsListContract,
@@ -1458,11 +1485,25 @@ export type CypheriaPreloadApi = {
     readonly executeAutomation: (
       request: BrowserAutomationRequest
     ) => Promise<BrowserAutomationOutcome>
+    /** Runs one DOM action in a mounted MCP App, identified by its sandbox origin. */
+    readonly executeMcpApp: (input: {
+      action: BrowserMcpAppAction
+      appId: string
+      origin: string
+    }) => Promise<McpAppExecuteResult>
     readonly setShortcutPolicy: (policy: BrowserKeyboardPolicyInput) => Promise<{ updated: true }>
     readonly clearData: (input: BrowserClearData) => Promise<{ cleared: true }>
     readonly onNewTabRequest: (handler: (request: BrowserNewTabRequest) => void) => () => void
     readonly onShortcutInput: (handler: (input: BrowserShortcutInput) => void) => () => void
     readonly onReservedShortcut: (handler: (input: BrowserReservedShortcut) => void) => () => void
+  }
+  /** Native app control: the embedded cua-driver service and the macOS grants it relies on. */
+  readonly computerUse: {
+    readonly status: () => Promise<ComputerUseStatus>
+    readonly requestPermission: (
+      permission: "accessibility" | "screen-recording"
+    ) => Promise<ComputerUseStatus>
+    readonly restartDriver: () => Promise<ComputerUseStatus>
   }
   readonly storage: {
     readonly attachments: {

@@ -1,10 +1,13 @@
-import { readFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { describe, expect, it } from "vitest"
 
 import { AppToolService } from "../app-tools/service.js"
-import { BUNDLED_PLUGIN_NAMES } from "./plugin-utils.js"
+import { materializeBundledMarketplace } from "./bundled-marketplace.js"
+import { isHiddenBundledPlugin, STATIC_BUNDLED_PLUGIN_NAMES } from "./plugin-utils.js"
 
 const root = fileURLToPath(new URL("../../../../plugins/", import.meta.url))
 const json = async (path: string) => JSON.parse(await readFile(`${root}${path}`, "utf8"))
@@ -24,7 +27,7 @@ const MCP_PLUGIN_NAMES = Object.keys(SERVERS) as readonly McpPluginName[]
 
 describe("bundled Cypheria marketplace", () => {
   it("ships each plugin with a manifest for every supported Agent at the same version", async () => {
-    for (const name of BUNDLED_PLUGIN_NAMES) {
+    for (const name of STATIC_BUNDLED_PLUGIN_NAMES) {
       const codex = await json(`${name}/.codex-plugin/plugin.json`)
       const claude = await json(`${name}/.claude-plugin/plugin.json`)
       expect(codex.name).toBe(name)
@@ -39,7 +42,7 @@ describe("bundled Cypheria marketplace", () => {
     for (const marketplace of [claudeMarketplace, codexMarketplace]) {
       expect(marketplace.name).toBe("cypheria-bundled")
       expect(marketplace.plugins.map((plugin: { name: string }) => plugin.name)).toEqual([
-        ...BUNDLED_PLUGIN_NAMES,
+        ...STATIC_BUNDLED_PLUGIN_NAMES,
       ])
     }
     for (const plugin of claudeMarketplace.plugins) {
@@ -71,19 +74,41 @@ describe("bundled Cypheria marketplace", () => {
     }
   })
 
-  it("configures turn_ended hooks on node_repl for the browser plugin in Codex", async () => {
-    const codex = await json("browser/.codex-plugin/plugin.json")
-    expect(codex.hooks.hooks.Stop[0].hooks[0]).toEqual({
-      type: "mcp_tool",
-      server: "node_repl",
-      tool: "turn_ended",
-      input: {
-        hook_event_name: "${" + "hook_event_name}",
-        session_id: "${" + "session_id}",
-        turn_id: "${" + "turn_id}",
-      },
-    })
-    expect(codex.mcpServers).toBeUndefined()
+  it("ships the Computer Use plugins as manifests and icons only", async () => {
+    for (const name of ["browser", "chrome", "computer-use"]) {
+      const codex = await json(`${name}/.codex-plugin/plugin.json`)
+      expect(codex.mcpServers).toBeUndefined()
+      expect(codex.hooks).toBeUndefined()
+      expect(codex.skills).toBeUndefined()
+      await expect(readFile(`${root}${name}/${codex.interface.logo}`)).resolves.toBeDefined()
+    }
+  })
+
+  it("generates the hidden cua plugin into the marketplace Agents install from", async () => {
+    const target = join(await mkdtemp(join(tmpdir(), "cypheria-marketplace-")), "cypheria-bundled")
+    try {
+      await materializeBundledMarketplace(root, target)
+      const read = async (path: string) => JSON.parse(await readFile(join(target, path), "utf8"))
+      const codex = await read("cua/.codex-plugin/plugin.json")
+      expect(codex.hooks.hooks.Stop[0].hooks[0]).toMatchObject({
+        server: "cua_repl",
+        tool: "turn_ended",
+      })
+      expect((await read("cua/.mcp.json")).mcpServers.cua_repl.enabled).toBe(false)
+      expect((await read("cua/.claude-mcp.json")).mcpServers.cua_repl.env).toMatchObject({
+        CUA_REPL_ENABLED_SURFACES: `\${CYPHERIA_CUA_SURFACES:-}`,
+        NODE_REPL_HOST_SERVICES_PIPE_PATH: `\${CYPHERIA_CUA_HOST_PIPE:-}`,
+      })
+      for (const file of [".agents/plugins/marketplace.json", ".claude-plugin/marketplace.json"]) {
+        const names = (await read(file)).plugins.map((plugin: { name: string }) => plugin.name)
+        expect(names).toEqual([...STATIC_BUNDLED_PLUGIN_NAMES, "cua"])
+      }
+      await expect(readFile(join(target, "code-review", "node_modules"))).rejects.toThrow()
+      expect(isHiddenBundledPlugin("cypheria-bundled", "cua")).toBe(true)
+      expect(isHiddenBundledPlugin("other", "cua")).toBe(false)
+    } finally {
+      await rm(join(target, ".."), { force: true, recursive: true })
+    }
   })
 
   it("gives every Agent process the app tools token instead of the Server token", async () => {

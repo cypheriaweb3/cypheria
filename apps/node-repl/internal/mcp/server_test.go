@@ -1,9 +1,13 @@
 package mcp_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +25,7 @@ func TestMcpProtocol(t *testing.T) {
 	}
 	defer sup.Reset()
 
-	server := mcp.NewServer(sup)
+	server := mcp.NewServer(sup, nil)
 
 	requests := []string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}`,
@@ -101,5 +105,68 @@ func TestMcpProtocol(t *testing.T) {
 	}
 	if len(callResp.Result.Content) == 0 || !strings.Contains(callResp.Result.Content[0].Text, "answer=42") {
 		t.Errorf("expected output to contain answer=42, got: %+v", callResp.Result.Content)
+	}
+}
+
+// With trusted RPC enabled, executions complete and `nodeRepl.rpc` reaches the
+// host services socket.
+func TestTrustedRpcReachesHostServices(t *testing.T) {
+	// t.TempDir paths exceed the Unix socket length limit on macOS.
+	dir, err := os.MkdirTemp("", "nr")
+	if err != nil {
+		t.Fatalf("temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+	socketPath := filepath.Join(dir, "h.sock")
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go func(conn net.Conn) {
+				defer conn.Close()
+				scanner := bufio.NewScanner(conn)
+				for scanner.Scan() {
+					var req struct {
+						ID     string          `json:"id"`
+						Method string          `json:"method"`
+						Params json.RawMessage `json:"params"`
+					}
+					if json.Unmarshal(scanner.Bytes(), &req) != nil {
+						continue
+					}
+					resp, _ := json.Marshal(map[string]any{
+						"jsonrpc": "2.0",
+						"id":      req.ID,
+						"result":  map[string]any{"service": req.Method, "echo": req.Params},
+					})
+					_, _ = conn.Write(append(resp, '\n'))
+				}
+			}(conn)
+		}
+	}()
+
+	t.Setenv("NODE_REPL_TRUSTED_RPC_ENABLED", "1")
+	t.Setenv("NODE_REPL_HOST_SERVICES_PIPE_PATH", socketPath)
+	sup, err := supervisor.New(supervisor.Options{DisableSandbox: true})
+	if err != nil {
+		t.Fatalf("failed to create supervisor: %v", err)
+	}
+	defer sup.Reset()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	res, err := sup.Exec(ctx, `const reply = await nodeRepl.rpc("cua", { op: "state" }); nodeRepl.write(JSON.stringify(reply));`, 10000, "")
+	if err != nil {
+		t.Fatalf("exec failed: %v", err)
+	}
+	if res.IsError || !strings.Contains(res.Text, `"service":"cua"`) || !strings.Contains(res.Text, `"op":"state"`) {
+		t.Fatalf("unexpected rpc result: %+v", res)
 	}
 }
