@@ -3,7 +3,13 @@ import { once } from "node:events"
 import { isAbsolute, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
-import { ENABLED_SURFACES_ENV, formatSurfaces, parseSurfaces } from "../surfaces.ts"
+import {
+  BROWSER_BACKENDS_ENV,
+  ENABLED_SURFACES_ENV,
+  formatSurfaces,
+  parseBrowserBackends,
+  parseSurfaces,
+} from "../surfaces.ts"
 import { loadInstructions } from "./instructions.ts"
 
 export const NODE_REPL_PATH_ENV = "CUA_REPL_NODE_REPL_PATH"
@@ -18,7 +24,8 @@ export const cuaReplEnvironment = (
   platform: NodeJS.Platform = process.platform
 ): NodeJS.ProcessEnv => {
   const surfaces = parseSurfaces(env[ENABLED_SURFACES_ENV])
-  const instructions = loadInstructions(root, surfaces, platform)
+  const backends = parseBrowserBackends(env[BROWSER_BACKENDS_ENV])
+  const instructions = loadInstructions(root, surfaces, backends, platform)
   const overrides = {
     server_instructions: instructions.serverInstructions,
     tools: {
@@ -33,6 +40,7 @@ export const cuaReplEnvironment = (
   return {
     ...env,
     [ENABLED_SURFACES_ENV]: formatSurfaces(surfaces),
+    [BROWSER_BACKENDS_ENV]: backends.join(","),
     NODE_REPL_JS_BANNER: env.NODE_REPL_JS_BANNER ?? banner,
     CUA_REPL_PLATFORM: platform,
     NODE_REPL_TOOL_OVERRIDES: JSON.stringify(overrides),
@@ -41,6 +49,7 @@ export const cuaReplEnvironment = (
     NODE_REPL_UNTRUSTED_ENV_ALLOWLIST: [
       env.NODE_REPL_UNTRUSTED_ENV_ALLOWLIST,
       ENABLED_SURFACES_ENV,
+      BROWSER_BACKENDS_ENV,
       "CUA_REPL_PLATFORM",
     ]
       .filter(Boolean)

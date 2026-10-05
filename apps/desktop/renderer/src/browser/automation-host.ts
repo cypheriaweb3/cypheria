@@ -2,222 +2,291 @@
 // packages/app/src/desktop/browser/automation/handler.ts.
 import type { CypheriaClient } from "@cypheria/client"
 import {
-  BROWSER_AUTOMATION_COMMAND_NAMES,
-  type BrowserAutomationErrorCode,
-  type BrowserAutomationOutcomeInput,
-  type BrowserAutomationRequest,
-} from "@cypheria/protocol"
+  type BrowserHostCall,
+  BrowserHostRequestSchema,
+  isBrowserMember,
+  supports,
+  type TabInfo,
+} from "@cypheria/cua/browser"
+import type { BrowserAutomationOutcomeInput, BrowserAutomationRequest } from "@cypheria/protocol"
+
+import type { BrowserCallOutcome } from "../../../ipc/src/index.js"
 import { mountedMcpApp, mountedMcpApps } from "./mcp-app-registry.js"
 import {
   ensureResidentBrowserWebview,
+  getResidentBrowserWebview,
   isBrowserAvailable,
   removeResidentBrowserWebview,
-  resizeResidentBrowserWebview,
+  setResidentBrowserViewport,
   waitForBrowserRegistration,
 } from "./resident-webviews.js"
+import { type BrowserTabRecord, RESPONSIVE_VIEWPORT } from "./state.js"
 import { browserTabsStore } from "./store.js"
+import { isBrowserPaneShown, requestBrowserPane } from "./visibility.js"
 
-type Request = BrowserAutomationRequest
+type Bridge = NonNullable<NonNullable<Window["cypheria"]>["browser"]>
 
-const failure = (
-  request: Request,
-  code: BrowserAutomationErrorCode,
-  message: string,
-  retryable = false
-): BrowserAutomationOutcomeInput => ({
-  automationId: request.automationId,
-  error: { code, message, retryable },
-  ok: false,
+/** An error the model reads, with the code the Server reports. */
+class HostError extends Error {
+  readonly code: string
+  readonly retryable: boolean
+
+  constructor(code: string, message: string, retryable = false) {
+    super(message)
+    this.code = code
+    this.retryable = retryable
+  }
+}
+
+const VISIBILITY = {
+  description:
+    "Whether the built-in browser is shown beside the conversation. get() reads it; set(visible) shows or hides it.",
+  id: "visibility",
+}
+const VIEWPORT = {
+  description:
+    "An explicit viewport size for the Thread's tabs. set({ width, height }) applies it; reset() returns to the pane's size.",
+  id: "viewport",
+}
+const MAX_VIEWPORT = 10_000
+
+/** Each Thread's viewport override, which its new tabs take too. */
+const viewports = new Map<string, { width: number; height: number }>()
+
+const applyViewport = (tab: BrowserTabRecord, size: { width: number; height: number } | null) => {
+  browserTabsStore.patch(
+    tab.browserId,
+    size ? { viewport: { mode: "fixed", ...size } } : { viewport: RESPONSIVE_VIEWPORT }
+  )
+  setResidentBrowserViewport(tab.browserId, size)
+}
+
+/** Sets or clears the viewport of every tab of the Thread. */
+const setViewport = (threadId: string, value: unknown): void => {
+  let size: { width: number; height: number } | null = null
+  if (value !== null) {
+    const { height, width } = (value ?? {}) as { height?: unknown; width?: unknown }
+    const valid = (n: unknown): n is number =>
+      typeof n === "number" && Number.isFinite(n) && n >= 1 && n <= MAX_VIEWPORT
+    if (!valid(width) || !valid(height)) {
+      throw new HostError(
+        "invalid",
+        `viewport.set needs { width, height } between 1 and ${MAX_VIEWPORT} pixels.`
+      )
+    }
+    size = { height: Math.round(height), width: Math.round(width) }
+    viewports.set(threadId, size)
+  } else {
+    viewports.delete(threadId)
+  }
+  for (const tab of browserTabsStore.getSnapshot().tabs) {
+    if (tab.threadId === threadId) applyViewport(tab, size)
+  }
+}
+
+const tabInfo = (tab: BrowserTabRecord): TabInfo => ({
+  id: tab.browserId,
+  title: tab.title,
+  url: tab.url,
 })
 
-const tabNotFound = (request: Request, browserId: string) =>
-  failure(request, "browser_tab_not_found", `No browser tab found for ID: ${browserId}`)
-
-/** Finds a tab the request may address: callers only see tabs attached to their Thread. */
-const scopedTab = (threadId: string, browserId: string) => {
-  const tab = browserTabsStore.get(browserId)
-  return tab?.threadId === threadId ? tab : undefined
-}
-
-const newTab = async (
-  request: Request,
-  threadId: string,
-  args: { kind: "web" | "dapp"; url?: string | undefined }
-): Promise<BrowserAutomationOutcomeInput> => {
-  const record = browserTabsStore.create({
-    activate: false,
-    kind: args.kind,
-    threadId,
-    url: args.url ?? null,
-  })
-  ensureResidentBrowserWebview(record)
-  if (!(await waitForBrowserRegistration(record.browserId))) {
-    return failure(
-      request,
-      "browser_timeout",
-      `Timed out waiting for browser tab ${record.browserId} to start. Try browser_new_tab again.`,
-      true
+/** A tab the request may address: callers only see tabs of their Thread. */
+const scopedTab = (threadId: string, browserId: string | undefined): BrowserTabRecord => {
+  const tab = browserId ? browserTabsStore.get(browserId) : undefined
+  if (!tab || tab.threadId !== threadId) {
+    throw new HostError(
+      "not_found",
+      `Built-in browser tab ${browserId ?? ""} is not open. List the tabs again.`
     )
   }
-  return {
-    automationId: request.automationId,
-    ok: true,
-    result: {
-      browserId: record.browserId,
-      command: "new_tab",
-      kind: record.kind,
-      threadId,
-      url: record.url,
-    },
-  }
+  return tab
 }
 
-const closeTab = (
-  request: Request,
-  threadId: string,
-  browserId: string
-): BrowserAutomationOutcomeInput => {
-  if (!scopedTab(threadId, browserId)) return tabNotFound(request, browserId)
-  browserTabsStore.remove(browserId)
-  removeResidentBrowserWebview(browserId)
-  return {
-    automationId: request.automationId,
-    ok: true,
-    result: { browserId, command: "close_tab" },
-  }
-}
-
-const resize = (
-  request: Request,
-  threadId: string,
-  args: { browserId: string; height: number; width: number }
-): BrowserAutomationOutcomeInput => {
-  const tab = scopedTab(threadId, args.browserId)
-  if (!tab) return tabNotFound(request, args.browserId)
-  ensureResidentBrowserWebview(tab)
-  const size = resizeResidentBrowserWebview(args.browserId, args.width, args.height)
-  if (!size) return tabNotFound(request, args.browserId)
-  browserTabsStore.patch(args.browserId, { viewport: { mode: "fixed", ...size } })
-  return {
-    automationId: request.automationId,
-    ok: true,
-    result: { browserId: args.browserId, command: "resize", ...size },
-  }
-}
-
-/** Starts a restored tab that has not been opened since launch before it is automated. */
-const materialize = async (request: Request, threadId: string, browserId: string) => {
-  const tab = scopedTab(threadId, browserId)
-  if (!tab) return tabNotFound(request, browserId)
-  ensureResidentBrowserWebview(tab)
-  return (await waitForBrowserRegistration(browserId))
-    ? null
-    : failure(request, "browser_timeout", `Browser tab ${browserId} did not start.`, true)
+const unwrap = (outcome: BrowserCallOutcome): unknown => {
+  if (outcome.ok) return outcome.value
+  throw new HostError(outcome.error.code, outcome.error.message, outcome.error.retryable)
 }
 
 /**
- * Live tabs come from the main process. Restored tabs that no window has started yet are added
- * here; a tab live in another window is that window's to report.
+ * The Thread's tabs this window answers for: tabs it shows, and restored tabs no window has
+ * started yet. A tab live in another window is that window's to report.
  */
-const listTabs = async (
-  request: Request,
-  threadId: string,
-  bridge: NonNullable<NonNullable<Window["cypheria"]>["browser"]>
-): Promise<BrowserAutomationOutcomeInput> => {
+const listTabs = async (threadId: string, bridge: Bridge): Promise<TabInfo[]> => {
   await browserTabsStore.load()
-  const [live, anywhere] = await Promise.all([
-    bridge.executeAutomation(request),
-    bridge.listLive().catch(() => ({ browserIds: [] })),
-  ])
-  if (!live.ok || live.result.command !== "list_tabs") return live
-  const liveIds = new Set([...live.result.tabs.map((tab) => tab.browserId), ...anywhere.browserIds])
-  const state = browserTabsStore.getSnapshot()
-  const restored = state.tabs
-    .filter((tab) => !liveIds.has(tab.browserId))
-    .filter((tab) => tab.threadId === threadId)
-    .map((tab) => ({
-      browserId: tab.browserId,
-      isActive: state.activeByThread[tab.threadId] === tab.browserId,
-      isLoading: false,
-      kind: tab.kind,
-      threadId: tab.threadId,
-      title: tab.title,
-      url: tab.url,
-    }))
-  return { ...live, result: { ...live.result, tabs: [...live.result.tabs, ...restored] } }
+  const live = new Set((await bridge.listLive().catch(() => ({ browserIds: [] }))).browserIds)
+  return browserTabsStore
+    .getSnapshot()
+    .tabs.filter((tab) => tab.threadId === threadId)
+    .filter((tab) => getResidentBrowserWebview(tab.browserId) || !live.has(tab.browserId))
+    .map(tabInfo)
 }
 
-/** Runs one DOM action in an MCP App this window shows, for the Thread or outside any Thread. */
-const runMcpApp = async (
-  request: Request,
-  threadId: string,
-  args: Extract<Request["command"], { command: "mcp_app" }>["args"],
-  bridge: NonNullable<NonNullable<Window["cypheria"]>["browser"]>
-): Promise<BrowserAutomationOutcomeInput> => {
-  const app = mountedMcpApp(threadId, args.appId)
+const newTab = async (threadId: string): Promise<TabInfo> => {
+  // A new tab comes to the front when the person is looking at the Thread's browser.
+  const record = browserTabsStore.create({
+    activate: isBrowserPaneShown(threadId),
+    kind: "web",
+    threadId,
+    url: null,
+  })
+  const viewport = viewports.get(threadId)
+  if (viewport) applyViewport(record, viewport)
+  ensureResidentBrowserWebview(browserTabsStore.get(record.browserId) ?? record)
+  if (!(await waitForBrowserRegistration(record.browserId))) {
+    browserTabsStore.remove(record.browserId)
+    removeResidentBrowserWebview(record.browserId)
+    throw new HostError("timeout", "The new browser tab did not start. Try again.", true)
+  }
+  return tabInfo(record)
+}
+
+/** Starts a restored tab that has not been opened since launch before its page is used. */
+const materialize = async (tab: BrowserTabRecord): Promise<void> => {
+  ensureResidentBrowserWebview(tab)
+  if (!(await waitForBrowserRegistration(tab.browserId))) {
+    throw new HostError("timeout", `Browser tab ${tab.browserId} did not start.`, true)
+  }
+}
+
+const builtInBrowser = async (
+  request: BrowserAutomationRequest,
+  call: BrowserHostCall,
+  bridge: Bridge
+): Promise<unknown> => {
+  const { threadId } = request
+  const args = call.args
+  switch (call.member) {
+    case "tabs.list":
+      return listTabs(threadId, bridge)
+    case "tabs.new":
+      return newTab(threadId)
+    case "tabs.get":
+      return tabInfo(scopedTab(threadId, String(args[0])))
+    case "tabs.selected": {
+      const selected = browserTabsStore.getSnapshot().activeByThread[threadId]
+      const tab = selected ? browserTabsStore.get(selected) : undefined
+      return tab?.threadId === threadId ? tabInfo(tab) : null
+    }
+    // Built-in browser tabs have no tab groups to name.
+    case "browser.nameSession":
+      return null
+    case "browser.capabilities":
+      return [VISIBILITY, VIEWPORT]
+    case "browser.capability": {
+      const [id, method, values] = args as [string, string, unknown[]]
+      if (id === VISIBILITY.id && method === "get") return isBrowserPaneShown(threadId)
+      if (id === VISIBILITY.id && method === "set") {
+        requestBrowserPane(threadId, values[0] === true)
+        return null
+      }
+      if (id === VIEWPORT.id && (method === "set" || method === "reset")) {
+        setViewport(threadId, method === "set" ? values[0] : null)
+        return null
+      }
+      throw new HostError("unsupported", `The built-in browser has no capability ${id}.${method}.`)
+    }
+    default:
+      break
+  }
+  const tab = scopedTab(threadId, call.tab)
+  switch (call.member) {
+    case "tab.info":
+      return { title: tab.title, url: tab.url }
+    case "tab.close":
+      browserTabsStore.remove(tab.browserId)
+      removeResidentBrowserWebview(tab.browserId)
+      return null
+    // The Server keeps the marks; the window has nothing to change.
+    case "tab.markDeliverable":
+    case "tab.markHandoff":
+      return null
+    case "tab.requestManualHandoff":
+      browserTabsStore.activate(tab.browserId)
+      requestBrowserPane(threadId, true)
+      return null
+    default:
+      break
+  }
+  await materialize(tab)
+  return unwrap(
+    await bridge.executeAutomation({
+      args: call.args,
+      browserId: tab.browserId,
+      member: call.member,
+      threadId,
+      ...(request.cwd ? { cwd: request.cwd } : {}),
+      ...(call.handle ? { handle: call.handle } : {}),
+      ...(call.selector ? { selector: call.selector } : {}),
+    })
+  )
+}
+
+/** MCP Apps this window shows, for the Thread or outside any Thread. */
+const mcpApps = async (
+  request: BrowserAutomationRequest,
+  call: BrowserHostCall,
+  bridge: Bridge
+): Promise<unknown> => {
+  if (call.member === "tabs.list") {
+    return mountedMcpApps().map((app) => ({ id: app.appId, threadId: app.threadId }))
+  }
+  const appId = call.member === "tabs.get" ? String(call.args[0]) : call.tab
+  const app = appId ? mountedMcpApp(request.threadId, appId) : undefined
   if (!app) {
-    return failure(
-      request,
-      "browser_tab_not_found",
-      `MCP App ${args.appId} is not open in this window.`
+    throw new HostError("not_found", `MCP App ${appId ?? ""} is not open in this window.`)
+  }
+  if (call.member === "tabs.get") return { id: app.appId } satisfies TabInfo
+  return unwrap(
+    await bridge.executeMcpApp({
+      appId: app.appId,
+      args: call.args,
+      member: call.member,
+      origin: app.origin,
+      ...(call.selector ? { selector: call.selector } : {}),
+    })
+  )
+}
+
+const dispatch = async (request: BrowserAutomationRequest): Promise<unknown> => {
+  const bridge = globalThis.window?.cypheria?.browser
+  if (!bridge) throw new HostError("unsupported", "This window cannot host browser tabs.")
+  const parsed = BrowserHostRequestSchema.safeParse(request.request)
+  if (!parsed.success) {
+    throw new HostError(
+      "invalid",
+      `Invalid browser request: ${parsed.error.issues[0]?.message ?? "malformed"}`
     )
   }
+  const call = parsed.data
+  if (call.op !== "browser.call" || call.backend !== request.backend) {
+    throw new HostError("invalid", "The window only answers calls to its own browsers.")
+  }
+  if (!isBrowserMember(call.member) || !supports(request.backend, call.member)) {
+    throw new HostError("unsupported", `${call.member} is not available in this browser.`)
+  }
+  return request.backend === "iab"
+    ? builtInBrowser(request, call, bridge)
+    : mcpApps(request, call, bridge)
+}
+
+/** Answers one browser request the Server routed to this window. */
+export const executeBrowserHostCommand = async (
+  request: BrowserAutomationRequest
+): Promise<BrowserAutomationOutcomeInput> => {
   try {
-    const result = await bridge.executeMcpApp({
-      action: args.action,
-      appId: args.appId,
-      origin: app.origin,
-    })
+    return { automationId: request.automationId, ok: true, value: await dispatch(request) }
+  } catch (error) {
+    const coded = error as { code?: unknown; retryable?: unknown }
     return {
       automationId: request.automationId,
-      ok: true,
-      result: { action: args.action.type, appId: args.appId, command: "mcp_app", ...result },
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return failure(
-      request,
-      /latest snapshot/u.test(message) ? "browser_stale_ref" : "browser_unknown_error",
-      message.replace(/^Error invoking remote method '[^']+': (Error: )?/u, "")
-    )
-  }
-}
-
-export const executeBrowserHostCommand = async (
-  request: Request
-): Promise<BrowserAutomationOutcomeInput> => {
-  const bridge = globalThis.window?.cypheria?.browser
-  if (!bridge) {
-    return failure(request, "browser_unsupported", "This window cannot host browser tabs.")
-  }
-  // Browser tabs always belong to a Thread; a request without one has no tabs to address.
-  const { command, threadId } = request
-  if (!threadId) {
-    return failure(request, "browser_denied", "Browser tabs belong to a Cypheria thread.")
-  }
-  switch (command.command) {
-    case "new_tab":
-      return newTab(request, threadId, command.args)
-    case "close_tab":
-      return closeTab(request, threadId, command.args.browserId)
-    case "resize":
-      return resize(request, threadId, command.args)
-    case "list_tabs":
-      return listTabs(request, threadId, bridge)
-    case "list_mcp_apps":
-      return {
-        automationId: request.automationId,
-        ok: true,
-        result: { apps: mountedMcpApps(), command: "list_mcp_apps" },
-      }
-    case "mcp_app":
-      return runMcpApp(request, threadId, command.args, bridge)
-    default: {
-      const pending = await materialize(request, threadId, command.args.browserId)
-      if (pending) return pending
+      error: {
+        code: typeof coded?.code === "string" ? coded.code : "browser_error",
+        message: error instanceof Error && error.message ? error.message : String(error),
+        retryable: coded?.retryable === true,
+      },
+      ok: false,
     }
   }
-  return bridge.executeAutomation(request)
 }
 
 /**
@@ -233,9 +302,8 @@ export const mountBrowserAutomationHost = (client: CypheriaClient): (() => void)
     registration: async () => {
       const status = await globalThis.window?.cypheria?.computerUse.status().catch(() => undefined)
       return {
-        hostKind: "Cypheria Desktop",
+        backends: ["iab", "mcpapps"],
         ...(status ? { name: status.deviceName } : {}),
-        supportedCommands: [...BROWSER_AUTOMATION_COMMAND_NAMES],
       }
     },
   })

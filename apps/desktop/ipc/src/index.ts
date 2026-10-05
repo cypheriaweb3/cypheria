@@ -1,20 +1,16 @@
-import {
-  type BrowserAutomationOutcome,
-  type BrowserAutomationRequest,
-  type BrowserMcpAppAction,
-  type ThreadInputBlock,
-  ThreadInputBlockSchema,
-} from "@cypheria/protocol"
+import { type ThreadInputBlock, ThreadInputBlockSchema } from "@cypheria/protocol"
 import { walletProviderRequestSchema, walletProviderResponseSchema } from "@cypheria/web3/provider"
 import { z } from "zod"
 
 import {
   type BrowserAttachedRegistration,
+  type BrowserCallOutcome,
   type BrowserClearData,
   type BrowserKeyboardPolicyInput,
   type BrowserNewTabRequest,
   type BrowserReservedShortcut,
   type BrowserShortcutInput,
+  type BrowserTabCall,
   browserActiveSetContract,
   browserAttachedRegisterContract,
   browserAutomationExecuteContract,
@@ -24,16 +20,22 @@ import {
   browserLiveListContract,
   browserShortcutPolicySetContract,
   browserUnregisterContract,
+  type McpAppCall,
 } from "./browser.js"
 import { CYPHERIA_BROWSER_CHANNELS } from "./browser-channels.js"
 import {
+  type ChromeImplementationType,
+  ChromeImplementationTypeSchema,
+  type ComputerBackend,
+  ComputerBackendSchema,
   type ComputerUseStatus,
   CYPHERIA_COMPUTER_USE_CHANNELS,
+  computerUseChromeImplementationTypeSetContract,
+  computerUseComputerBackendSetContract,
   computerUseDriverRestartContract,
   computerUseMcpAppExecuteContract,
   computerUsePermissionRequestContract,
   computerUseStatusReadContract,
-  type McpAppExecuteResult,
 } from "./computer-use.js"
 
 export * from "./browser.js"
@@ -74,6 +76,9 @@ export const CYPHERIA_IPC_CHANNELS = {
   browserAttachedRegister: CYPHERIA_BROWSER_CHANNELS.attachedRegister,
   browserAutomationExecute: CYPHERIA_BROWSER_CHANNELS.automationExecute,
   browserDataClear: CYPHERIA_BROWSER_CHANNELS.dataClear,
+  computerUseChromeImplementationTypeSet:
+    CYPHERIA_COMPUTER_USE_CHANNELS.chromeImplementationTypeSet,
+  computerUseComputerBackendSet: CYPHERIA_COMPUTER_USE_CHANNELS.computerBackendSet,
   computerUseDriverRestart: CYPHERIA_COMPUTER_USE_CHANNELS.driverRestart,
   computerUseMcpAppExecute: CYPHERIA_COMPUTER_USE_CHANNELS.mcpAppExecute,
   computerUsePermissionRequest: CYPHERIA_COMPUTER_USE_CHANNELS.permissionRequest,
@@ -344,6 +349,7 @@ export type ClientSettingCategory =
   | "activity"
   | "appearance"
   | "composer"
+  | "computer-use"
   | "general"
   | "git-ui"
   | "locale"
@@ -426,6 +432,8 @@ export const ClientPreferencesSnapshotSchema = z
 export type ClientPreferencesSnapshot = z.infer<typeof ClientPreferencesSnapshotSchema>
 
 export type ClientSettingDefinitions = Readonly<{
+  chromeImplementationType: ClientSettingDefinition<ChromeImplementationType>
+  computerBackend: ClientSettingDefinition<ComputerBackend>
   appearance: ClientSettingDefinition<AppearanceSettingsWrite>
   localeOverride: ClientSettingDefinition<LanguageLocale | null>
   openInTargetPreference: ClientSettingDefinition<string>
@@ -459,6 +467,20 @@ export type ClientSettingDefinitions = Readonly<{
 }>
 
 export const clientSettingDefinitions: ClientSettingDefinitions = {
+  chromeImplementationType: defineClientSetting({
+    category: "computer-use",
+    defaultValue: "extension" as ChromeImplementationType,
+    key: "chromeImplementationType",
+    schema: ChromeImplementationTypeSchema,
+    version: 1,
+  }),
+  computerBackend: defineClientSetting({
+    category: "computer-use",
+    defaultValue: "cua-driver" as ComputerBackend,
+    key: "computerBackend",
+    schema: ComputerBackendSchema,
+    version: 1,
+  }),
   appearance: defineClientSetting({
     category: "appearance",
     defaultValue: DEFAULT_APPEARANCE_SETTINGS,
@@ -1386,6 +1408,8 @@ export const ipcContracts = {
   browserLiveList: browserLiveListContract,
   browserShortcutPolicySet: browserShortcutPolicySetContract,
   browserUnregister: browserUnregisterContract,
+  computerUseChromeImplementationTypeSet: computerUseChromeImplementationTypeSetContract,
+  computerUseComputerBackendSet: computerUseComputerBackendSetContract,
   computerUseDriverRestart: computerUseDriverRestartContract,
   computerUseMcpAppExecute: computerUseMcpAppExecuteContract,
   computerUsePermissionRequest: computerUsePermissionRequestContract,
@@ -1465,15 +1489,10 @@ export type CypheriaPreloadApi = {
     readonly openDevTools: (browserId: string) => Promise<{ opened: boolean }>
     /** Tabs that have a live guest in any window. */
     readonly listLive: () => Promise<{ browserIds: string[] }>
-    readonly executeAutomation: (
-      request: BrowserAutomationRequest
-    ) => Promise<BrowserAutomationOutcome>
-    /** Runs one DOM action in a mounted MCP App, identified by its sandbox origin. */
-    readonly executeMcpApp: (input: {
-      action: BrowserMcpAppAction
-      appId: string
-      origin: string
-    }) => Promise<McpAppExecuteResult>
+    /** Runs one page member on a tab this window shows; Electron main drives it. */
+    readonly executeAutomation: (call: BrowserTabCall) => Promise<BrowserCallOutcome>
+    /** Runs one member in a mounted MCP App, identified by its sandbox origin. */
+    readonly executeMcpApp: (call: McpAppCall) => Promise<BrowserCallOutcome>
     readonly setShortcutPolicy: (policy: BrowserKeyboardPolicyInput) => Promise<{ updated: true }>
     readonly clearData: (input: BrowserClearData) => Promise<{ cleared: true }>
     readonly onNewTabRequest: (handler: (request: BrowserNewTabRequest) => void) => () => void
@@ -1487,6 +1506,12 @@ export type CypheriaPreloadApi = {
       permission: "accessibility" | "screen-recording"
     ) => Promise<ComputerUseStatus>
     readonly restartDriver: () => Promise<ComputerUseStatus>
+    /** Selects how this device drives the person's browsers. */
+    readonly setChromeImplementationType: (
+      type: ChromeImplementationType
+    ) => Promise<ComputerUseStatus>
+    /** Selects how this device drives native apps. */
+    readonly setComputerBackend: (backend: ComputerBackend) => Promise<ComputerUseStatus>
   }
   readonly storage: {
     readonly attachments: {

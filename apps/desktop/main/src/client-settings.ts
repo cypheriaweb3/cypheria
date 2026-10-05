@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { KeyValueStorage } from "@cypheria/storage"
-import { readValidatedValue } from "@cypheria/storage"
+import { readValidatedValue, writeValidatedValue } from "@cypheria/storage"
 import {
   type AppearanceSettingsWrite,
   type ClientPreferencesSnapshot,
@@ -17,6 +17,15 @@ export const readClientSetting = <Value>(
   definition: ClientSettingDefinition<Value>
 ): Promise<Value> =>
   readValidatedValue(storage, definition.key, definition.defaultValue, definition.schema, {
+    version: definition.version,
+  })
+
+export const writeClientSetting = <Value>(
+  storage: KeyValueStorage,
+  definition: ClientSettingDefinition<Value>,
+  value: Value
+): Promise<void> =>
+  writeValidatedValue(storage, definition.key, value, definition.schema, {
     version: definition.version,
   })
 

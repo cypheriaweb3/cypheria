@@ -1,6 +1,6 @@
 /**
- * The external Chromium browsers `cua.browsers` can attach to. Each is driven over the Chrome
- * DevTools Protocol by agent-browser once the person enables remote debugging in that browser.
+ * The Chromium browser families of the `chrome` backend, with where each one turns on remote
+ * debugging for the `cdp` implementation type.
  */
 export const BROWSER_FAMILIES = ["chrome", "edge", "brave", "vivaldi", "opera", "chromium"] as const
 export type BrowserFamily = (typeof BROWSER_FAMILIES)[number]

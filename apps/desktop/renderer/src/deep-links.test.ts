@@ -37,7 +37,6 @@ describe("parseCypheriaDeepLink", () => {
   it.each([
     "https://github.com/o/r/pull/12",
     "cypheria://app/",
-    "cypheria://media/generated-images/a.png",
     "cypheria://threads/not-an-id",
     `cypheria://threads/${THREAD}?view=other`,
     `cypheria://threads/${THREAD}/extra`,

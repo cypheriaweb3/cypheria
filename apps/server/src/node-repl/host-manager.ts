@@ -1,16 +1,21 @@
-import type { CuaSurface } from "@cypheria/cua"
+import type { BrowserBackend, CuaSurface } from "@cypheria/cua"
 import type { CuaHost } from "@cypheria/cua/host"
 import { cuaReplLaunch, cuaReplServerConfig, resolveCuaRoot } from "@cypheria/cua/plugin"
 import type { Logger } from "pino"
 
 import { NodeReplHostService } from "./host-service.js"
+import { nodeReplFeatureEnv, resolveNodeRuntime } from "./node-runtime.js"
 import { resolveNodeReplBinary } from "./resolve-binary.js"
 
 export type NodeReplHostManagerOptions = {
   readonly cua: CuaHost
   /** The Computer Use surfaces settings enable; read when a Thread's servers are configured. */
   readonly surfaces: () => readonly CuaSurface[]
+  /** The browser backends settings enable, which the `js` tool description names. */
+  readonly backends: () => readonly BrowserBackend[]
   readonly resolveCodexPath?: () => Promise<string | undefined> | string | undefined
+  /** Cypheria's managed Node.js, which runs the REPL kernels when it is installed. */
+  readonly resolveNodePath?: () => string | undefined
   readonly logger?: Logger
 }
 
@@ -23,6 +28,7 @@ export type NodeReplConfig = {
 /** The environment a Claude session's `cua` plugin reads to reach its Thread's host. */
 export const CUA_HOST_PIPE_ENV = "CYPHERIA_CUA_HOST_PIPE"
 export const CUA_SURFACES_ENV = "CYPHERIA_CUA_SURFACES"
+export const CUA_BROWSER_BACKENDS_ENV = "CYPHERIA_CUA_BROWSER_BACKENDS"
 
 /**
  * Owns each Thread's `cua_repl` host services socket and composes the Thread's REPL MCP servers:
@@ -32,14 +38,18 @@ export const CUA_SURFACES_ENV = "CYPHERIA_CUA_SURFACES"
 export class NodeReplHostManager {
   readonly #cua: CuaHost
   readonly #surfaces: () => readonly CuaSurface[]
+  readonly #backends: () => readonly BrowserBackend[]
   readonly #resolveCodexPath?: () => Promise<string | undefined> | string | undefined
+  readonly #resolveNodePath?: () => string | undefined
   readonly #logger?: Logger
   readonly #services = new Map<string, NodeReplHostService>()
 
   constructor(options: NodeReplHostManagerOptions) {
     this.#cua = options.cua
     this.#surfaces = options.surfaces
+    this.#backends = options.backends
     this.#resolveCodexPath = options.resolveCodexPath
+    this.#resolveNodePath = options.resolveNodePath
     this.#logger = options.logger
   }
 
@@ -65,12 +75,22 @@ export class NodeReplHostManager {
     const pipePath = await this.#service(threadId, cwd).start()
     const nodeReplPath = resolveNodeReplBinary()
     const codexPath = (await this.#resolveCodexPath?.()) ?? "codex"
-    const sandbox: Record<string, string> =
-      process.env.CYPHERIA_NODE_REPL_DISABLE_SANDBOX === "1" ? {} : { CODEX_CLI_PATH: codexPath }
+    const node = resolveNodeRuntime(this.#resolveNodePath?.())
+    const sandbox: Record<string, string> = {
+      ...nodeReplFeatureEnv(),
+      ...(process.env.CYPHERIA_NODE_REPL_DISABLE_SANDBOX === "1"
+        ? {}
+        : { CODEX_CLI_PATH: codexPath }),
+    }
     const config: NodeReplConfig = {
       args: process.env.CYPHERIA_NODE_REPL_DISABLE_SANDBOX === "1" ? ["--disable-sandbox"] : [],
       command: nodeReplPath,
-      env: { ...sandbox, NODE_REPL_NODE_PATH: process.execPath, NODE_REPL_SESSION_ID: threadId },
+      env: {
+        ...node.env,
+        ...sandbox,
+        NODE_REPL_NODE_PATH: node.path,
+        NODE_REPL_SESSION_ID: threadId,
+      },
     }
     const surfaces = this.#surfaces()
     const root = resolveCuaRoot()
@@ -78,13 +98,15 @@ export class NodeReplHostManager {
       root,
       cuaReplLaunch({
         env: {
+          ...node.env,
           ...sandbox,
           NODE_REPL_HOST_SERVICES_PIPE_PATH: pipePath,
           NODE_REPL_SESSION_ID: threadId,
         },
-        nodePath: process.execPath,
+        nodePath: node.path,
         nodeReplPath,
         root,
+        backends: this.#backends(),
         surfaces,
       }),
       surfaces.length > 0
@@ -104,6 +126,7 @@ export class NodeReplHostManager {
     return {
       [CUA_HOST_PIPE_ENV]: service.pipePath,
       [CUA_SURFACES_ENV]: this.#surfaces().join(","),
+      [CUA_BROWSER_BACKENDS_ENV]: this.#backends().join(","),
     }
   }
 

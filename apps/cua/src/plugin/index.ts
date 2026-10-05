@@ -3,9 +3,14 @@ import { existsSync } from "node:fs"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-
+import type { BrowserBackend } from "../browser/types.ts"
 import { NODE_REPL_PATH_ENV } from "../launcher/launch.ts"
-import { type CuaSurface, ENABLED_SURFACES_ENV, formatSurfaces } from "../surfaces.ts"
+import {
+  BROWSER_BACKENDS_ENV,
+  type CuaSurface,
+  ENABLED_SURFACES_ENV,
+  formatSurfaces,
+} from "../surfaces.ts"
 
 /** The hidden plugin's name and the MCP server it declares. */
 export const CUA_PLUGIN_NAME = "cua"
@@ -45,6 +50,8 @@ export type CuaReplLaunchInput = {
   /** The `node_repl` executable the launcher starts. */
   readonly nodeReplPath: string
   readonly surfaces: readonly CuaSurface[]
+  /** The browser backends settings allow, which the tool description names. */
+  readonly backends?: readonly BrowserBackend[]
   /** Further `node_repl` environment, such as its host services pipe and sandbox. */
   readonly env?: Readonly<Record<string, string>>
 }
@@ -55,6 +62,7 @@ export const cuaReplLaunch = (input: CuaReplLaunchInput): CuaReplLaunch => ({
   env: {
     ...input.env,
     [ENABLED_SURFACES_ENV]: formatSurfaces(input.surfaces),
+    [BROWSER_BACKENDS_ENV]: (input.backends ?? []).join(","),
     [NODE_REPL_PATH_ENV]: input.nodeReplPath,
     NODE_REPL_NODE_PATH: input.nodePath,
   },
@@ -91,7 +99,7 @@ export type GeneratedCuaPlugin = { readonly directory: string; readonly version:
 
 /**
  * Writes the hidden `cua` plugin from the package template into `directory`: its Codex and Claude
- * manifests, with the turn-end hooks, and MCP configurations filled in with `launch`. The server
+ * manifests and MCP configurations filled in with `launch`. The server
  * stays disabled in the plugin; each Thread enables it with its own host (`cuaReplServerConfig`).
  * The version carries a digest of the configuration, so a moved installation reinstalls.
  */

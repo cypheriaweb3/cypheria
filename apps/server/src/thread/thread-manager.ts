@@ -150,6 +150,11 @@ export class ThreadManager {
   readonly #onUnarchiving: ThreadManagerOptions["onUnarchiving"]
   readonly #onTurnCompleted: ThreadManagerOptions["onTurnCompleted"]
   readonly #runtime = new Map<string, RuntimeState>()
+  /** Interactions the Server itself asked, answered here rather than by a harness. */
+  readonly #serverInteractions = new Map<
+    string,
+    { readonly threadId: string; readonly resolve: (response: ThreadInteractionResponse) => void }
+  >()
   readonly #timeline: ThreadTimelineStore
   #extensionInput: ExtensionInputProvider | undefined
   readonly #hookEngine: HookEngine | undefined
@@ -875,6 +880,7 @@ export class ThreadManager {
         const runtime = this.#state(source.id)
         runtime.activeTurn = null
         runtime.capabilities = session.capabilities
+        this.#cancelServerInteractions(source.id)
         runtime.pendingInteractions.clear()
         runtime.state = "idle"
         await this.#timeline.replace(
@@ -971,6 +977,7 @@ export class ThreadManager {
         runtime.capabilities = session.capabilities
         runtime.state = "idle"
         runtime.activeTurn = null
+        this.#cancelServerInteractions(threadId)
         runtime.pendingInteractions.clear()
         if (session.history !== undefined) {
           await this.#timeline.replace(
@@ -1004,6 +1011,7 @@ export class ThreadManager {
         await this.#adapterFor(thread.agentId as AgentId, thread.id).close(this.#context(thread))
         runtime.state = "stopped"
         runtime.activeTurn = null
+        this.#cancelServerInteractions(threadId)
         runtime.pendingInteractions.clear()
         return this.#updateAndPublish(thread)
       } catch (error) {
@@ -1360,6 +1368,7 @@ export class ThreadManager {
           .catch(() => undefined)
       runtime.activeTurn = null
       runtime.state = "idle"
+      this.#cancelServerInteractions(threadId)
       return this.#updateAndPublishSync(thread)
     })
   }
@@ -1389,6 +1398,39 @@ export class ThreadManager {
     return usage ?? runtime.contextUsage
   }
 
+  /**
+   * Asks the people in a Thread something on the Server's own behalf, such as whether Computer
+   * Use may operate an app. Any client of the Thread answers it like a harness's interaction;
+   * the answer resolves the returned promise. Closing or rewinding the Thread cancels it.
+   */
+  async requestInteraction(
+    threadId: string,
+    request: { readonly title: string; readonly message: string; readonly kind?: "permission" }
+  ): Promise<ThreadInteractionResponse> {
+    const thread = await this.#required(threadId)
+    const runtime = this.#state(threadId)
+    const interaction: ThreadInteraction = {
+      createdAt: new Date().toISOString(),
+      expiresAt: null,
+      id: `server:${globalThis.crypto.randomUUID()}`,
+      kind: request.kind ?? "permission",
+      message: request.message,
+      options: [],
+      title: request.title,
+      ...(runtime.activeTurn ? { turnId: runtime.activeTurn.id } : {}),
+    }
+    const answered = new Promise<ThreadInteractionResponse>((resolve) => {
+      this.#serverInteractions.set(interaction.id, { resolve, threadId })
+    })
+    runtime.pendingInteractions.set(interaction.id, interaction)
+    this.#publish({
+      payload: { interaction, threadId },
+      type: "thread.interaction.requested.notification",
+    })
+    this.#updateAndPublishSync(thread)
+    return answered
+  }
+
   async respondToInteraction(
     threadId: string,
     interactionId: string,
@@ -1403,11 +1445,16 @@ export class ThreadManager {
           "Interaction was already resolved or does not exist"
         )
       }
-      await this.#adapterFor(thread.agentId as AgentId, thread.id).respondToInteraction(
-        this.#context(thread),
-        interactionId,
-        response
-      )
+      const own = this.#serverInteractions.get(interactionId)
+      if (own?.threadId === threadId) {
+        this.#serverInteractions.delete(interactionId)
+        own.resolve(response)
+      } else
+        await this.#adapterFor(thread.agentId as AgentId, thread.id).respondToInteraction(
+          this.#context(thread),
+          interactionId,
+          response
+        )
       runtime.pendingInteractions.delete(interactionId)
       this.#publish({
         payload: { interactionId, threadId },
@@ -1415,6 +1462,22 @@ export class ThreadManager {
       })
       return this.#updateAndPublishSync(thread)
     })
+  }
+
+  /** Answers the Server's own open interactions in a Thread with a cancellation. */
+  #cancelServerInteractions(threadId: string): void {
+    const runtime = this.#state(threadId)
+    for (const [id, pending] of this.#serverInteractions) {
+      if (pending.threadId !== threadId) continue
+      this.#serverInteractions.delete(id)
+      if (runtime.pendingInteractions.delete(id)) {
+        this.#publish({
+          payload: { interactionId: id, threadId },
+          type: "thread.interaction.resolved.notification",
+        })
+      }
+      pending.resolve({ type: "cancel" })
+    }
   }
 
   async closeAgentThreads(agentId: AgentId): Promise<void> {

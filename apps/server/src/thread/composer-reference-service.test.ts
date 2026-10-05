@@ -69,4 +69,43 @@ describe("ComposerReferenceService", () => {
       )
     ).rejects.toThrow("no longer available")
   })
+
+  it("offers the person's own browser tabs as chrome tab mentions", async () => {
+    const service = new ComposerReferenceService({
+      integrations,
+      listBrowserTabs: async () => [
+        {
+          browserId: "chrome:Profile 1",
+          browserName: "Google Chrome",
+          profileName: "Work",
+          source: "chrome",
+          tabId: "T1",
+          title: "Inbox",
+          url: "https://mail.example/",
+        },
+      ],
+    })
+    const context = { agentId: "codex", cwd: null, threadId: "thread-1" }
+    const [suggestion] = await service.suggest(context, "@", "inbox")
+    expect(suggestion).toMatchObject({
+      description: "Google Chrome · Work — https://mail.example/",
+      kind: "browser-tab",
+      label: "Inbox",
+    })
+    const resolved = await service.resolve(
+      {
+        id: (suggestion as { id: string }).id,
+        kind: "browser-tab",
+        label: "Inbox",
+        type: "reference",
+      },
+      context
+    )
+    expect(resolved).toMatchObject({ type: "text" })
+    const text = (resolved as { text: string }).text
+    expect(text).toContain("Google Chrome · Work tab")
+    expect(text).toContain(
+      "plugin://chrome@cypheria-bundled?browserId=chrome%3AProfile+1&mention=tab-v1&source=chrome&tabId=T1"
+    )
+  })
 })

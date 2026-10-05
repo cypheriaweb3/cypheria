@@ -32,6 +32,7 @@
       "!packages/db/drizzle/meta",
       "!packages/protocol/src/generated/codex/messages.ts",
       "!packages/protocol/src/generated",
+      "!apps/cua/src/vendor",
       "!apps/node-repl/internal/assets/files"
     ]
   },

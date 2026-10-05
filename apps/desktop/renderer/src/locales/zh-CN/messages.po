@@ -34,6 +34,12 @@ msgid "git.review.rowSummary"
 msgstr "{path}，新增 {additions} 行，删除 {deletions} 行，{comments} 条评论"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: reviewCount === 1 ? "hook needs" : "hooks need"
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.reviewBanner.title"
+msgstr "{reviewCount} 个 Hook 待审核"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.keyboardHelp"
 msgstr "↑↓ 导航 · Enter 打开 · Esc 关闭"
@@ -61,6 +67,11 @@ msgstr "由 magpie 运行的本地网关，为 Cypheria 管理的 Agent 提供�
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.revertDescription"
 msgstr "撤销前会保存可恢复的副本。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.accessibility"
+msgstr "辅助功能"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -166,9 +177,19 @@ msgstr "Agent 上报"
 msgid "Agents"
 msgstr "Agents"
 
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.browserFamiliesDescription"
+msgstr "Agent 只使用这里开启的浏览器。"
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "AI gateway"
 msgstr "AI 网关"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.all"
+msgstr "全部"
 
 #: renderer/src/components/gateway/gateway-usage-section.tsx
 msgid "All time"
@@ -178,6 +199,11 @@ msgstr "全部时间"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.allowOnce"
 msgstr "仅允许一次"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.browserFamilies"
+msgstr "允许的浏览器"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -425,6 +451,11 @@ msgid "git.review.baseBranch"
 msgstr "基础分支"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.blocked"
+msgstr "已阻止"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.bottom"
 msgstr "底部"
@@ -476,9 +507,19 @@ msgid "settings.browser.section"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeImplementationType"
+msgstr "浏览器连接方式"
+
+#. js-lingui-explicit-id
 #: renderer/src/browser/browser-pane.tsx
 msgid "browser.tabs"
 msgstr "浏览器标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.inAppBrowser"
+msgstr "内置浏览器"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -548,6 +589,17 @@ msgstr "已要求更改"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.chatTitle"
 msgstr "会话标题"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCodex"
+msgstr "ChatGPT Computer Use"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: codex.version
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCodexVersion"
+msgstr "ChatGPT 运行时 {0}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -730,11 +782,6 @@ msgid "settings.worktrees.upstreamRefresh.description"
 msgstr "Codex 通常会在常规 Git 操作中获取分支更新。此设置还会在创建每个新工作树前获取上游更新。"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.branchPrefix.placeholder"
-msgstr "cypheria/"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/review-diff-display.tsx
 msgid "git.diff.collapseAll"
 msgstr "折叠全部差异"
@@ -838,14 +885,40 @@ msgid "chat.computerUse.firstUse"
 msgstr "电脑访问请求"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.section"
+msgstr "电脑操控"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.computerUse.disclosure"
 msgstr "Computer Use 可以操作电脑上的应用，也可能在工作时截取屏幕画面。你可以随时停止它。"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.service"
+msgstr "电脑操控服务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.loadErrors.title"
+msgstr "配置错误"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.confirm"
 msgstr "确认"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: extension.browsers.map((browser) => browser.name).join(", ")
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionConnected"
+msgstr "已连接：{0}。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeCdpDescription"
+msgstr "连接已允许远程调试的运行中浏览器。请在浏览器的 inspect 页面开启，例如 chrome://inspect/#remote-debugging，并在浏览器询问时允许连接。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1089,9 +1162,34 @@ msgid "chat.summary.workspace.cwd"
 msgstr "当前工作目录"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCuaDriver"
+msgstr "Cypheria（cua-driver）"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeExtension"
+msgstr "Cypheria 扩展"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extension"
+msgstr "Cypheria 扩展"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.projectlessDirectoryCreationWarning"
 msgstr "当前工作目录将改为新建的无项目托管目录，其中包含 work/ 和 outputs/。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCuaDriverDescription"
+msgstr "Cypheria 自带的服务，使用你授予 Cypheria 的权限。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix.placeholder"
+msgstr "cypheria/"
 
 #. js-lingui-explicit-id
 #: renderer/src/browser/browser-settings-section.tsx
@@ -1176,6 +1274,16 @@ msgid "createPr.bodyField"
 msgstr "描述"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backend"
+msgstr "桌面应用控制"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.desktopApps"
+msgstr "桌面应用"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.detachPr"
 msgstr "从聊天中解除"
@@ -1224,6 +1332,11 @@ msgstr "禁用基于 Git 的差异对比"
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.reviewMode.label"
 msgstr "禁用基于 Git 的差异对比"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.loading"
+msgstr "正在查找已配置的 Hook…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1385,9 +1498,19 @@ msgstr "展开文件"
 msgid "chat.state.failed"
 msgstr "失败"
 
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.failed"
+msgstr "失败"
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Failed"
 msgstr "失败"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.error.title"
+msgstr "无法加载 Hook"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-settings.tsx
@@ -1413,6 +1536,11 @@ msgstr "文件变更"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.files"
 msgstr "个文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.searchPlaceholder"
+msgstr "筛选 Hook…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-summary.tsx
@@ -1529,6 +1657,16 @@ msgid "chat.panel.goal"
 msgstr "目标"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.grant"
+msgstr "授权"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.granted"
+msgstr "已授权"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sectionDescription"
 msgstr "按你喜欢的方式组织对话和项目"
@@ -1572,6 +1710,41 @@ msgstr "隐藏终端面板"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.dismissAgentComment.tooltip"
 msgstr "从 diff 中隐藏此评论；它仍保留在对话中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.noOutput"
+msgstr "Hook 已执行，没有 stdout/stderr 输出。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.message.hookStats"
+msgstr "Hook 统计"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.dialogTitle"
+msgstr "Hook 统计"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.hooks"
+msgstr "Hooks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.empty.desc"
+msgstr "可以在 ~/.codex/hooks.json、项目的 .codex/ 目录中配置 Hook，也可以由已启用的插件提供。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionHostInstalled"
+msgstr "宿主已安装"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionHostMissing"
+msgstr "缺少宿主"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
@@ -1619,6 +1792,11 @@ msgstr "初始化仓库"
 msgid "chat.tool.input"
 msgstr "输入"
 
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionHostPending"
+msgstr "正在安装宿主"
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Installing…"
 msgstr "正在安装…"
@@ -1627,6 +1805,11 @@ msgstr "正在安装…"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.group.integrations"
 msgstr "集成"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.description"
+msgstr "用自定义脚本或 MCP 工具拦截并扩展 Agent 轮次、工具调用和生命周期事件。"
 
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "It was used without reaching the gateway."
@@ -1728,6 +1911,41 @@ msgid "createPr.bodyPlaceholder"
 msgstr "留空则自动生成"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.inAppBrowserDescription"
+msgstr "允许 Agent 在自己的对话中打开和控制内置浏览器的标签页，包括 dApp 标签页。钱包签名仍遵循你的策略和审批。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.mcpAppsDescription"
+msgstr "允许 Agent 操作其对话中显示的插件应用。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.desktopAppsDescription"
+msgstr "允许 Agent 在后台读取和操作这台电脑上的应用，并使用它自己的光标。工作时可能会截图。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.externalBrowsersDescription"
+msgstr "允许 Agent 使用带有你登录状态的 Chrome、Edge、Brave、Vivaldi、Opera 或 Chromium。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.accessibilityDescription"
+msgstr "允许 Cypheria 读取应用窗口并在其中操作。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.screenRecordingDescription"
+msgstr "允许 Cypheria 为其操作的应用窗口截图。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.title"
+msgstr "生命周期 Hooks"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/context-usage.tsx
 msgid "chat.context.queried"
 msgstr "实时查询"
@@ -1804,6 +2022,11 @@ msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypher
 msgstr "magpie 会修改 Cypheria 管理的 Agent 在其 Cypheria 目录中的设置。为每个 Agent 选择它使用的模型或路由组。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.managed"
+msgstr "托管"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.manual"
 msgstr "手动排序"
@@ -1826,6 +2049,11 @@ msgstr "标记为未读"
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp"
+msgstr "MCP 应用"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.mcpApps"
 msgstr "MCP 应用"
 
 #. js-lingui-explicit-id
@@ -1969,6 +2197,11 @@ msgid "settings.worktrees.worktree.newChat"
 msgstr "在此工作树中新建聊天"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.reviewBanner.description"
+msgstr "新增或修改的 Hook 必须经过审核并信任后，Codex 才会运行。请检查下方的命令或工具，然后点击“信任”授权执行。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.project.new"
 msgstr "新建项目"
@@ -1997,6 +2230,17 @@ msgstr "新建终端"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.empty"
 msgstr "没有已归档会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionMissing"
+msgstr "尚无浏览器连接。请在 Agent 可以使用的每个浏览器配置文件中添加 Cypheria 扩展。"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: extension.unpackedPath
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionUnpacked"
+msgstr "尚无浏览器连接。请在浏览器的扩展程序页面打开开发者模式，选择“加载已解压的扩展程序”，然后选择 {0}。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2047,6 +2291,16 @@ msgstr "没有匹配的文件"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.goal.empty"
 msgstr "此任务尚未设置目标"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.noRuns"
+msgstr "本轮没有 Hook 运行记录。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.empty.title"
+msgstr "没有找到 Hook"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2159,6 +2413,11 @@ msgstr "尚无工作树"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noWorkspaceDirectories"
 msgstr "无"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeUnavailable"
+msgstr "此版本尚不可用。"
 
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Not installed"
@@ -2451,6 +2710,11 @@ msgid "settings.plugins"
 msgstr "插件"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.plugin"
+msgstr "插件"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pluginsAndSkills"
 msgstr "插件与技能"
@@ -2483,6 +2747,11 @@ msgstr "优先级"
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.project"
+msgstr "项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.project"
 msgstr "项目"
 
 #. js-lingui-explicit-id
@@ -2653,6 +2922,11 @@ msgid "git.review.untrackedOmitted.refresh"
 msgstr "刷新"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.refresh"
+msgstr "刷新"
+
+#. js-lingui-explicit-id
 #: renderer/src/browser/browser-pane.tsx
 msgid "browser.reload"
 msgstr "重新加载"
@@ -2661,6 +2935,11 @@ msgstr "重新加载"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.remoteBranch"
 msgstr "远端"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeCdp"
+msgstr "远程调试（CDP）"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2740,6 +3019,16 @@ msgstr "解决 {url} 的合并冲突。请确认仓库和已检出的分支与�
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Restart"
 msgstr "重启"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.restart"
+msgstr "重启"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.serviceDescription"
+msgstr "更改权限后请重启服务以使其生效。"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.worktrees.tsx
@@ -2837,6 +3126,11 @@ msgid "Routing groups"
 msgstr "路由组"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.runHistory"
+msgstr "运行历史"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.threadRunning"
 msgstr "运行中"
@@ -2858,6 +3152,11 @@ msgstr "运行中"
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Running since"
 msgstr "启动时间"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.runs"
+msgstr "运行次数"
 
 #. placeholder {0}: view.version
 #: renderer/src/components/gateway/gateway-general-section.tsx
@@ -2904,6 +3203,11 @@ msgstr "计划任务"
 #: renderer/src/components/codex-summary.tsx
 msgid "chat.summary.schedules"
 msgstr "日程"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.screenRecording"
+msgstr "屏幕录制"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -3236,6 +3540,11 @@ msgid "git.review.staged"
 msgstr "已暂存"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.start"
+msgstr "启动"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "开始会话"
@@ -3410,6 +3719,11 @@ msgid "createPr.newBranchHint"
 msgstr "当前检出位于其基础分支上，因此拉取请求需要自己的分支。"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.serviceMissing"
+msgstr "此版本未包含 cua-driver 服务。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.currentDirectoryWillChange"
 msgstr "当前工作目录将发生改变。这会影响后续命令和 Agent 操作。"
@@ -3523,6 +3837,11 @@ msgstr "Token"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.group.tools"
 msgstr "工具活动"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.trustButton"
+msgstr "信任"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -3685,6 +4004,16 @@ msgstr "从 Cypheria 创建 PR 时默认使用草稿 Pull Request"
 msgid "chat.permissions.agentConfig.description"
 msgstr "使用 Codex Agent 配置的权限"
 
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.user"
+msgstr "用户"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCodexDescription"
+msgstr "使用已安装的 ChatGPT 应用中的 Computer Use。它的辅助功能和屏幕录制权限属于 Codex Computer Use，由它自行请求。"
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Version"
 msgstr "版本"
@@ -3779,6 +4108,11 @@ msgid "chat.state.working"
 msgstr "正在处理…"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeExtensionDescription"
+msgstr "通过每个浏览器配置中的 Cypheria 扩展工作。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-summary.tsx
 msgid "chat.summary.workspace.directories"
 msgstr "工作区目录"
@@ -3845,101 +4179,5 @@ msgstr "Worktree 要求项目的第一个源文件夹是 Git 仓库。"
 
 #. js-lingui-explicit-id
 #: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.accessibility"
-msgstr "辅助功能"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.accessibilityDescription"
-msgstr "允许 Cypheria 读取应用窗口并在其中操作。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.desktopApps"
-msgstr "桌面应用"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.desktopAppsDescription"
-msgstr "允许 Agent 在后台读取和操作这台电脑上的应用，并使用它自己的光标。工作时可能会截图。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
 msgid "settings.computerUse.externalBrowsers"
 msgstr "你的浏览器"
-
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.externalBrowsersDescription"
-msgstr "允许 Agent 使用你已登录的 Chrome、Edge、Brave、Vivaldi、Opera 或 Chromium。请在浏览器的 inspect 页面（例如 chrome://inspect/#remote-debugging）开启远程调试，并在浏览器询问时允许连接。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.grant"
-msgstr "授权"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.granted"
-msgstr "已授权"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.inAppBrowser"
-msgstr "内置浏览器"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.inAppBrowserDescription"
-msgstr "允许 Agent 在自己的对话中打开和控制内置浏览器的标签页，包括 dApp 标签页。钱包签名仍遵循你的策略和审批。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.mcpApps"
-msgstr "MCP 应用"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.mcpAppsDescription"
-msgstr "允许 Agent 操作其对话中显示的插件应用。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.restart"
-msgstr "重启"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.screenRecording"
-msgstr "屏幕录制"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.screenRecordingDescription"
-msgstr "允许 Cypheria 为其操作的应用窗口截图。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.section"
-msgstr "电脑操控"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.service"
-msgstr "电脑操控服务"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.serviceDescription"
-msgstr "更改权限后请重启服务以使其生效。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.serviceMissing"
-msgstr "此版本未包含 cua-driver 服务。"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.start"
-msgstr "启动"

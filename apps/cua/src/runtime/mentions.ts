@@ -1,18 +1,21 @@
 /** A tab the user mentioned in the composer, as the snapshot they accepted. */
 export type TabMention = {
-  readonly plugin: "browser" | "chrome"
-  readonly browserId?: string
-  /** The device an external tab's browser runs on, when the mention names one. */
-  readonly host?: string
+  /** The browser's backend: the built-in browser or the user's Chromium browsers. */
+  readonly source: "iab" | "chrome"
+  /** The browser: `iab`, or the ID of one of the user's browsers. */
+  readonly browserId: string
+  /** The browser's own tab ID. */
   readonly tabId: string
   readonly title: string
   readonly url: string
+  /** The device the browser runs on, when the mention names one. */
+  readonly host?: string
 }
 
 /**
- * Parses `plugin://browser@cypheria-bundled?mention=tab-v1&tabId=…&title=…&url=…` (a built-in
- * browser tab) or `plugin://chrome@cypheria-bundled?mention=tab-v1&host=…&browserId=…&tabId=…&…`
- * (an external browser tab). Anything else is rejected rather than guessed at.
+ * Parses `plugin://browser@cypheria-bundled?mention=tab-v1&source=…&browserId=…&tabId=…&title=…&url=…`
+ * or the same under `plugin://chrome@cypheria-bundled` for the user's browser. Anything else is
+ * rejected rather than guessed at.
  */
 export const parseTabMention = (mention: string): TabMention => {
   let url: URL
@@ -33,25 +36,24 @@ export const parseTabMention = (mention: string): TabMention => {
     throw new Error("Invalid tab mention URL.")
   }
   const fields = Object.fromEntries(url.searchParams)
-  const { browserId, host, mention: version, tabId, title, url: pageUrl } = fields
+  const source = fields.source ?? (plugin === "browser" ? "iab" : "chrome")
+  const browserId = fields.browserId ?? (source === "iab" ? "iab" : undefined)
   if (
-    version !== "tab-v1" ||
-    !tabId?.trim() ||
-    title === undefined ||
-    pageUrl === undefined ||
-    (plugin === "chrome" && !browserId?.trim())
+    fields.mention !== "tab-v1" ||
+    (source !== "iab" && source !== "chrome") ||
+    !browserId?.trim() ||
+    !fields.tabId?.trim() ||
+    fields.title === undefined ||
+    fields.url === undefined
   ) {
     throw new Error("Invalid tab mention fields.")
   }
-  return { browserId, ...(host?.trim() ? { host } : {}), plugin, tabId, title, url: pageUrl }
-}
-
-/** Fails closed when a mentioned tab changed after the user mentioned it. */
-export const assertMentionCurrent = (
-  mention: TabMention,
-  tab: { title: string; url: string }
-): void => {
-  if (tab.title !== mention.title || tab.url !== mention.url) {
-    throw new Error("Stale tab mention: the tab's title or URL has changed since it was mentioned.")
+  return {
+    browserId,
+    ...(fields.host?.trim() ? { host: fields.host } : {}),
+    source,
+    tabId: fields.tabId,
+    title: fields.title,
+    url: fields.url,
   }
 }

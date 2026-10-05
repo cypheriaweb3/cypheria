@@ -3,8 +3,7 @@
  * Review panel, and `cypheria://review?pr=<url>&path=<file>&line=<n>&side=<left|right>` opens a
  * pull request's diff at a line. `cypheria://plugins/<plugin>@<marketplace>/app/<tool>?path=<path>`
  * opens a plugin's global entry point at an App-relative path, as the OpenAI MCP Extensions deep
- * links do. `cypheria://app/` is the renderer's own origin and `cypheria://media/`
- * serves generated images, so neither is a deep link.
+ * links do. `cypheria://app/` is the renderer's own origin, so it is not a deep link.
  */
 
 export type CypheriaDeepLink =

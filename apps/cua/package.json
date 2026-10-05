@@ -5,7 +5,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./browser": "./src/browser/index.ts",
+    "./dom-engine": "./src/dom-engine/index.ts",
     "./driver-host": "./src/driver-host/index.ts",
+    "./engine": "./src/engine/index.ts",
     "./host": "./src/host/index.ts",
     "./plugin": "./src/plugin/index.ts"
   },
@@ -14,13 +17,14 @@
     "check": "pnpm build && pnpm typecheck && vitest run",
     "fetch:cua-driver": "node scripts/fetch-cua-driver.mjs",
     "test": "pnpm build && vitest run",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "vendor:playwright": "node scripts/vendor-playwright.mjs"
   },
   "dependencies": {
-    "agent-browser": "0.38.2",
     "zod": "^4.6.2"
   },
   "devDependencies": {
+    "playwright-core": "1.63.0",
     "vite": "^8.3.1",
     "vitest": "^4.1.11"
   }

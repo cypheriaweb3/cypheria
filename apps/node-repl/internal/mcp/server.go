@@ -169,7 +169,7 @@ func baseToolDefinitions() []map[string]any {
 	return []map[string]any{
 		{
 			"name":        "js",
-			"description": "Execute JavaScript in a persistent `node_repl` with top-level await. Top-level bindings persist until `js_reset` and can be redeclared. Use `const` for stable values and `let` for changing values. Use dynamic imports such as `await import(\"playwright\")`; top-level static imports and `node:process` are unavailable. Use `nodeRepl.write(value)` for output and `await nodeRepl.emitImage(image)` for images. Execution context is available through `nodeRepl.cwd`, `nodeRepl.homeDir`, `nodeRepl.tmpDir`, and `nodeRepl.requestMeta`. The default timeout is 30000 ms (30 seconds); increase `timeout_ms` for longer operations. Use `js_add_node_module_dir` when an additional package directory is required.",
+			"description": "Execute JavaScript in a persistent `node_repl` with top-level await. Top-level bindings persist until `js_reset` and can be redeclared. Use `const` for stable values and `let` for changing values. Use dynamic imports such as `await import(\"playwright\")`; top-level static imports and `node:process` are unavailable. Use `nodeRepl.write(value)` for output and `await nodeRepl.emitImage(image)` for images. Execution context is available through `nodeRepl.cwd`, `nodeRepl.homeDir`, and `nodeRepl.tmpDir`. The default timeout is 30000 ms (30 seconds); increase `timeout_ms` for longer operations. Use `js_add_node_module_dir` when an additional package directory is required.",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -228,37 +228,6 @@ func baseToolDefinitions() []map[string]any {
 				"openWorldHint":   false,
 			},
 		},
-		{
-			"name":        "turn_ended",
-			"description": "Notify trusted libraries that a Codex turn ended. Repeated notifications for the same session and turn are ignored.",
-			"inputSchema": map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"hook_event_name": map[string]any{
-						"type":      "string",
-						"minLength": 1,
-					},
-					"session_id": map[string]any{
-						"type":      "string",
-						"minLength": 1,
-					},
-					"turn_id": map[string]any{
-						"type":      "string",
-						"minLength": 1,
-					},
-				},
-				"required":             []string{"hook_event_name", "session_id", "turn_id"},
-				"additionalProperties": false,
-			},
-			"annotations": map[string]any{
-				"idempotentHint": true,
-			},
-			"_meta": map[string]any{
-				"ui": map[string]any{
-					"visibility": []string{},
-				},
-			},
-		},
 	}
 }
 
@@ -308,34 +277,15 @@ func (s *Server) handleToolCall(ctx context.Context, req rpcRequest) *rpcRespons
 			}
 		}
 
-		content := make([]map[string]any, 0, len(res.Images)+1)
-		if res.Text != "" || len(res.Images) == 0 {
+		content := make([]map[string]any, 0, len(res.Media)+1)
+		if res.Text != "" || len(res.Media) == 0 {
 			content = append(content, map[string]any{
 				"type": "text",
 				"text": res.Text,
 			})
 		}
-		for _, img := range res.Images {
-			if strings.HasPrefix(img, "data:") {
-				parts := strings.SplitN(img, ",", 2)
-				if len(parts) == 2 {
-					mime := "image/png"
-					header := parts[0]
-					if strings.HasPrefix(header, "data:") && strings.Contains(header, ";") {
-						mime = strings.TrimPrefix(strings.Split(header, ";")[0], "data:")
-					}
-					content = append(content, map[string]any{
-						"type":     "image",
-						"data":     parts[1],
-						"mimeType": mime,
-					})
-					continue
-				}
-			}
-			content = append(content, map[string]any{
-				"type": "text",
-				"text": fmt.Sprintf("[Image: %s]", img),
-			})
+		for _, media := range res.Media {
+			content = append(content, mediaContent(media))
 		}
 
 		return &rpcResponse{
@@ -409,23 +359,6 @@ func (s *Server) handleToolCall(ctx context.Context, req rpcRequest) *rpcRespons
 			},
 		}
 
-	case "turn_ended":
-		var args struct {
-			HookEventName string `json:"hook_event_name"`
-			SessionID     string `json:"session_id"`
-			TurnID        string `json:"turn_id"`
-		}
-		_ = json.Unmarshal(params.Arguments, &args)
-		_ = s.supervisor.TurnEnded(args.HookEventName, args.SessionID, args.TurnID)
-		return &rpcResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Result: map[string]any{
-				"content": []map[string]any{},
-				"isError": false,
-			},
-		}
-
 	default:
 		return &rpcResponse{
 			JSONRPC: "2.0",
@@ -433,4 +366,21 @@ func (s *Server) handleToolCall(ctx context.Context, req rpcRequest) *rpcRespons
 			Error:   &rpcError{Code: -32601, Message: fmt.Sprintf("Unknown tool: %s", params.Name)},
 		}
 	}
+}
+
+// mediaContent turns emitted media into MCP content: a base64 data URL becomes image or audio
+// content; anything else is named in text.
+func mediaContent(media supervisor.Media) map[string]any {
+	if header, data, ok := strings.Cut(media.URL, ","); ok && strings.HasPrefix(header, "data:") && strings.HasSuffix(header, ";base64") {
+		mime := strings.TrimSuffix(strings.TrimPrefix(header, "data:"), ";base64")
+		if mime == "" {
+			mime = media.Kind + "/" + map[string]string{"image": "png", "audio": "wav"}[media.Kind]
+		}
+		return map[string]any{"type": media.Kind, "data": data, "mimeType": mime}
+	}
+	label := "Image"
+	if media.Kind == "audio" {
+		label = "Audio"
+	}
+	return map[string]any{"type": "text", "text": fmt.Sprintf("[%s: %s]", label, media.URL)}
 }

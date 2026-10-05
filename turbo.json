@@ -32,6 +32,14 @@
     "typecheck": {
       "dependsOn": ["^typecheck"],
       "outputs": []
+    },
+    "@cypheria/browser-extension#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".output/**"]
+    },
+    "@cypheria/browser-extension-host#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
     }
   }
 }

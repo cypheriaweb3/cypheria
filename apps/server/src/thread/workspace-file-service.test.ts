@@ -11,6 +11,7 @@ import {
 import type { ServerMessage } from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
 
+import { codexGeneratedImagesDir } from "../agent/codex-generated-images.js"
 import { WorkspaceFileService } from "./workspace-file-service.js"
 
 const cleanup: string[] = []
@@ -248,6 +249,81 @@ describe("WorkspaceFileService", () => {
         "thread.files.changed.notification",
         "thread.files.changed.notification",
       ])
+    } finally {
+      database.close()
+    }
+  })
+})
+
+describe("WorkspaceFileService output roots", () => {
+  it("reads a Codex session's generated images without making them writable or workspace roots", async () => {
+    const home = await mkdtemp(join(tmpdir(), "cypheria-output-roots-"))
+    cleanup.push(home)
+    const root = join(home, "work")
+    const codexHome = join(home, "codex-home")
+    await mkdir(root, { recursive: true })
+    const database = openCypheriaDatabase({ cypheriaHome: home })
+    try {
+      await applyDatabaseMigrations(database.client)
+      await createAgentRegistryPersistenceService(database.db).reconcile([
+        { id: "codex", native: true },
+      ])
+      const persistence = createProjectThreadPersistenceService(database.db)
+      const thread = await persistence.createThread({
+        agentId: "codex",
+        agentSessionId: "019a-session",
+        roots: [root],
+      })
+      const other = await persistence.createThread({
+        agentId: "codex",
+        agentSessionId: "019a-other",
+        roots: [root],
+      })
+      const images = codexGeneratedImagesDir(codexHome, "019a-session")
+      const otherImages = codexGeneratedImagesDir(codexHome, "019a-other")
+      await mkdir(images, { recursive: true })
+      await mkdir(otherImages, { recursive: true })
+      await writeFile(join(images, "call_1.png"), new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0]))
+      await writeFile(join(otherImages, "call_2.png"), "png")
+      const service = new WorkspaceFileService({
+        cypheriaHome: home,
+        outputRoots: (record) =>
+          record.agentId === "codex" && record.agentSessionId
+            ? [codexGeneratedImagesDir(codexHome, record.agentSessionId)]
+            : [],
+        persistence,
+        projectlessRoot: join(home, "managed"),
+        publish: () => undefined,
+      })
+
+      await expect(
+        service.resolvePath({ path: join(images, "call_1.png"), threadId: thread.id })
+      ).resolves.toMatchObject({ kind: "file", path: "call_1.png", root: images })
+      await expect(
+        service.read({ path: "call_1.png", root: images, threadId: thread.id })
+      ).resolves.toMatchObject({ kind: "binary" })
+      // Another Thread's images stay out of reach.
+      await expect(
+        service.resolvePath({ path: join(otherImages, "call_2.png"), threadId: thread.id })
+      ).resolves.toEqual({ kind: "outside" })
+      await expect(
+        service.read({ path: "call_2.png", root: otherImages, threadId: thread.id })
+      ).rejects.toMatchObject({ code: "ROOT_NOT_ALLOWED" })
+      await expect(
+        service.write({
+          content: "x",
+          path: "call_1.png",
+          root: images,
+          threadId: thread.id,
+          version: null,
+        })
+      ).rejects.toMatchObject({ code: "ROOT_READ_ONLY" })
+      await expect(
+        service.delete({ path: "call_1.png", root: images, threadId: thread.id })
+      ).rejects.toMatchObject({ code: "ROOT_READ_ONLY" })
+      // The output root is never a workspace root of the Thread.
+      expect((await persistence.getThread(thread.id))?.roots).toEqual([root])
+      expect(other.roots).toEqual([root])
     } finally {
       database.close()
     }

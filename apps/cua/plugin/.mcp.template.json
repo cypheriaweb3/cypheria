@@ -4,7 +4,7 @@
       "command": "node",
       "args": [],
       "enabled": false,
-      "enabled_tools": ["js", "js_reset", "turn_ended"],
+      "enabled_tools": ["js", "js_reset"],
       "omit_tools_from": ["code_mode", "deferred"],
       "startup_timeout_sec": 120,
       "tools": {

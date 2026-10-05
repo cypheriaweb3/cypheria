@@ -5,7 +5,6 @@
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { performance } from "node:perf_hooks"
 import { parseArgs } from "node:util"
 import vm from "node:vm"
 import type { Binding } from "./kernel/ast.ts"
@@ -207,7 +206,7 @@ delete process.env.NODE_REPL_JS_BANNER
 let jsBannerExecuted = false
 const internalBindingSalt = kernelBootstrap.sessionId.replace(/[^A-Za-z0-9_$]/g, "_") || "session"
 let fatalExitScheduled = false
-let trustedServiceRequestCounter = 0
+let hostServiceRequestCounter = 0
 const trustedRpcEnabled = process.env.NODE_REPL_TRUSTED_RPC_ENABLED === "1"
 
 const cwd = process.cwd()
@@ -282,46 +281,28 @@ function withCapturedConsole<T>(ctx: vm.Context, fn: () => Promise<T>): Promise<
   })
 }
 
-function requestTrustedWorker(
+/** Sends `request` to a host service, which the supervisor forwards to the host services pipe. */
+function requestHostService(
   execState: ExecState,
-  type: string,
-  payload: Record<string, unknown>
+  service: string,
+  request: unknown
 ): Promise<unknown> {
-  const id = `${execState.id}-trusted-rpc-${trustedServiceRequestCounter++}`
+  const id = `${execState.id}-rpc-${hostServiceRequestCounter++}`
   return new Promise((resolve, reject) => {
     pendingRequests.set(id, (response: HostResponse) => {
-      for (const output of (response.output as OutputEvent[] | undefined) ?? []) {
-        execState.outputEvents.push(output)
-      }
-      execState.contentItems.push(...((response.content_items as string[] | undefined) ?? []))
       if (!response.ok) {
-        reject(new Error(response.error || "Trusted RPC request failed"))
+        reject(new Error(response.error || "Host service request failed"))
         return
       }
       resolve(response.value)
     })
     try {
-      send({ type, id, exec_id: execState.id, ...payload })
+      send({ type: "trusted_service_request", id, exec_id: execState.id, service, request })
     } catch (error) {
       pendingRequests.delete(id)
       reject(error)
     }
   })
-}
-
-async function runAfterSubmittedCode(execState: ExecState): Promise<void> {
-  send({
-    type: "submitted_code_complete",
-    exec_id: execState.id,
-    execution_duration_ms: execState.submittedCodeExecutionMs,
-  })
-  if (trustedRpcEnabled) {
-    try {
-      await requestTrustedWorker(execState, "trusted_service_hooks", {})
-    } catch {
-      // Hooks are best-effort side effects.
-    }
-  }
 }
 
 if (trustedRpcEnabled) {
@@ -339,10 +320,7 @@ if (trustedRpcEnabled) {
       return makeRejectedThenable(error)
     }
 
-    const operation = requestTrustedWorker(execState, "trusted_service_request", {
-      service,
-      request,
-    })
+    const operation = requestHostService(execState, service, request)
     return trackExecBackgroundOperation(execState, operation)
   }
 }
@@ -363,7 +341,7 @@ for (const [name, value] of [
 async function handleExec(message: HostMessage & { id: string }): Promise<void> {
   loader.clearLocalFileModuleCaches()
   execContext.activate(message.id)
-  const execState = runtime.createExecState(message, { submittedCodeExecutionMs: null })
+  const execState = runtime.createExecState(message)
 
   let module: vm.SourceTextModule | null = null
   let currentBindings: Binding[] = []
@@ -395,7 +373,6 @@ async function handleExec(message: HostMessage & { id: string }): Promise<void> 
     currentBindings = builtSource.currentBindings
     nextBindings = builtSource.nextBindings
     priorBindings = builtSource.priorBindings
-    send({ type: "exec_redacted_source", id: message.id, source: builtSource.redactedSource })
     // AsyncLocalStorage keeps the current tool-call state available to helper
     // methods and async callbacks without exposing mutable host bookkeeping.
     await execContext.run(execState, async () => {
@@ -446,21 +423,13 @@ async function handleExec(message: HostMessage & { id: string }): Promise<void> 
         })
         moduleLinked = true
 
-        const submittedCodeStartedAtMs = performance.now()
-        try {
-          for (const name of builtSource.warnedConstNames) {
-            runtimeContext.console.warn(
-              `Warning: ${name} was declared with const; use let for reassignable variables.`
-            )
-          }
-          await cellModule.evaluate()
-        } finally {
-          execState.submittedCodeExecutionMs = Math.round(
-            performance.now() - submittedCodeStartedAtMs
+        for (const name of builtSource.warnedConstNames) {
+          runtimeContext.console.warn(
+            `Warning: ${name} was declared with const; use let for reassignable variables.`
           )
         }
+        await cellModule.evaluate()
         await drainExecBackgroundTasks(execState)
-        await runAfterSubmittedCode(execState)
       })
     })
 
@@ -468,7 +437,6 @@ async function handleExec(message: HostMessage & { id: string }): Promise<void> 
     previousBindings = nextBindings
     send({
       type: "exec_result",
-      content_items: execState.contentItems,
       id: message.id,
       ok: true,
       ...renderOutputEvents(execState.outputEvents),
@@ -480,11 +448,6 @@ async function handleExec(message: HostMessage & { id: string }): Promise<void> 
     try {
       await drainExecBackgroundTasks(execState)
     } catch {}
-    // The execution context and console capture unwound with the error. Restore
-    // them so trusted service hooks run and keep console output captured.
-    await execContext.run(execState, () =>
-      withCapturedConsole(runtimeContext, () => runAfterSubmittedCode(execState))
-    )
     const failedModule: vm.SourceTextModule | null = moduleLinked ? module : null
     const { bindings: committedBindings, committedCurrentBindingCount } = collectCommittedBindings(
       failedModule,
@@ -542,7 +505,6 @@ async function handleExec(message: HostMessage & { id: string }): Promise<void> 
     }
     send({
       type: "exec_result",
-      content_items: execState.contentItems,
       id: message.id,
       ok: false,
       ...renderOutputEvents(execState.outputEvents),

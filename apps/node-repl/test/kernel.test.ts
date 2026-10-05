@@ -69,13 +69,4 @@ describe("node_repl kernel", () => {
     const { result } = await kernel.exec("eval('1')")
     expect(result.ok).toBe(false)
   })
-
-  it("reports redacted source", async () => {
-    const { messages } = await kernel.exec(
-      "// note\nconst secret = 'abc'; const re = /x/; console.log(secret + '!')"
-    )
-    expect(messages.find((message) => message.type === "exec_redacted_source")?.source).toBe(
-      '/* */\nconst id0 = ""; const id1 = /(?:)/; console.log(id0 + "")'
-    )
-  })
 })

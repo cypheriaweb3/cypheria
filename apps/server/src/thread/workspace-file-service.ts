@@ -15,7 +15,7 @@ import {
 import { homedir } from "node:os"
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
-import type { ProjectThreadPersistenceService } from "@cypheria/db"
+import type { ProjectThreadPersistenceService, ThreadRecord } from "@cypheria/db"
 import type {
   ServerMessage,
   ThreadPathResolution,
@@ -88,8 +88,16 @@ const pathCandidates = (value: string, cwd: string): PathCandidate[] => {
   return candidates
 }
 
+/**
+ * Directories outside a Thread's workspace that hold what its harness produced for it, such as
+ * the images Codex generated in that session. Clients may resolve and read paths in them; nothing
+ * writes there, and they are never given to the harness as workspace roots.
+ */
+export type ThreadOutputRoots = (thread: ThreadRecord) => readonly string[]
+
 export class WorkspaceFileService {
   readonly #persistence: ProjectThreadPersistenceService
+  readonly #outputRoots: ThreadOutputRoots
   readonly #pendingChanges = new Map<string, WorkspaceFileChange[]>()
   #projectlessRoot: string
   readonly #publish: (message: ServerMessage) => void
@@ -100,8 +108,10 @@ export class WorkspaceFileService {
     persistence: ProjectThreadPersistenceService
     projectlessRoot: string
     publish: (message: ServerMessage) => void
+    outputRoots?: ThreadOutputRoots
   }) {
     this.#persistence = options.persistence
+    this.#outputRoots = options.outputRoots ?? (() => [])
     this.#projectlessRoot = resolve(options.projectlessRoot)
     this.#publish = options.publish
     this.#quarantineRoot = join(resolve(options.cypheriaHome), "quarantine", "files")
@@ -315,9 +325,10 @@ export class WorkspaceFileService {
   async resolvePath(input: { path: string; threadId: string }): Promise<ThreadPathResolution> {
     const thread = await this.#thread(input.threadId)
     const cwd = thread.roots[0] ?? this.#projectlessRoot
+    const roots = [...thread.roots, ...this.#readOnlyRoots(thread)]
     let first: ThreadPathResolution | undefined
     for (const candidate of pathCandidates(input.path, cwd)) {
-      const resolved = await this.#resolveInRoots(thread.roots, candidate.path)
+      const resolved = await this.#resolveInRoots(roots, candidate.path)
       if (resolved.kind === "missing" || resolved.kind === "outside") {
         first ??= resolved
         continue
@@ -407,9 +418,20 @@ export class WorkspaceFileService {
   async #location(input: FileLocation, operation: "read" | "write") {
     const thread = await this.#thread(input.threadId)
     const root = resolve(input.root)
-    if (!thread.roots.includes(root))
-      throw new WorkspaceFileError("ROOT_NOT_ALLOWED", "Root is not part of this thread")
+    if (!thread.roots.includes(root)) {
+      if (!this.#readOnlyRoots(thread).includes(root))
+        throw new WorkspaceFileError("ROOT_NOT_ALLOWED", "Root is not part of this thread")
+      if (operation === "write")
+        throw new WorkspaceFileError("ROOT_READ_ONLY", "This root can only be read")
+    }
     return { root, target: await this.#safeTarget(root, input.path, operation) }
+  }
+
+  /** The Thread's output roots that are not also workspace roots. */
+  #readOnlyRoots(thread: ThreadRecord): string[] {
+    return this.#outputRoots(thread)
+      .map((root) => resolve(root))
+      .filter((root) => !thread.roots.includes(root))
   }
 
   async #thread(threadId: string) {

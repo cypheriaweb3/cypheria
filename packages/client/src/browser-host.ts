@@ -22,13 +22,13 @@ const unwrap = <T>(message: BrowserServerMessage): T => {
 export type BrowserHostOptions = {
   /** What the window offers, read before each registration so it reflects the window now. */
   readonly registration: () => BrowserHostRegistrationInput | Promise<BrowserHostRegistrationInput>
-  /** Executes one command. Thrown errors are reported to the Server as `browser_unknown_error`. */
+  /** Executes one request. Thrown errors are reported to the Server as `browser_error`. */
   readonly onCommand: (request: BrowserAutomationRequest) => Promise<BrowserAutomationOutcomeInput>
   readonly onRegistrationError?: (error: Error) => void
 }
 
 export type BrowserHostHandle = {
-  /** Registers again, for example after the window's name or commands changed. */
+  /** Registers again, for example after the window's name or backends changed. */
   readonly refresh: () => void
   readonly release: () => Promise<void>
 }
@@ -46,7 +46,7 @@ export interface BrowserHostActions {
 const failure = (automationId: string, error: unknown): BrowserAutomationOutcomeInput => ({
   automationId,
   error: {
-    code: "browser_unknown_error",
+    code: "browser_error",
     message: error instanceof Error && error.message ? error.message : "Browser command failed.",
   },
   ok: false,

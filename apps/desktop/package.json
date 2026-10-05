@@ -14,7 +14,7 @@
     "build:preload": "tsdown --config tsdown.preload.config.mjs",
     "build:renderer": "vite build --config vite.config.ts",
     "check": "pnpm i18n:compile && pnpm typecheck",
-    "dev": "pnpm build:main && pnpm build:preload && pnpm build:dapp-preload && pnpm build:browser-preload && pnpm build:renderer && pnpm rebuild:native && pnpm dev:launch",
+    "dev": "pnpm build:main && pnpm build:preload && pnpm build:dapp-preload && pnpm build:browser-preload && pnpm build:renderer && pnpm --filter @cypheria/browser-extension --filter @cypheria/browser-extension-host build && pnpm rebuild:native && pnpm dev:launch",
     "dev:hot": "node scripts/dev-hot.mjs start",
     "dev:hot:stop": "node scripts/dev-hot.mjs stop",
     "dev:launch": "node scripts/launch-desktop.mjs",
@@ -27,6 +27,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@cypheria/browser-extension": "workspace:*",
     "@cypheria/client": "workspace:*",
     "@cypheria/cua": "workspace:*",
     "@cypheria/protocol": "workspace:*",
@@ -67,6 +68,7 @@
   },
   "devDependencies": {
     "@babel/core": "^8.0.1",
+    "@cypheria/browser-extension-host": "workspace:*",
     "@electron/rebuild": "^4.2.0",
     "@lingui/babel-plugin-lingui-macro": "^6.6.0",
     "@lingui/cli": "^6.6.0",
@@ -79,6 +81,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "electron": "^42.3.0",
+    "playwright-core": "1.63.0",
     "png2icons": "^2.0.1",
     "sharp": "^0.35.4",
     "tsdown": "^0.22.0",

@@ -888,6 +888,32 @@ describe("ThreadManager", () => {
     expect(respond).toHaveBeenCalledTimes(1)
   })
 
+  it("asks the Server's own questions in the Thread and answers them without the harness", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    const respond = vi.spyOn(adapter, "respondToInteraction")
+    const answer = manager.requestInteraction(created.thread.id, {
+      message: 'Allow Computer Use to use "Calculator"?',
+      title: "Computer Use",
+    })
+    const [pending] = (await manager.get(created.thread.id)).pendingInteractions
+    expect(pending).toMatchObject({ kind: "permission", title: "Computer Use" })
+    await manager.respondToInteraction(created.thread.id, pending?.id ?? "", {
+      outcome: "allow_always",
+      type: "permission",
+    })
+    await expect(answer).resolves.toEqual({ outcome: "allow_always", type: "permission" })
+    expect(respond).not.toHaveBeenCalled()
+    expect((await manager.get(created.thread.id)).pendingInteractions).toEqual([])
+
+    const closing = manager.requestInteraction(created.thread.id, {
+      message: "?",
+      title: "Computer Use",
+    })
+    await manager.close(created.thread.id)
+    await expect(closing).resolves.toEqual({ type: "cancel" })
+  })
+
   it("keeps a pending interaction retryable when the harness response fails", async () => {
     const { adapter, manager } = await setup()
     const created = await manager.create({ agentId: "codex" })

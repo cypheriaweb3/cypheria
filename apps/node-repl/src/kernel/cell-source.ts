@@ -14,7 +14,6 @@ import {
   sourceOf,
   startOf,
 } from "./ast.ts"
-import { redactDiagnosticSource, type SourceRange, type SourceToken } from "./diagnostics.ts"
 
 // REPL state model:
 // - Every exec is compiled as a fresh ESM "cell".
@@ -32,7 +31,6 @@ export interface CellSourceOptions {
 
 export interface CellSource {
   source: string
-  redactedSource: string
   currentBindings: Binding[]
   nextBindings: Binding[]
   priorBindings: Binding[]
@@ -396,17 +394,7 @@ class CellInstrumenter {
  */
 export function buildModuleSource(code: string, options: CellSourceOptions): CellSource {
   const { priorBindings, nextInternalBindingName } = options
-  const diagnosticTokens: SourceToken[] = []
-  const diagnosticComments: SourceRange[] = []
-  const ast = parseModule(code, {
-    ...parseOptions,
-    onToken(token, start, end) {
-      diagnosticTokens.push({ token, start, end })
-    },
-    onComment(_kind, _value, start, end) {
-      diagnosticComments.push({ start, end })
-    },
-  })
+  const ast = parseModule(code, parseOptions)
   const currentBindings = collectBindings(ast)
   const currentBindingNames = new Set(currentBindings.map((binding) => binding.name))
   const reassignedConstNames = collectReassignedConstNames(ast, priorBindings, currentBindingNames)
@@ -420,14 +408,6 @@ export function buildModuleSource(code: string, options: CellSourceOptions): Cel
     }
   }
   const carriedBindings = priorBindings.filter((binding) => !currentBindingNames.has(binding.name))
-  const redactedSource = redactDiagnosticSource(
-    code,
-    ast,
-    currentBindings,
-    priorBindings,
-    diagnosticTokens,
-    diagnosticComments
-  )
   const markCommittedFnName = nextInternalBindingName()
   const markPreludeCompletedFnName = nextInternalBindingName()
   const helperDeclarations = [
@@ -486,7 +466,6 @@ export function buildModuleSource(code: string, options: CellSourceOptions): Cel
 
   return {
     source: `${prelude}${instrumentedCode}${exportStmt}`,
-    redactedSource,
     currentBindings,
     nextBindings: Array.from(mergedBindings, ([name, kind]) => ({ name, kind })),
     priorBindings,

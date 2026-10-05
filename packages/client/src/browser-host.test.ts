@@ -53,7 +53,7 @@ describe("browser host actions", () => {
     const fake = createFakeClient()
     const host = createBrowserHostActions(fake.client).register({
       onCommand: vi.fn(),
-      registration: () => ({ hostKind: "desktop app", supportedCommands: ["snapshot"] }),
+      registration: () => ({ backends: ["iab"], name: "Studio Mac" }),
     })
     fake.setState({ status: "connected" })
     fake.setState({ status: "connected" })
@@ -68,8 +68,8 @@ describe("browser host actions", () => {
       "browser.host.unregister.request",
     ])
     expect(fake.requestBrowser.mock.calls[0]?.[1]).toEqual({
-      hostKind: "desktop app",
-      supportedCommands: ["snapshot"],
+      backends: ["iab"],
+      name: "Studio Mac",
     })
   })
 
@@ -80,10 +80,21 @@ describe("browser host actions", () => {
       .mockRejectedValueOnce(new Error("guest crashed"))
     createBrowserHostActions(fake.client).register({
       onCommand,
-      registration: () => ({ hostKind: "desktop app", supportedCommands: ["snapshot"] }),
+      registration: () => ({ backends: ["iab"], name: "Studio Mac" }),
     })
     fake.emit({
-      payload: { automationId: "a-1", command: { args: { browserId }, command: "snapshot" } },
+      payload: {
+        automationId: "a-1",
+        backend: "iab",
+        request: {
+          args: ["state"],
+          browser: "iab",
+          member: "ax.get",
+          op: "browser.call",
+          tab: browserId,
+        },
+        threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
+      },
       type: "browser.automation.command.notification",
     })
     await flush()
@@ -93,7 +104,7 @@ describe("browser host actions", () => {
       "browser.automation.result.request",
       {
         automationId: "a-1",
-        error: { code: "browser_unknown_error", message: "guest crashed" },
+        error: { code: "browser_error", message: "guest crashed" },
         ok: false,
       },
       undefined

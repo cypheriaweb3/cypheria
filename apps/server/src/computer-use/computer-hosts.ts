@@ -4,10 +4,12 @@ import { isRepeatableDeviceRequest, type ParsedCuaDeviceRequest } from "@cypheri
 import { type CuaHostContext, CuaHostError } from "@cypheria/cua/host"
 import {
   type ClientKind,
+  type ComputerHostApproval,
+  type ComputerHostApprovalDecision,
+  type ComputerHostCapability,
   type ComputerHostClientMessage,
   ComputerHostOutcomeSchema,
   type ComputerHostServerMessage,
-  type ComputerHostSurface,
 } from "@cypheria/protocol"
 
 /** One connection of a client: the session, the client, and the transport it speaks over. */
@@ -24,7 +26,7 @@ export type ComputerHostSession = {
 export type ComputerHostEntry = {
   readonly id: string
   readonly name: string
-  readonly surfaces: readonly ComputerHostSurface[]
+  readonly capabilities: readonly ComputerHostCapability[]
 }
 
 type Carrier = {
@@ -35,20 +37,29 @@ type Carrier = {
 
 type Host = {
   name: string
-  surfaces: readonly ComputerHostSurface[]
+  capabilities: readonly ComputerHostCapability[]
   /** The connections that registered the host, newest last. */
   carriers: Carrier[]
 }
 
 type Pending = {
   readonly transport: object
+  readonly threadId: string
   readonly repeatable: boolean
   readonly resolve: (value: unknown) => void
   readonly reject: (error: Error) => void
-  readonly timeout: ReturnType<typeof setTimeout>
+  timeout: ReturnType<typeof setTimeout> | undefined
+  /** Approvals the device is waiting on; the deadline stops while a person decides. */
+  approvals: number
 }
 
-/** Device requests run agent-browser or cua-driver, which can take far longer than a page read. */
+/** Asks the people in a Thread whether Computer Use may operate an app. */
+export type ComputerHostApprover = (
+  threadId: string,
+  approval: ComputerHostApproval
+) => Promise<ComputerHostApprovalDecision>
+
+/** Device requests drive external browsers or native apps, which can take far longer than a page read. */
 export const DEVICE_REQUEST_TIMEOUT_MS = 120_000
 
 const unanswered = (repeatable: boolean, reason: string) =>
@@ -75,16 +86,20 @@ export class ComputerHostService {
   readonly #hosts = new Map<string, Host>()
   readonly #pending = new Map<string, Pending>()
   readonly #timeoutMs: number
+  readonly #approve: ComputerHostApprover | undefined
 
-  constructor(options: { readonly timeoutMs?: number } = {}) {
+  constructor(
+    options: { readonly timeoutMs?: number; readonly approve?: ComputerHostApprover } = {}
+  ) {
     this.#timeoutMs = options.timeoutMs ?? DEVICE_REQUEST_TIMEOUT_MS
+    this.#approve = options.approve
   }
 
   hosts(): ComputerHostEntry[] {
     return [...this.#hosts].map(([id, host]) => ({
       id,
       name: host.name,
-      surfaces: [...host.surfaces],
+      capabilities: [...host.capabilities],
     }))
   }
 
@@ -108,11 +123,11 @@ export class ComputerHostService {
         }
         const host = this.#hosts.get(session.clientId) ?? {
           carriers: [],
+          capabilities: [],
           name: message.payload.name,
-          surfaces: [],
         }
         host.name = message.payload.name
-        host.surfaces = message.payload.surfaces
+        host.capabilities = message.payload.capabilities
         host.carriers = [
           ...host.carriers.filter((carrier) => carrier.transport !== session.transport),
           { notify: session.notify, sessionId: session.id, transport: session.transport },
@@ -140,7 +155,52 @@ export class ComputerHostService {
           type: "computer.host.result.response",
         })
         return true
+      case "computer.host.approval.request":
+        // A person may take minutes to answer; other messages of the connection keep flowing.
+        void this.#approval(message.payload, session.transport).then((payload) =>
+          reply({ payload, requestId: message.requestId, type: "computer.host.approval.response" })
+        )
+        return true
     }
+  }
+
+  /**
+   * An approval the device asks for while it runs one of the Thread's commands, which keeps a
+   * device from raising prompts in Threads that did not ask it for anything.
+   */
+  async #approval(approval: ComputerHostApproval, transport: object) {
+    const pending = this.#pending.get(approval.commandId)
+    if (!pending || pending.transport !== transport || pending.threadId !== approval.threadId) {
+      return error("COMPUTER_HOST_UNKNOWN_COMMAND", "No such command is running on this device.")
+    }
+    if (!this.#approve) {
+      return error("COMPUTER_HOST_UNSUPPORTED", "This Server cannot ask for approvals.")
+    }
+    pending.approvals++
+    clearTimeout(pending.timeout)
+    pending.timeout = undefined
+    try {
+      return ok({ decision: await this.#approve(approval.threadId, approval) })
+    } catch (cause) {
+      return error(
+        "COMPUTER_HOST_APPROVAL_FAILED",
+        cause instanceof Error ? cause.message : String(cause)
+      )
+    } finally {
+      pending.approvals--
+      if (pending.approvals === 0 && this.#pending.get(approval.commandId) === pending) {
+        this.#arm(approval.commandId, pending)
+      }
+    }
+  }
+
+  #arm(commandId: string, pending: Pending): void {
+    pending.timeout = setTimeout(() => {
+      if (!this.#pending.delete(commandId)) return
+      pending.reject(
+        unanswered(pending.repeatable, `The device did not answer within ${this.#timeoutMs}ms.`)
+      )
+    }, this.#timeoutMs)
   }
 
   /** Runs one request on a device and returns the device's value. */
@@ -158,17 +218,17 @@ export class ComputerHostService {
     const commandId = `device-${randomUUID()}`
     const repeatable = isRepeatableDeviceRequest(request)
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        if (!this.#pending.delete(commandId)) return
-        reject(unanswered(repeatable, `The device did not answer within ${this.#timeoutMs}ms.`))
-      }, this.#timeoutMs)
-      this.#pending.set(commandId, {
+      const pending: Pending = {
+        approvals: 0,
         reject,
         repeatable,
         resolve,
-        timeout,
+        threadId: context.threadId,
+        timeout: undefined,
         transport: carrier.transport,
-      })
+      }
+      this.#pending.set(commandId, pending)
+      this.#arm(commandId, pending)
       try {
         carrier.notify({
           payload: {
@@ -181,7 +241,7 @@ export class ComputerHostService {
         })
       } catch (cause) {
         this.#pending.delete(commandId)
-        clearTimeout(timeout)
+        clearTimeout(pending.timeout)
         reject(
           new CuaHostError(
             "unanswered",

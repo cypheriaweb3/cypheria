@@ -7,7 +7,7 @@ import { RequestIdSchema } from "./request-id.ts"
  * Plugin Extensions: the surfaces plugins' MCP servers contribute through MCP Apps and the OpenAI
  * MCP Extensions specification. Agents run the MCP servers; the Server builds the catalog from what
  * they report, keeps App instances and model context, and routes each App request to an Agent.
- * See docs/plugin-extensions.md.
+ * See docs/agents/plugin-extensions.md.
  */
 
 const json = z.record(z.string(), z.unknown())

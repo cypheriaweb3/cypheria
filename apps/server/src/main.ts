@@ -6,6 +6,10 @@ import { CypheriaServer, type ServerLifecycleAction } from "./server.js"
 import { ServerConfigStore } from "./server-config-store.js"
 
 process.title = "Cypheria Server Worker"
+// A Desktop-managed Server runs on Electron as Node.js. The flag only matters at startup, and
+// inherited by Agents, terminals, and their commands it would turn any Electron app they start
+// into Node.js. Children that run this executable set it themselves (`resolveNodeRuntime`).
+delete process.env.ELECTRON_RUN_AS_NODE
 
 const logger = createServerProcessLogger("cypheria-server-worker")
 const send = (message: WorkerToSupervisorMessage): void => {

@@ -38,8 +38,14 @@ type Supervisor struct {
 type pendingExec struct {
 	id     string
 	result chan *execResultMsg
-	images []string
+	media  []Media
 	mu     sync.Mutex
+}
+
+// Media is an image or audio clip the code emitted, as a data URL (images may also be other URLs).
+type Media struct {
+	Kind string // "image" or "audio"
+	URL  string
 }
 
 type execResultMsg struct {
@@ -48,13 +54,12 @@ type execResultMsg struct {
 	Output       string            `json:"output"`
 	Error        *string           `json:"error"`
 	NamedOutputs []json.RawMessage `json:"named_outputs"`
-	ContentItems []json.RawMessage `json:"content_items"`
 }
 
 // ExecOutput holds the final output of a JavaScript execution.
 type ExecOutput struct {
 	Text     string
-	Images   []string
+	Media    []Media
 	IsError  bool
 	Duration time.Duration
 }
@@ -230,45 +235,24 @@ func (s *Supervisor) listenLoop(reader *bufio.Reader) {
 				go s.handleTrustedServiceRequest(req.ID, req.Service, req.Request)
 			}
 
-		case "trusted_service_hooks":
-			// Host services run outside the kernel and register no after-code
-			// hooks, so the kernel's request completes immediately.
-			var req struct {
-				ID string `json:"id"`
-			}
-			if err := json.Unmarshal(line, &req); err == nil && req.ID != "" {
-				_ = s.writeToKernel(map[string]any{"id": req.ID, "ok": true, "value": nil})
-			}
-
-		case "emit_image":
+		case "emit_image", "emit_audio":
 			var req struct {
 				ID       string `json:"id"`
 				ExecID   string `json:"exec_id"`
 				ImageURL string `json:"image_url"`
+				AudioURL string `json:"audio_url"`
 			}
 			if err := json.Unmarshal(line, &req); err == nil {
+				media := Media{Kind: "image", URL: req.ImageURL}
+				if msgType == "emit_audio" {
+					media = Media{Kind: "audio", URL: req.AudioURL}
+				}
 				if val, ok := s.activeExecs.Load(req.ExecID); ok {
 					p := val.(*pendingExec)
 					p.mu.Lock()
-					p.images = append(p.images, req.ImageURL)
+					p.media = append(p.media, media)
 					p.mu.Unlock()
 				}
-				_ = s.writeToKernel(map[string]any{"id": req.ID, "ok": true})
-			}
-
-		case "emit_audio":
-			var req struct {
-				ID string `json:"id"`
-			}
-			if err := json.Unmarshal(line, &req); err == nil {
-				_ = s.writeToKernel(map[string]any{"id": req.ID, "ok": true})
-			}
-
-		case "suspend_timeout", "resume_timeout":
-			var req struct {
-				ID string `json:"id"`
-			}
-			if err := json.Unmarshal(line, &req); err == nil && req.ID != "" {
 				_ = s.writeToKernel(map[string]any{"id": req.ID, "ok": true})
 			}
 		}
@@ -367,13 +351,13 @@ func (s *Supervisor) Exec(ctx context.Context, code string, timeoutMs int, title
 		}
 
 		p.mu.Lock()
-		images := make([]string, len(p.images))
-		copy(images, p.images)
+		media := make([]Media, len(p.media))
+		copy(media, p.media)
 		p.mu.Unlock()
 
 		return &ExecOutput{
 			Text:     output,
-			Images:   images,
+			Media:    media,
 			IsError:  isErr,
 			Duration: duration,
 		}, nil
@@ -407,25 +391,5 @@ func (s *Supervisor) AddNodeModuleDir(dir string) error {
 	return s.writeToKernel(map[string]any{
 		"type": "add_node_module_dir",
 		"path": abs,
-	})
-}
-
-// TurnEnded notifies the kernel that a turn completed.
-func (s *Supervisor) TurnEnded(eventName, sessionID, turnID string) error {
-	s.mu.Lock()
-	running := s.cmd != nil
-	s.mu.Unlock()
-	if !running {
-		return nil
-	}
-	reqID := fmt.Sprintf("turn-%d", time.Now().UnixNano())
-	return s.writeToKernel(map[string]any{
-		"type": "turn_ended",
-		"id":   reqID,
-		"event": map[string]string{
-			"hook_event_name": eventName,
-			"session_id":      sessionID,
-			"turn_id":         turnID,
-		},
 	})
 }

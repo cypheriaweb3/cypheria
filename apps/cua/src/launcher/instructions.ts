@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import type { BrowserBackend } from "../browser/types.ts"
 import { CUA_SURFACES, type CuaSurface } from "../surfaces.ts"
 
 const PLATFORM_DIRECTORIES: Partial<Record<NodeJS.Platform, string>> = {
@@ -18,20 +19,19 @@ export type CuaReplInstructions = {
 }
 
 const SURFACE_NAMES: Record<CuaSurface, string> = {
-  browsers: "external browsers (`cua.browsers`)",
+  browser: "browsers (`cua.getBrowser`, `cua.getTab`)",
   computer: "native apps (`cua.getApp`)",
-  iab: "the built-in browser (`cua.iab`)",
-  mcpapps: "MCP Apps (`cua.mcpApps`)",
 }
 
 /**
  * Assembles the `js` tool description from the fragments in `instructions/`: the common
- * introduction, the entry points of each enabled surface, a note naming disabled ones, and the
- * output rules. Native app entry points differ by platform.
+ * introduction, the browser entry points with the enabled backends, the native app entry point
+ * of the platform, a note naming disabled surfaces, and the output rules.
  */
 export const loadInstructions = (
   root: string,
   surfaces: readonly CuaSurface[],
+  backends: readonly BrowserBackend[],
   platform: NodeJS.Platform = process.platform
 ): CuaReplInstructions => {
   const directory = PLATFORM_DIRECTORIES[platform]
@@ -39,10 +39,12 @@ export const loadInstructions = (
   const read = (name: string) => readFileSync(join(root, "instructions", name), "utf8").trimEnd()
   const enabled = new Set(surfaces)
   const parts = [read("description.md")]
-  for (const surface of CUA_SURFACES) {
-    if (!enabled.has(surface)) continue
-    parts.push(read(surface === "computer" ? `${directory}/computer.md` : `${surface}.md`))
+  if (enabled.has("browser")) {
+    parts.push(
+      [read("browser.md"), ...backends.map((backend) => read(`browser-${backend}.md`))].join("\n")
+    )
   }
+  if (enabled.has("computer")) parts.push(read(`${directory}/computer.md`))
   const disabled = CUA_SURFACES.filter((surface) => !enabled.has(surface))
   if (disabled.length > 0) {
     parts.push(

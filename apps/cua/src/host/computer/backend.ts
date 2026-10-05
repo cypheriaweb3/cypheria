@@ -11,6 +11,7 @@ import type {
 } from "../../protocol.ts"
 import { CuaHostError } from "../errors.ts"
 import type { ToolResult } from "./cua-driver.ts"
+import type { NativeAppsBackend } from "./types.ts"
 
 /** The cua-driver tool calls the backend makes. */
 export type ToolCaller = (name: string, args: Record<string, unknown>) => Promise<ToolResult>
@@ -79,7 +80,7 @@ const failIfError = (result: ToolResult) => {
  * it its own agent cursor. Element indices the model sees map to the opaque element tokens of the
  * latest snapshot of that window.
  */
-export class ComputerBackend {
+export class ComputerBackend implements NativeAppsBackend {
   readonly #call: ToolCaller
   readonly #platform: NodeJS.Platform
   readonly #elements = new Map<string, Map<number, string>>()
@@ -257,8 +258,11 @@ export class ComputerBackend {
           ...base,
           ...at(action.target),
           direction: action.direction,
-          ...(action.amount ? { amount: action.amount } : {}),
+          ...(action.amount ? { amount: Math.max(1, Math.round(action.amount)) } : {}),
           ...(action.by ? { by: action.by } : {}),
+          ...(action.pixels
+            ? { by: "line", amount: Math.max(1, Math.round(action.pixels / 40)) }
+            : {}),
         }
         break
       case "drag":
@@ -287,9 +291,28 @@ export class ComputerBackend {
         tool = "bring_to_front"
         args = base
         break
+      case "paste":
+        if (action.format === "html") {
+          throw new CuaHostError(
+            "unsupported",
+            'cua-driver pastes plain text only; use format "text".'
+          )
+        }
+        tool = "type_text"
+        args = { ...base, text: action.text }
+        break
+      case "select_text":
+        throw new CuaHostError(
+          "unsupported",
+          "Selecting text is unavailable with cua-driver. Click and use pressKey with shift+arrow keys instead."
+        )
     }
     const result = failIfError(await this.#call(tool, args))
     return this.#notice(result)
+  }
+
+  async launchApp(threadId: string, app: string): Promise<void> {
+    failIfError(await this.#call("launch_app", { name: app, session: this.#session(threadId) }))
   }
 
   /** Forgets the element tokens of a Thread's windows. */

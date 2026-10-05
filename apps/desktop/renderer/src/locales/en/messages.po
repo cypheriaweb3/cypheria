@@ -34,6 +34,12 @@ msgid "git.review.rowSummary"
 msgstr "{path}, added lines: {additions}, deleted lines: {deletions}, comments: {comments}"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: reviewCount === 1 ? "hook needs" : "hooks need"
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.reviewBanner.title"
+msgstr "{reviewCount} {0} review"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.keyboardHelp"
 msgstr "↑↓ Navigate · Enter Open · Esc Close"
@@ -61,6 +67,11 @@ msgstr "A local gateway, run by magpie, that serves every model and subscription
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.revertDescription"
 msgstr "A recoverable copy will be saved before the changes are reverted."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.accessibility"
+msgstr "Accessibility"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -166,9 +177,19 @@ msgstr "Agent reported"
 msgid "Agents"
 msgstr "Agents"
 
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.browserFamiliesDescription"
+msgstr "Agents use only the browsers turned on here."
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "AI gateway"
 msgstr "AI gateway"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.all"
+msgstr "All"
 
 #: renderer/src/components/gateway/gateway-usage-section.tsx
 msgid "All time"
@@ -178,6 +199,11 @@ msgstr "All time"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.allowOnce"
 msgstr "Allow once"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.browserFamilies"
+msgstr "Allowed browsers"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -425,6 +451,11 @@ msgid "git.review.baseBranch"
 msgstr "Base branch"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.blocked"
+msgstr "Blocked"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.bottom"
 msgstr "Bottom"
@@ -476,9 +507,19 @@ msgid "settings.browser.section"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeImplementationType"
+msgstr "Browser connection"
+
+#. js-lingui-explicit-id
 #: renderer/src/browser/browser-pane.tsx
 msgid "browser.tabs"
 msgstr "Browser tabs"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.inAppBrowser"
+msgstr "Built-in browser"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -548,6 +589,17 @@ msgstr "Changes requested"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.chatTitle"
 msgstr "Chat title"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCodex"
+msgstr "ChatGPT Computer Use"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: codex.version
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCodexVersion"
+msgstr "ChatGPT runtime {0}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -730,11 +782,6 @@ msgid "settings.worktrees.upstreamRefresh.description"
 msgstr "Codex normally picks up branch updates during regular Git activity. This also fetches before each new worktree."
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.git.tsx
-msgid "settings.git.branchPrefix.placeholder"
-msgstr "cypheria/"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/review-diff-display.tsx
 msgid "git.diff.collapseAll"
 msgstr "Collapse all diffs"
@@ -838,14 +885,40 @@ msgid "chat.computerUse.firstUse"
 msgstr "Computer access request"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.section"
+msgstr "Computer Use"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.computerUse.disclosure"
 msgstr "Computer Use can interact with apps on your computer and may capture screenshots. You can stop it at any time."
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.service"
+msgstr "Computer Use service"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.loadErrors.title"
+msgstr "Configuration Errors"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.confirm"
 msgstr "Confirm"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: extension.browsers.map((browser) => browser.name).join(", ")
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionConnected"
+msgstr "Connected: {0}."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeCdpDescription"
+msgstr "Connects to running browsers that allow remote debugging. Turn it on at the browser's inspect page, for example chrome://inspect/#remote-debugging, and allow the connection when it asks."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1089,9 +1162,34 @@ msgid "chat.summary.workspace.cwd"
 msgstr "Current working directory"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCuaDriver"
+msgstr "Cypheria (cua-driver)"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeExtension"
+msgstr "Cypheria extension"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extension"
+msgstr "Cypheria extension"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.projectlessDirectoryCreationWarning"
 msgstr "The current working directory will change to a new managed projectless directory containing work/ and outputs/."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCuaDriverDescription"
+msgstr "Cypheria's own service, with the permissions you grant Cypheria."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix.placeholder"
+msgstr "cypheria/"
 
 #. js-lingui-explicit-id
 #: renderer/src/browser/browser-settings-section.tsx
@@ -1176,6 +1274,16 @@ msgid "createPr.bodyField"
 msgstr "Description"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backend"
+msgstr "Desktop app control"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.desktopApps"
+msgstr "Desktop apps"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
 msgid "thread.git.detachPr"
 msgstr "Detach from chat"
@@ -1224,6 +1332,11 @@ msgstr "Disable Git-based diffs"
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.reviewMode.label"
 msgstr "Disable Git-based diffs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.loading"
+msgstr "Discovering configured hooks..."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1385,9 +1498,19 @@ msgstr "Expand file"
 msgid "chat.state.failed"
 msgstr "Failed"
 
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.failed"
+msgstr "Failed"
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Failed"
 msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.error.title"
+msgstr "Failed to load hooks"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-settings.tsx
@@ -1413,6 +1536,11 @@ msgstr "File changes"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.files"
 msgstr "files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.searchPlaceholder"
+msgstr "Filter hooks..."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-summary.tsx
@@ -1529,6 +1657,16 @@ msgid "chat.panel.goal"
 msgstr "Goal"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.grant"
+msgstr "Grant"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.granted"
+msgstr "Granted"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sectionDescription"
 msgstr "Group chats and projects however you like"
@@ -1572,6 +1710,41 @@ msgstr "Hide terminal panel"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.dismissAgentComment.tooltip"
 msgstr "Hide this comment from the diff; it stays in the conversation"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.noOutput"
+msgstr "Hook executed with no stdout/stderr output."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.message.hookStats"
+msgstr "Hook stats"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.dialogTitle"
+msgstr "Hook stats"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.hooks"
+msgstr "Hooks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.empty.desc"
+msgstr "Hooks can be configured in ~/.codex/hooks.json, in your project's .codex/ directory, or bundled within enabled plugins."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionHostInstalled"
+msgstr "Host installed"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionHostMissing"
+msgstr "Host missing"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/thread-git-actions.tsx
@@ -1619,6 +1792,11 @@ msgstr "Initialize repository"
 msgid "chat.tool.input"
 msgstr "Input"
 
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionHostPending"
+msgstr "Installing host"
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Installing…"
 msgstr "Installing…"
@@ -1627,6 +1805,11 @@ msgstr "Installing…"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.group.integrations"
 msgstr "Integrations"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.description"
+msgstr "Intercept and extend Agent turns, tool calls, and lifecycle events using custom scripts or MCP tools."
 
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "It was used without reaching the gateway."
@@ -1728,6 +1911,41 @@ msgid "createPr.bodyPlaceholder"
 msgstr "Leave empty to generate"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.inAppBrowserDescription"
+msgstr "Lets Agents open and control tabs of the built-in browser in their own conversation, including dApp tabs. Wallet signing still follows your policies and approvals."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.mcpAppsDescription"
+msgstr "Lets Agents operate the plugin Apps shown in their conversation."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.desktopAppsDescription"
+msgstr "Lets Agents read and operate apps on this computer in the background, with their own cursor. They may take screenshots while working."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.externalBrowsersDescription"
+msgstr "Lets Agents use Chrome, Edge, Brave, Vivaldi, Opera, or Chromium with your signed-in sessions. Turn on remote debugging in the browser at its inspect page, for example chrome://inspect/#remote-debugging, and allow the connection when it asks."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.accessibilityDescription"
+msgstr "Lets Cypheria read app windows and act in them."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.screenRecordingDescription"
+msgstr "Lets Cypheria take screenshots of the app windows it works in."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.title"
+msgstr "Lifecycle Hooks"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/context-usage.tsx
 msgid "chat.context.queried"
 msgstr "Live query"
@@ -1804,6 +2022,11 @@ msgid "magpie edits the settings of the Agents Cypheria manages, in their Cypher
 msgstr "magpie edits the settings of the Agents Cypheria manages, in their Cypheria homes. Pick the model or routing group each one uses."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.managed"
+msgstr "Managed"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.manual"
 msgstr "Manual order"
@@ -1827,6 +2050,11 @@ msgstr "Mark as unread"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp"
 msgstr "MCP App"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.mcpApps"
+msgstr "MCP Apps"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.git.tsx
@@ -1969,6 +2197,11 @@ msgid "settings.worktrees.worktree.newChat"
 msgstr "New chat in this worktree"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.reviewBanner.description"
+msgstr "New or modified hooks must be reviewed and trusted before Codex will run them. Inspect the command or tool below, then click Trust to authorize execution."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.project.new"
 msgstr "New project"
@@ -1997,6 +2230,17 @@ msgstr "New terminal"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.empty"
 msgstr "No archived chats"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionMissing"
+msgstr "No browser is connected. Add the Cypheria extension to each browser profile Agents may use."
+
+#. js-lingui-explicit-id
+#. placeholder {0}: extension.unpackedPath
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.extensionUnpacked"
+msgstr "No browser is connected. Turn on Developer mode at your browser's extensions page, choose Load unpacked, and select {0}."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2047,6 +2291,16 @@ msgstr "No files match this search"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.goal.empty"
 msgstr "No goal is set for this task"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.noRuns"
+msgstr "No hook runs recorded for this turn."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.empty.title"
+msgstr "No hooks found"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2159,6 +2413,11 @@ msgstr "No worktrees yet"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noWorkspaceDirectories"
 msgstr "None"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeUnavailable"
+msgstr "Not available in this build yet."
 
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Not installed"
@@ -2451,6 +2710,11 @@ msgid "settings.plugins"
 msgstr "Plugins"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.plugin"
+msgstr "Plugins"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pluginsAndSkills"
 msgstr "Plugins & skills"
@@ -2483,6 +2747,11 @@ msgstr "Priority"
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.project"
+msgstr "Project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.project"
 msgstr "Project"
 
 #. js-lingui-explicit-id
@@ -2653,6 +2922,11 @@ msgid "git.review.untrackedOmitted.refresh"
 msgstr "Refresh"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.refresh"
+msgstr "Refresh"
+
+#. js-lingui-explicit-id
 #: renderer/src/browser/browser-pane.tsx
 msgid "browser.reload"
 msgstr "Reload"
@@ -2661,6 +2935,11 @@ msgstr "Reload"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.remoteBranch"
 msgstr "remote"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeCdp"
+msgstr "Remote debugging (CDP)"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -2740,6 +3019,16 @@ msgstr "Resolve the merge conflicts for {url}. Verify that the repository and ch
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Restart"
 msgstr "Restart"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.restart"
+msgstr "Restart"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.serviceDescription"
+msgstr "Restart it after changing a permission so it applies."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.worktrees.tsx
@@ -2837,6 +3126,11 @@ msgid "Routing groups"
 msgstr "Routing groups"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.runHistory"
+msgstr "Run History"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.threadRunning"
 msgstr "Running"
@@ -2858,6 +3152,11 @@ msgstr "Running"
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Running since"
 msgstr "Running since"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hook-stats-dialog.tsx
+msgid "chat.hookStats.runs"
+msgstr "Runs"
 
 #. placeholder {0}: view.version
 #: renderer/src/components/gateway/gateway-general-section.tsx
@@ -2904,6 +3203,11 @@ msgstr "Schedules"
 #: renderer/src/components/codex-summary.tsx
 msgid "chat.summary.schedules"
 msgstr "Schedules"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.screenRecording"
+msgstr "Screen Recording"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -3236,6 +3540,11 @@ msgid "git.review.staged"
 msgstr "Staged"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.start"
+msgstr "Start"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "Start a conversation"
@@ -3410,6 +3719,11 @@ msgid "createPr.newBranchHint"
 msgstr "The checkout is on its base branch, so the pull request needs its own branch."
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.serviceMissing"
+msgstr "The cua-driver service is not included in this build."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.currentDirectoryWillChange"
 msgstr "The current working directory will change. This affects future commands and Agent actions."
@@ -3523,6 +3837,11 @@ msgstr "Tokens"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.group.tools"
 msgstr "Tool activity"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.trustButton"
+msgstr "Trust"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -3685,6 +4004,16 @@ msgstr "Use draft pull requests by default when creating PRs from Cypheria"
 msgid "chat.permissions.agentConfig.description"
 msgstr "Use the permissions configured for the Codex agent"
 
+#. js-lingui-explicit-id
+#: renderer/src/components/hooks-page.tsx
+msgid "settings.hooks.filter.user"
+msgstr "User"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.backendCodexDescription"
+msgstr "Uses Computer Use from your installed ChatGPT app. Its Accessibility and Screen Recording permissions belong to Codex Computer Use, which asks for them itself."
+
 #: renderer/src/components/gateway/gateway-general-section.tsx
 msgid "Version"
 msgstr "Version"
@@ -3779,6 +4108,11 @@ msgid "chat.state.working"
 msgstr "Working…"
 
 #. js-lingui-explicit-id
+#: renderer/src/browser/computer-use-settings-section.tsx
+msgid "settings.computerUse.chromeExtensionDescription"
+msgstr "Works through the Cypheria extension in each browser profile."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-summary.tsx
 msgid "chat.summary.workspace.directories"
 msgstr "Workspace directories"
@@ -3845,101 +4179,5 @@ msgstr "Worktrees require the project's first source folder to be a Git reposito
 
 #. js-lingui-explicit-id
 #: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.accessibility"
-msgstr "Accessibility"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.accessibilityDescription"
-msgstr "Lets Cypheria read app windows and act in them."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.desktopApps"
-msgstr "Desktop apps"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.desktopAppsDescription"
-msgstr "Lets Agents read and operate apps on this computer in the background, with their own cursor. They may take screenshots while working."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
 msgid "settings.computerUse.externalBrowsers"
 msgstr "Your browsers"
-
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.externalBrowsersDescription"
-msgstr "Lets Agents use Chrome, Edge, Brave, Vivaldi, Opera, or Chromium with your signed-in sessions. Turn on remote debugging in the browser at its inspect page, for example chrome://inspect/#remote-debugging, and allow the connection when it asks."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.grant"
-msgstr "Grant"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.granted"
-msgstr "Granted"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.inAppBrowser"
-msgstr "Built-in browser"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.inAppBrowserDescription"
-msgstr "Lets Agents open and control tabs of the built-in browser in their own conversation, including dApp tabs. Wallet signing still follows your policies and approvals."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.mcpApps"
-msgstr "MCP Apps"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.mcpAppsDescription"
-msgstr "Lets Agents operate the plugin Apps shown in their conversation."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.restart"
-msgstr "Restart"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.screenRecording"
-msgstr "Screen Recording"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.screenRecordingDescription"
-msgstr "Lets Cypheria take screenshots of the app windows it works in."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.section"
-msgstr "Computer Use"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.service"
-msgstr "Computer Use service"
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.serviceDescription"
-msgstr "Restart it after changing a permission so it applies."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.serviceMissing"
-msgstr "The cua-driver service is not included in this build."
-
-#. js-lingui-explicit-id
-#: renderer/src/browser/computer-use-settings-section.tsx
-msgid "settings.computerUse.start"
-msgstr "Start"

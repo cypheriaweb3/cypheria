@@ -211,6 +211,10 @@ const cypheriaApi: CypheriaPreloadApi = {
     requestPermission: (permission) =>
       ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.permissionRequest, { permission }),
     restartDriver: () => ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.driverRestart, {}),
+    setChromeImplementationType: (type) =>
+      ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.chromeImplementationTypeSet, { type }),
+    setComputerBackend: (backend) =>
+      ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.computerBackendSet, { backend }),
     status: () => ipcRenderer.invoke(CYPHERIA_COMPUTER_USE_CHANNELS.statusRead, {}),
   },
   settings: {

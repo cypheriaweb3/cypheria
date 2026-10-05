@@ -9,7 +9,12 @@ import {
   resolveCuaRoot,
 } from "@cypheria/cua/plugin"
 
-import { CUA_HOST_PIPE_ENV, CUA_SURFACES_ENV } from "../node-repl/host-manager.js"
+import {
+  CUA_BROWSER_BACKENDS_ENV,
+  CUA_HOST_PIPE_ENV,
+  CUA_SURFACES_ENV,
+} from "../node-repl/host-manager.js"
+import { nodeReplFeatureEnv, resolveNodeRuntime } from "../node-repl/node-runtime.js"
 import { resolveNodeReplBinary } from "../node-repl/resolve-binary.js"
 
 const SKIPPED = new Set(["node_modules", ".turbo", ".vite"])
@@ -37,7 +42,8 @@ const addPlugin = async (file: string, entry: Record<string, unknown>) => {
  */
 export const materializeBundledMarketplace = async (
   source: string,
-  target: string
+  target: string,
+  managedNode?: string
 ): Promise<string> => {
   const staging = `${target}.${randomUUID()}`
   await cp(source, staging, {
@@ -46,14 +52,17 @@ export const materializeBundledMarketplace = async (
   })
   try {
     const root = resolveCuaRoot()
+    const node = resolveNodeRuntime(managedNode)
     await generateCuaPlugin({
       claudeEnv: {
+        CUA_REPL_BROWSER_BACKENDS: `\${${CUA_BROWSER_BACKENDS_ENV}:-}`,
         CUA_REPL_ENABLED_SURFACES: `\${${CUA_SURFACES_ENV}:-}`,
         NODE_REPL_HOST_SERVICES_PIPE_PATH: `\${${CUA_HOST_PIPE_ENV}:-}`,
       },
       directory: join(staging, CUA_PLUGIN_NAME),
       launch: cuaReplLaunch({
-        nodePath: process.execPath,
+        env: { ...node.env, ...nodeReplFeatureEnv() },
+        nodePath: node.path,
         nodeReplPath: resolveNodeReplBinary(),
         root,
         surfaces: [],

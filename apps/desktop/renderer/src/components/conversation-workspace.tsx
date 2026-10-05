@@ -34,7 +34,6 @@ import {
   ChatFileChanges,
   ChatFixedTurnSummary,
   ChatFixedTurnSummaryItem,
-  ChatGeneratedImage,
   ChatGeneratedImageGrid,
   ChatGoalPanel,
   ChatHeader,
@@ -175,6 +174,7 @@ import type {
   PanelLayoutCheckpoint,
 } from "../../../ipc/src/index.js"
 import { BrowserPane } from "../browser/browser-pane.js"
+import { onBrowserPaneRequest, reportBrowserPaneShown } from "../browser/visibility.js"
 import { useThreadMarkdownHost } from "../chat-markdown-host.js"
 import {
   clientStateStore,
@@ -209,6 +209,7 @@ import {
   type ConversationSubmitMode,
   ThreadConversationController,
 } from "../thread-conversation-controller.js"
+import { ThreadGeneratedImage } from "../thread-generated-image.js"
 import { ThreadPullRequestPanel } from "./code-review/thread-panel.js"
 import { codeReviewPrompt } from "./code-review-prompt.js"
 import { CodexSummary } from "./codex-summary.js"
@@ -501,7 +502,7 @@ function TimelineItemView({
       return (
         <ChatTimelineItem kind="assistant">
           <ChatGeneratedImageGrid>
-            <ChatGeneratedImage alt={item.name} src={item.uri} />
+            <ThreadGeneratedImage alt={item.name} uri={item.uri} />
           </ChatGeneratedImageGrid>
         </ChatTimelineItem>
       )
@@ -1748,7 +1749,7 @@ export function ConversationWorkspace({
             <ChatGeneratedImageGrid className="p-3">
               {artifacts.map(({ item }) =>
                 item.type === "artifact" && item.kind === "image" ? (
-                  <ChatGeneratedImage alt={item.name} key={item.itemId} src={item.uri} />
+                  <ThreadGeneratedImage alt={item.name} key={item.itemId} uri={item.uri} />
                 ) : null
               )}
             </ChatGeneratedImageGrid>
@@ -2170,6 +2171,22 @@ export function ConversationWorkspace({
       setRightVisibility("visible")
     },
     [setOpenRightTabs, setRightTab, setRightVisibility]
+  )
+  const browserThreadId = snapshot.thread?.id
+  const browserPaneShown = rightVisibility === "visible" && rightTab === "browser"
+  useEffect(() => {
+    if (!browserThreadId) return
+    reportBrowserPaneShown(browserThreadId, browserPaneShown)
+    return () => reportBrowserPaneShown(browserThreadId, false)
+  }, [browserPaneShown, browserThreadId])
+  useEffect(
+    () =>
+      onBrowserPaneRequest(({ threadId, visible }) => {
+        if (threadId !== browserThreadId) return
+        if (visible) openRightTab("browser")
+        else if (browserPaneShown) setRightVisibility("hidden")
+      }),
+    [browserPaneShown, browserThreadId, openRightTab, setRightVisibility]
   )
   const openedInitialApp = useRef(false)
   useEffect(() => {

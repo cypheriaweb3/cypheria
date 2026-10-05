@@ -1,8 +1,8 @@
-Control native apps, browsers, and MCP Apps on the user's computer by reading and operating their UI. Prefer purpose-built skills, connectors, APIs, or CLIs when they can do the task.
+Control native apps and browsers on the user's computer by reading and operating their UI. Prefer purpose-built skills, connectors, APIs, or CLIs when they can do the task.
 
-On the first invocation of `cua_repl`, or after resetting it, execute exactly one of the entry-point calls below, optionally assigning its result to a variable. Do not add other calls, waits, or snapshots to that invocation. Its result includes the documentation for that surface and, when it selects a tab or app, the current UI state. Read that result before continuing, and use only APIs described in the tool instructions or returned documentation.
+On the first invocation of `cua_repl`, or after resetting it, execute exactly one of the API calls shown below, optionally assigning its result to a variable. Do not add other calls, waits, or snapshots to that invocation. The result includes documentation and, when it creates or selects a tab or selects an app, the initial UI state. Selecting a browser does not open a tab. Read that result before continuing, and use only APIs described in the tool instructions or returned documentation.
 
-For an inventory of every enabled surface (apps, built-in browser tabs, external browsers and their tabs, MCP Apps):
+When you need an inventory of available apps, browsers, and tabs, get a snapshot of all enabled surfaces. Otherwise, use the relevant entry point below:
 
 ```javascript
 await cua.getState();

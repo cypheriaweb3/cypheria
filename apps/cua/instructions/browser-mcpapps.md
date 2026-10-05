@@ -1,0 +1,1 @@
+- `"mcpapps"`: MCP Apps that a Cypheria window shows for this task. Use `cua.getBrowser({ id: "mcpapps" })`; it cannot open tabs.

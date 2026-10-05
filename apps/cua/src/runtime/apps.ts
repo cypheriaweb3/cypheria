@@ -1,19 +1,42 @@
-import type { AppAction, AppBinding, AppInfo, CuaObservation, WindowInfo } from "../protocol.ts"
+import { AUDIO_CHUNK_BYTES } from "../audio.ts"
+import type {
+  AppAction,
+  AppBinding,
+  AppInfo,
+  CuaAudioRecording,
+  CuaObservation,
+  WindowInfo,
+} from "../protocol.ts"
 import type { SnapshotHistory } from "./diff.ts"
 import type { Documentation } from "./docs.ts"
 import { call, decodeBase64, emitImage, writeText } from "./host.ts"
 
-type Point = [x: number, y: number]
-type Target = number | Point
-type EmitOption = { emit?: boolean }
-type StateOptions = EmitOption & {
-  /** Return the whole tree instead of the changes since the last observation. */
-  full?: boolean
+type Vec2 = [x: number, y: number]
+type ObservationOptions = { emit?: boolean }
+type StateOptions = ObservationOptions & {
+  disableDiffing?: boolean
   /** Keep only rows containing this text, with their ancestors; indices are unchanged. */
   query?: string
 }
 type ActionResult = { readonly notice?: string }
-type Modifier = "cmd" | "ctrl" | "alt" | "shift" | "fn"
+
+const DIRECTIONS: Record<string, "up" | "down" | "left" | "right"> = {
+  d: "down",
+  down: "down",
+  l: "left",
+  left: "left",
+  r: "right",
+  right: "right",
+  u: "up",
+  up: "up",
+}
+
+const button = (value: string | undefined) =>
+  value === "r" || value === "right"
+    ? "right"
+    : value === "m" || value === "middle"
+      ? "middle"
+      : "left"
 
 /** A bound window of a native app. Element indices come from its latest state. */
 export class App {
@@ -38,12 +61,11 @@ export class App {
     return this.#binding.windowId
   }
 
-  /** The accessibility tree, as changes since the last observation unless `full`. */
-  async getState(options: StateOptions = {}): Promise<string> {
+  async getAXState(options: StateOptions = {}): Promise<string> {
     return (await this.#observe(options, false)).text
   }
 
-  async getScreenshot(options: EmitOption = {}): Promise<Uint8Array> {
+  async getScreenshot(options: ObservationOptions = {}): Promise<Uint8Array> {
     const observation = await call<CuaObservation>({
       handle: this.#handle,
       host: this.host,
@@ -56,7 +78,7 @@ export class App {
     return decodeBase64(observation.image.dataBase64)
   }
 
-  async getStateAndScreenshot(
+  async getAXStateAndScreenshot(
     options: StateOptions = {}
   ): Promise<{ state: string; screenshot?: Uint8Array }> {
     const observation = await this.#observe(options, true)
@@ -65,53 +87,83 @@ export class App {
       : { state: observation.text }
   }
 
-  click(
-    target: Target,
-    options: { button?: "left" | "right" | "middle"; count?: number; modifiers?: Modifier[] } = {}
-  ): Promise<ActionResult> {
-    return this.#act({ ...options, target, type: "click" })
+  async click(
+    target: number | Vec2,
+    options: {
+      mouseButton?: string
+      clickCount?: number
+      modifiers?: ("cmd" | "ctrl" | "alt" | "shift" | "fn")[]
+    } = {}
+  ): Promise<void> {
+    await this.#act({
+      button: button(options.mouseButton),
+      ...(options.clickCount ? { count: options.clickCount } : {}),
+      ...(options.modifiers ? { modifiers: options.modifiers } : {}),
+      target,
+      type: "click",
+    })
   }
 
-  /** Types into the focused element, or first focuses `element` or the field at `point`. */
-  typeText(text: string, options: { element?: number; point?: Point } = {}): Promise<ActionResult> {
-    return this.#act({ ...options, text, type: "type" })
+  async drag(from: Vec2, to: Vec2): Promise<void> {
+    await this.#act({ from, to, type: "drag" })
   }
 
-  /** Presses a key or chord such as `"Return"`, `"cmd+c"`, or `"shift+Tab"`. */
-  pressKey(key: string): Promise<ActionResult> {
-    return this.#act({ key, type: "press" })
+  async scroll(
+    target: number | Vec2,
+    direction: string,
+    distance?: number | { pixels: number }
+  ): Promise<void> {
+    const resolved = DIRECTIONS[direction]
+    if (!resolved) throw new Error("direction must be up, down, left, or right.")
+    await this.#act({
+      direction: resolved,
+      target,
+      type: "scroll",
+      ...(typeof distance === "number" ? { amount: distance, by: "page" as const } : {}),
+      ...(typeof distance === "object" ? { pixels: distance.pixels } : {}),
+    })
   }
 
-  scroll(
-    target: Target,
-    direction: "up" | "down" | "left" | "right",
-    amount?: number,
-    options: { by?: "line" | "page" } = {}
-  ): Promise<ActionResult> {
-    return this.#act({ ...options, amount, direction, target, type: "scroll" })
+  async selectText(
+    elementIndex: number,
+    text: string,
+    options: {
+      prefix?: string
+      suffix?: string
+      selectionType?: "text" | "cursor_before" | "cursor_after"
+    } = {}
+  ): Promise<void> {
+    await this.#act({ element: elementIndex, text, type: "select_text", ...options })
   }
 
-  drag(from: Point, to: Point): Promise<ActionResult> {
-    return this.#act({ from, to, type: "drag" })
+  async setValue(elementIndex: number, value: string): Promise<void> {
+    await this.#act({ element: elementIndex, type: "set_value", value })
   }
 
-  setValue(element: number, value: string): Promise<ActionResult> {
-    return this.#act({ element, type: "set_value", value })
+  async performSecondaryAction(elementIndex: number, action: string): Promise<void> {
+    await this.#act({ action, element: elementIndex, type: "perform" })
   }
 
-  /** Invokes an accessibility action the element lists, such as `"AXShowMenu"`. */
-  performAction(element: number, action: string): Promise<ActionResult> {
-    return this.#act({ action, element, type: "perform" })
+  async paste(text: string, options: { format?: "text" | "md" | "html" } = {}): Promise<void> {
+    await this.#act({ text, type: "paste", ...options })
+  }
+
+  async pressKey(key: string): Promise<void> {
+    await this.#act({ key, type: "press" })
+  }
+
+  async typeText(text: string): Promise<void> {
+    await this.#act({ text, type: "type" })
   }
 
   /** Chooses an application menu item by its titles, such as `["File", "New Window"]`. */
-  selectMenu(path: string[]): Promise<ActionResult> {
-    return this.#act({ path, type: "menu" })
+  async selectMenu(path: string[]): Promise<void> {
+    await this.#act({ path, type: "menu" })
   }
 
   /** Brings the window to the front. Actions normally run in the background without this. */
-  activate(): Promise<ActionResult> {
-    return this.#act({ type: "activate" })
+  async activate(): Promise<void> {
+    await this.#act({ type: "activate" })
   }
 
   get #handle() {
@@ -133,7 +185,7 @@ export class App {
     })
     const text = options.query
       ? observation.text
-      : this.#history.render(this.#key, this.name, observation.text, options.full)
+      : this.#history.render(this.#key, this.name, observation.text, options.disableDiffing)
     if (options.emit !== false) {
       writeText(text)
       if (observation.image) await emitImage(observation.image)
@@ -141,7 +193,7 @@ export class App {
     return { ...observation, text }
   }
 
-  async #act(action: AppAction): Promise<ActionResult> {
+  async #act(action: AppAction): Promise<void> {
     const result = await call<ActionResult>({
       action,
       handle: this.#handle,
@@ -149,7 +201,6 @@ export class App {
       op: "apps.act",
     })
     if (result.notice) writeText(result.notice)
-    return result
   }
 }
 
@@ -159,9 +210,52 @@ const appKey = (host: string, binding: AppBinding) =>
 /** `host` picks the device; by default it is the one the person wrote from. */
 type HostOption = { host?: string }
 
-export const createAppsApi = (history: SnapshotHistory, docs: Documentation) => ({
+const TARGETS: Record<string, "mac" | "linux" | "windows"> = {
+  darwin: "mac",
+  linux: "linux",
+  win32: "windows",
+}
+
+/** Records the computer's audio, which the model hears through `nodeRepl.emitAudio`. */
+const audioApi = (docs: Documentation) => ({
+  async start_audio_recording(
+    input: { max_duration_ms?: number } & HostOption = {}
+  ): Promise<void> {
+    docs.enterApps()
+    await call({
+      host: input.host,
+      maxDurationMs: input.max_duration_ms,
+      op: "apps.audio.start",
+    })
+  },
+
+  async stop_audio_recording(input: HostOption = {}): Promise<{ data_url: string }> {
+    const recording = await call<CuaAudioRecording>({ host: input.host, op: "apps.audio.stop" })
+    let base64 = ""
+    for (let offset = 0; offset < recording.size; offset += AUDIO_CHUNK_BYTES) {
+      base64 += await call<string>({
+        host: input.host,
+        length: AUDIO_CHUNK_BYTES,
+        offset,
+        op: "apps.audio.read",
+      })
+    }
+    return { data_url: `data:${recording.mimeType};base64,${base64}` }
+  },
+})
+
+export const createAppsApi = (history: SnapshotHistory, docs: Documentation, platform: string) => ({
+  computer: {
+    async launch_app(input: { app: string } & HostOption): Promise<void> {
+      docs.enterApps()
+      await call({ app: input.app, host: input.host, op: "apps.launch" })
+    },
+    target: TARGETS[platform] ?? "mac",
+    ...(docs.audio ? audioApi(docs) : {}),
+  },
+
   async getApp(target: string | { windowId: number }, options: HostOption = {}): Promise<App> {
-    docs.enter("computer")
+    docs.enterApps()
     const opened = await call<{ binding: AppBinding; host: string; observation: CuaObservation }>({
       app: target,
       host: options.host,
@@ -175,17 +269,17 @@ export const createAppsApi = (history: SnapshotHistory, docs: Documentation) => 
     return app
   },
 
-  async listApps(options: EmitOption & HostOption = {}): Promise<AppInfo[]> {
-    docs.enter("computer")
+  async listApps(options: ObservationOptions & HostOption = {}): Promise<AppInfo[]> {
+    docs.enterApps()
     const apps = await call<AppInfo[]>({ host: options.host, op: "apps.list" })
     if (options.emit !== false) writeText(JSON.stringify(apps))
     return apps
   },
 
   async listWindows(
-    options: EmitOption & HostOption & { pid?: number } = {}
+    options: ObservationOptions & HostOption & { pid?: number } = {}
   ): Promise<WindowInfo[]> {
-    docs.enter("computer")
+    docs.enterApps()
     const windows = await call<WindowInfo[]>({
       host: options.host,
       op: "apps.windows",

@@ -39,6 +39,8 @@ describe("desktop IPC contracts", () => {
       "browserLiveList",
       "browserShortcutPolicySet",
       "browserUnregister",
+      "computerUseChromeImplementationTypeSet",
+      "computerUseComputerBackendSet",
       "computerUseDriverRestart",
       "computerUseMcpAppExecute",
       "computerUsePermissionRequest",

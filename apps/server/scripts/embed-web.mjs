@@ -1,6 +1,5 @@
 import { access, chmod, copyFile, cp, mkdir, rm } from "node:fs/promises"
-import { createRequire } from "node:module"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { packagePlugin as packageCodeReview } from "../../../plugins/code-review/scripts/build.mjs"
@@ -41,7 +40,7 @@ for (const entry of [
 await packageCodeReview(`${pluginMarketplaceDestination}code-review`)
 
 // The Computer Use runtime next to the bundle (`dist/cua`): the cua_repl launcher and runtime,
-// the plugin template and instructions, and this platform's agent-browser and cua-driver.
+// the plugin template and instructions, and this platform's cua-driver.
 const cuaSource = fileURLToPath(new URL("../../cua/", import.meta.url))
 const cuaDestination = fileURLToPath(new URL("../dist/cua/", import.meta.url))
 try {
@@ -55,13 +54,6 @@ for (const entry of ["dist", "plugin", "instructions", "package.json"]) {
 }
 await mkdir(join(cuaDestination, "bin"), { recursive: true })
 const exe = process.platform === "win32" ? ".exe" : ""
-const agentBrowser = join(
-  dirname(createRequire(join(cuaSource, "package.json")).resolve("agent-browser/package.json")),
-  "bin",
-  `agent-browser-${process.platform}-${process.arch}${exe}`
-)
-await copyFile(agentBrowser, join(cuaDestination, "bin", `agent-browser${exe}`))
-await chmod(join(cuaDestination, "bin", `agent-browser${exe}`), 0o755)
 const cuaDriver = join(cuaSource, "vendor", "cua-driver", `cua-driver${exe}`)
 try {
   await access(cuaDriver)

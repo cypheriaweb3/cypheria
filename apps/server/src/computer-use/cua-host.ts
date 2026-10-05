@@ -1,4 +1,4 @@
-import { CUA_SURFACES, type CuaSurface } from "@cypheria/cua"
+import type { BrowserBackend, CuaSurface } from "@cypheria/cua"
 import { CuaHost } from "@cypheria/cua/host"
 import type { AuditLogService } from "@cypheria/db"
 import type { ComputerUseSettings } from "@cypheria/protocol"
@@ -8,19 +8,25 @@ import type { ExtensionOpenApp } from "../extensions/service.js"
 import type { ComputerHostService } from "./computer-hosts.js"
 import { BrokeredComputerHosts } from "./desktop-surfaces.js"
 
-const SETTING_OF: Record<CuaSurface, keyof ComputerUseSettings> = {
-  browsers: "externalBrowsers",
-  computer: "desktopApps",
-  iab: "inAppBrowser",
-  mcpapps: "mcpApps",
-}
-
 /**
- * The surfaces the settings allow. Whether a window or device can serve one is for it to say
- * when it registers; the settings are the person's policy across every device.
+ * The browser backends the settings allow. Whether a window or device can serve one is for it to
+ * say when it registers; the settings are the person's policy across every device.
  */
+export const enabledBrowserBackends = (
+  settings: ComputerUseSettings
+): ReadonlySet<BrowserBackend> =>
+  new Set<BrowserBackend>([
+    ...(settings.inAppBrowser ? (["iab"] as const) : []),
+    ...(settings.mcpApps ? (["mcpapps"] as const) : []),
+    ...(settings.externalBrowsers ? (["chrome"] as const) : []),
+  ])
+
+/** The `cua_repl` surfaces the settings allow: browsers when any backend is on, and apps. */
 export const enabledCuaSurfaces = (settings: ComputerUseSettings): ReadonlySet<CuaSurface> =>
-  new Set(CUA_SURFACES.filter((surface) => settings[SETTING_OF[surface]]))
+  new Set<CuaSurface>([
+    ...(enabledBrowserBackends(settings).size > 0 ? (["browser"] as const) : []),
+    ...(settings.desktopApps ? (["computer"] as const) : []),
+  ])
 
 export type CuaHostFactoryOptions = {
   readonly settings: () => ComputerUseSettings
@@ -39,14 +45,22 @@ export type CuaHostFactoryOptions = {
  */
 export const createCuaHost = (
   options: CuaHostFactoryOptions
-): { host: CuaHost; surfaces: () => ReadonlySet<CuaSurface> } => {
+): {
+  host: CuaHost
+  hosts: BrokeredComputerHosts
+  surfaces: () => ReadonlySet<CuaSurface>
+  backends: () => ReadonlySet<BrowserBackend>
+} => {
   const surfaces = () => enabledCuaSurfaces(options.settings())
+  const backends = () => enabledBrowserBackends(options.settings())
+  const blockedFamilies = () => new Set(options.settings().blockedBrowserFamilies)
   const hosts = new BrokeredComputerHosts({
     browser: options.browserTools,
     devices: options.computerHosts,
     openApps: options.openApps,
   })
   const host = new CuaHost({
+    blockedFamilies,
     audit: (event) => {
       void options.audit
         ?.append({
@@ -57,10 +71,11 @@ export const createCuaHost = (
         })
         .catch(() => undefined)
     },
+    backends,
     desktop: hosts,
     hosts,
     initiator: options.initiator,
     surfaces,
   })
-  return { host, surfaces }
+  return { backends, host, hosts, surfaces }
 }

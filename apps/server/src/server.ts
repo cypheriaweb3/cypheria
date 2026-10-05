@@ -5,7 +5,7 @@ import type { Server as HttpServer } from "node:http"
 import { homedir, hostname } from "node:os"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
-import type { CuaHost } from "@cypheria/cua/host"
+import { type CuaHost, nativeCodexBinary } from "@cypheria/cua/host"
 import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
@@ -79,6 +79,7 @@ import pino, { type Logger } from "pino"
 import { type WebSocket, WebSocketServer } from "ws"
 import { AgentManager } from "./agent/agent-manager.js"
 import { CYPHERIA_RENDERING_CAPABILITIES } from "./agent/codex-developer-instructions.js"
+import { codexGeneratedImagesDir } from "./agent/codex-generated-images.js"
 import { mapCodexInput } from "./agent/managed-thread-adapter.js"
 import { AutomationTool } from "./app-tools/automation.js"
 import { type AppToolGrant, AppToolGrants, codexCallerSessionIds } from "./app-tools/grants.js"
@@ -194,7 +195,20 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
   readonly browserTools: BrowserToolsService
-  readonly computerHosts = new ComputerHostService()
+  /** Devices' Computer Use hosts; their app approvals become questions in the Thread. */
+  readonly computerHosts = new ComputerHostService({
+    approve: async (threadId, approval) => {
+      const answer = await this.threadManager.requestInteraction(threadId, {
+        message:
+          approval.kind === "audio"
+            ? "Allow Computer Use to record computer audio?"
+            : `Allow Computer Use to use "${approval.displayName}"?${approval.subtitle ? ` ${approval.subtitle}` : ""}`,
+        title: approval.risk === "high" ? "Computer Use (high risk)" : "Computer Use",
+      })
+      if (answer.type !== "permission" || answer.outcome === "deny") return "deny"
+      return answer.outcome === "allow_always" && approval.allowAlways ? "always" : "session"
+    },
+  })
   readonly cua: CuaHost
   /** The client that sent each Thread's latest turn; Computer Use opens new things there. */
   readonly #turnClients = new Map<string, string>()
@@ -250,13 +264,7 @@ export class CypheriaServer implements HttpAppHost {
       options.networkProxyStore ?? NetworkProxyStore.empty(this.runtime.paths.configDir)
     this.database = options.database ?? openCypheriaDatabase({ dbDir: this.runtime.paths.dbDir })
     this.web3 = new ServerWeb3Service(this.database, this.runtime.paths)
-    this.browserTools = new BrowserToolsService({
-      audit: this.web3.audit,
-      enabled: () => {
-        const settings = this.configStore.getSnapshot().config.computerUse
-        return settings.inAppBrowser || settings.mcpApps
-      },
-    })
+    this.browserTools = new BrowserToolsService()
     const computerUse = createCuaHost({
       audit: this.web3.audit,
       browserTools: this.browserTools,
@@ -269,19 +277,24 @@ export class CypheriaServer implements HttpAppHost {
     configureBundledMarketplace((source) =>
       materializeBundledMarketplace(
         source,
-        join(this.runtime.paths.cypheriaHome, "plugins", "cypheria-bundled")
+        join(this.runtime.paths.cypheriaHome, "plugins", "cypheria-bundled"),
+        this.agentManager.toolchains.executable("node")
       )
     )
     this.nodeReplHostManager = new NodeReplHostManager({
       cua: this.cua,
       logger: this.logger.child({ service: "node-repl" }),
+      backends: () => [...computerUse.backends()],
       surfaces: () => [...computerUse.surfaces()],
       resolveCodexPath: async () => {
         const receipt = await this.agentManager.installer
           .readCurrent("codex")
           .catch(() => undefined)
-        return receipt?.command ?? "codex"
+        // node_repl runs `$CODEX_CLI_PATH sandbox …`, so it needs the native executable, not
+        // the npm launcher a receipt may name.
+        return (receipt ? nativeCodexBinary(receipt) : null) ?? "codex"
       },
+      resolveNodePath: () => this.agentManager.toolchains.executable("node"),
     })
     this.registry = new ConnectionRegistry({
       helloTimeoutMs: this.config.sessionHelloTimeoutMs,
@@ -363,13 +376,7 @@ export class CypheriaServer implements HttpAppHost {
         const page = await this.threadManager.list({ limit: 100 })
         return page.data.map((thread) => ({ id: thread.id, title: thread.title }))
       },
-      listBrowserTabs: async (threadId) => {
-        const outcome = await this.browserTools.execute({
-          command: { args: {}, command: "list_tabs" },
-          threadId,
-        })
-        return outcome.ok && outcome.result.command === "list_tabs" ? outcome.result.tabs : []
-      },
+      listBrowserTabs: (threadId) => this.cua.mentionableTabs({ threadId }),
     })
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     const projectlessWorkspaceRoot = resolve(
@@ -379,6 +386,11 @@ export class CypheriaServer implements HttpAppHost {
     this.workspaceFiles = new WorkspaceFileService({
       cypheriaHome: this.runtime.paths.cypheriaHome,
       persistence: projectThreadPersistence,
+      // Clients read the images a Codex session generated, which Codex keeps in its home.
+      outputRoots: (thread) =>
+        thread.agentId === "codex" && thread.agentSessionId
+          ? [codexGeneratedImagesDir(this.runtime.paths.codexHome, thread.agentSessionId)]
+          : [],
       projectlessRoot: projectlessWorkspaceRoot,
       publish: (message) => this.registry.broadcast(message),
     })
@@ -450,10 +462,7 @@ export class CypheriaServer implements HttpAppHost {
         await this.inputFiles.releaseThread(threadId)
       },
       onTurnCompleted: async (threadId) => {
-        await Promise.all([
-          this.browserTools.cleanupTurnTabs(threadId),
-          this.cua.turnEnded({ threadId }),
-        ])
+        await this.cua.turnEnded({ threadId })
       },
       inputFiles: this.inputFiles,
       resolveReference: (reference, context) => this.composerReferences.resolve(reference, context),

@@ -170,3 +170,47 @@ func TestTrustedRpcReachesHostServices(t *testing.T) {
 		t.Fatalf("unexpected rpc result: %+v", res)
 	}
 }
+
+func TestEmittedMediaBecomesContent(t *testing.T) {
+	t.Setenv("NODE_REPL_ENABLE_AUDIO", "1")
+	sup, err := supervisor.New(supervisor.Options{DisableSandbox: true})
+	if err != nil {
+		t.Fatalf("failed to create supervisor: %v", err)
+	}
+	defer sup.Reset()
+
+	code := `await nodeRepl.emitImage("data:image/png;base64,iVBORw0KGgo="); ` +
+		`await nodeRepl.emitAudio("data:audio/wav;base64,UklGRg==");`
+	request, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params":  map[string]any{"name": "js", "arguments": map[string]any{"code": code}},
+	})
+	out := &bytes.Buffer{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := mcp.NewServer(sup, nil).Serve(ctx, bytes.NewBuffer(append(request, '\n')), out); err != nil {
+		t.Fatalf("serve failed: %v", err)
+	}
+
+	var response struct {
+		Result struct {
+			Content []map[string]any `json:"content"`
+			IsError bool             `json:"isError"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v\n%s", err, out.String())
+	}
+	if response.Result.IsError {
+		t.Fatalf("exec failed: %v", response.Result.Content)
+	}
+	media := response.Result.Content[len(response.Result.Content)-2:]
+	if media[0]["type"] != "image" || media[0]["mimeType"] != "image/png" || media[0]["data"] != "iVBORw0KGgo=" {
+		t.Fatalf("image content = %v", media[0])
+	}
+	if media[1]["type"] != "audio" || media[1]["mimeType"] != "audio/wav" || media[1]["data"] != "UklGRg==" {
+		t.Fatalf("audio content = %v", media[1])
+	}
+}

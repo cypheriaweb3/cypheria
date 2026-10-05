@@ -1,7 +1,10 @@
 import { z } from "zod"
 
-import { BROWSER_FAMILIES } from "./families.ts"
-import type { CuaSurface } from "./surfaces.ts"
+import { AUDIO_CHUNK_BYTES, MAX_AUDIO_RECORDING_MS } from "./audio.ts"
+import { BROWSER_MEMBERS, isBrowserMember } from "./browser/members.ts"
+import { BrowserHostRequestSchema, BrowserRequestSchema } from "./browser/protocol.ts"
+import type { BrowserInfo, TabInfo } from "./browser/types.ts"
+import type { HostCapability } from "./surfaces.ts"
 
 /**
  * Requests the `cua` runtime sends to its host over `nodeRepl.rpc(CUA_SERVICE, request)`. Model
@@ -12,17 +15,12 @@ export const CUA_SERVICE = "cua"
 
 const point = z.tuple([z.number().finite(), z.number().finite()])
 const elementIndex = z.int().nonnegative()
-/** An element ref from the latest page snapshot, such as `@e12`. */
-const ref = z
-  .string()
-  .regex(/^@?e\d+$/u, "ref must look like @e12")
-  .transform((value) => (value.startsWith("@") ? value : `@${value}`))
 const mouseButton = z.enum(["left", "right", "middle"])
 const direction = z.enum(["up", "down", "left", "right"])
 const modifier = z.enum(["cmd", "ctrl", "alt", "shift", "fn"])
 const text = z.string().max(100_000)
 const key = z.string().min(1).max(64)
-const url = z.string().min(1).max(8_192)
+const _url = z.string().min(1).max(8_192)
 
 /** A Computer Use host: the client ID of the device whose browsers and apps a request uses. */
 const host = z.string().min(1).max(128)
@@ -46,8 +44,9 @@ export const AppActionSchema = z.discriminatedUnion("type", [
   }),
   z.object({ key, type: z.literal("press") }),
   z.object({
-    amount: z.int().min(1).max(50).optional(),
+    amount: z.number().positive().max(50).optional(),
     by: z.enum(["line", "page"]).optional(),
+    pixels: z.int().positive().max(20_000).optional(),
     direction,
     target: z.union([elementIndex, point]),
     type: z.literal("scroll"),
@@ -61,122 +60,20 @@ export const AppActionSchema = z.discriminatedUnion("type", [
   }),
   z.object({ path: z.array(z.string().min(1)).min(1).max(8), type: z.literal("menu") }),
   z.object({ type: z.literal("activate") }),
+  z.object({ format: z.enum(["text", "md", "html"]).optional(), text, type: z.literal("paste") }),
+  z.object({
+    element: elementIndex,
+    prefix: z.string().max(10_000).optional(),
+    selectionType: z.enum(["text", "cursor_before", "cursor_after"]).optional(),
+    suffix: z.string().max(10_000).optional(),
+    text,
+    type: z.literal("select_text"),
+  }),
 ])
 export type AppAction = z.infer<typeof AppActionSchema>
 
-/** One action on a claimed external browser tab, translated by the host into agent-browser. */
-export const PageActionSchema = z.discriminatedUnion("type", [
-  z.object({
-    full: z.boolean().optional(),
-    interactive: z.boolean().optional(),
-    type: z.literal("snapshot"),
-  }),
-  z.object({
-    annotate: z.boolean().optional(),
-    fullPage: z.boolean().optional(),
-    type: z.literal("screenshot"),
-  }),
-  z.object({
-    button: mouseButton.optional(),
-    double: z.boolean().optional(),
-    target: z.union([ref, point]),
-    type: z.literal("click"),
-  }),
-  z.object({ ref, type: z.literal("fill"), value: text }),
-  z.object({ ref: ref.optional(), text, type: z.literal("type") }),
-  z.object({ key, ref: ref.optional(), type: z.literal("press") }),
-  z.object({ target: z.union([ref, point]), type: z.literal("hover") }),
-  z.object({ ref, type: z.literal("select"), values: z.array(z.string()).min(1).max(64) }),
-  z.object({ checked: z.boolean(), ref, type: z.literal("check") }),
-  z.object({
-    direction,
-    pixels: z.int().positive().max(20_000).optional(),
-    ref: ref.optional(),
-    type: z.literal("scroll"),
-  }),
-  z.object({ from: ref, to: ref, type: z.literal("drag") }),
-  z.object({
-    paths: z.array(z.string().min(1)).min(1).max(32),
-    ref,
-    type: z.literal("upload"),
-  }),
-  z.object({
-    ref: ref.optional(),
-    type: z.literal("get"),
-    what: z.enum(["text", "html", "value", "title", "url"]),
-  }),
-  z.object({ script: z.string().min(1).max(100_000), type: z.literal("evaluate") }),
-  z.object({
-    ms: z.int().positive().max(30_000).optional(),
-    selector: z.string().min(1).max(1_000).optional(),
-    text: z.string().min(1).max(1_000).optional(),
-    type: z.literal("wait"),
-    url: z.string().min(1).max(1_000).optional(),
-  }),
-  z.object({ type: z.literal("goto"), url }),
-  z.object({ type: z.literal("back") }),
-  z.object({ type: z.literal("forward") }),
-  z.object({ type: z.literal("reload") }),
-  z.object({ accept: z.boolean(), text: z.string().optional(), type: z.literal("dialog") }),
-  z.object({ type: z.literal("close") }),
-  z.object({ disposition: z.enum(["deliverable", "handoff"]), type: z.literal("mark") }),
-])
-export type PageAction = z.infer<typeof PageActionSchema>
-
-/** One action on an MCP App: DOM-only, with synthetic events and no native input. */
-export const McpAppActionSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("snapshot") }),
-  z.object({ type: z.literal("screenshot") }),
-  z.object({ ref, type: z.literal("click") }),
-  z.object({ ref, type: z.literal("fill"), value: text }),
-  z.object({ ref: ref.optional(), text, type: z.literal("type") }),
-  z.object({ key, ref: ref.optional(), type: z.literal("press") }),
-  z.object({ ref, type: z.literal("select"), value: z.string() }),
-  z.object({ checked: z.boolean(), ref, type: z.literal("check") }),
-  z.object({
-    deltaX: z.number().finite().optional(),
-    deltaY: z.number().finite(),
-    ref: ref.optional(),
-    type: z.literal("scroll"),
-  }),
-])
-export type McpAppAction = z.infer<typeof McpAppActionSchema>
-
-/** Built-in browser commands the `iab` API forwards, by their protocol name. */
-export const IAB_COMMANDS = [
-  "snapshot",
-  "click",
-  "fill",
-  "wait",
-  "type",
-  "keypress",
-  "navigate",
-  "back",
-  "forward",
-  "reload",
-  "screenshot",
-  "upload",
-  "select",
-  "hover",
-  "drag",
-  "logs",
-  "evaluate",
-  "scroll",
-  "resize",
-  "close_tab",
-  "mark_deliverable",
-  "mark_handoff",
-  "request_manual_handoff",
-  "scan_qr",
-  "extract_assets",
-] as const
-export type IabCommand = (typeof IAB_COMMANDS)[number]
-
-const browserId = z.enum(BROWSER_FAMILIES)
-const tabId = z.string().min(1).max(256)
-
-/** Requests about the host device itself, which the Server forwards to that device. */
-const DEVICE_REQUESTS = [
+/** Requests about the host device's native apps, which the Server forwards to that device. */
+const APP_REQUESTS = [
   z.object({ host: host.optional(), op: z.literal("apps.list") }),
   z.object({
     host: host.optional(),
@@ -197,42 +94,41 @@ const DEVICE_REQUESTS = [
     tree: z.boolean().optional(),
   }),
   z.object({ action: AppActionSchema, handle: AppHandleSchema, host, op: z.literal("apps.act") }),
-  z.object({ host: host.optional(), op: z.literal("browsers.list") }),
-  z.object({ browserId, host, op: z.literal("browsers.tabs") }),
-  z.object({ browserId, host, op: z.literal("browsers.new"), url: url.optional() }),
-  z.object({ browserId, host, op: z.literal("browsers.claim"), tabId }),
-  z.object({ action: PageActionSchema, browserId, host, op: z.literal("browsers.act"), tabId }),
+  z.object({
+    app: z.string().min(1).max(1_024),
+    host: host.optional(),
+    op: z.literal("apps.launch"),
+  }),
+  z.object({
+    host: host.optional(),
+    maxDurationMs: z.int().min(100).max(MAX_AUDIO_RECORDING_MS).optional(),
+    op: z.literal("apps.audio.start"),
+  }),
+  z.object({ host: host.optional(), op: z.literal("apps.audio.stop") }),
+  z.object({
+    host: host.optional(),
+    length: z.int().positive().max(AUDIO_CHUNK_BYTES),
+    offset: z.int().nonnegative(),
+    op: z.literal("apps.audio.read"),
+  }),
 ] as const
 
 export const CuaRequestSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("state") }),
   z.object({ op: z.literal("hosts") }),
-  ...DEVICE_REQUESTS,
-  z.object({ op: z.literal("iab.tabs") }),
-  z.object({
-    host: host.optional(),
-    kind: z.enum(["web", "dapp"]).optional(),
-    op: z.literal("iab.new"),
-    url: url.optional(),
-  }),
-  z.object({
-    args: z.record(z.string(), z.unknown()).default({}),
-    command: z.enum(IAB_COMMANDS),
-    op: z.literal("iab.command"),
-    tabId,
-  }),
-  z.object({ op: z.literal("mcpapps.list") }),
-  z.object({ action: McpAppActionSchema, appId: tabId, op: z.literal("mcpapps.act") }),
+  ...APP_REQUESTS,
+  ...BrowserRequestSchema.options,
 ])
 export type CuaRequest = z.input<typeof CuaRequestSchema>
 export type ParsedCuaRequest = z.output<typeof CuaRequestSchema>
 
 /**
- * What a host device executes: its share of the Thread's requests plus the Server's lifecycle
- * notices. The device validates it again, since it arrives over the network.
+ * What a host device executes: its native app requests, its `chrome` browser requests, and the
+ * Server's lifecycle notices. The device validates it again, since it arrives over the network.
  */
 export const CuaDeviceRequestSchema = z.discriminatedUnion("op", [
-  ...DEVICE_REQUESTS,
+  ...APP_REQUESTS,
+  ...BrowserHostRequestSchema.options,
   z.object({ op: z.literal("device.turnEnded") }),
   z.object({ op: z.literal("device.closeThread") }),
 ])
@@ -243,16 +139,10 @@ const REPEATABLE_DEVICE_OPS: ReadonlySet<string> = new Set([
   "apps.list",
   "apps.windows",
   "apps.observe",
+  "apps.audio.read",
   "browsers.list",
-  "browsers.tabs",
   "device.turnEnded",
   "device.closeThread",
-])
-const REPEATABLE_PAGE_ACTIONS: ReadonlySet<string> = new Set([
-  "snapshot",
-  "screenshot",
-  "get",
-  "wait",
 ])
 
 /**
@@ -261,10 +151,15 @@ const REPEATABLE_PAGE_ACTIONS: ReadonlySet<string> = new Set([
  */
 export const isRepeatableDeviceRequest = (request: ParsedCuaDeviceRequest): boolean =>
   REPEATABLE_DEVICE_OPS.has(request.op) ||
-  (request.op === "browsers.act" && REPEATABLE_PAGE_ACTIONS.has(request.action.type))
+  (request.op === "browser.call" &&
+    isBrowserMember(request.member) &&
+    !BROWSER_MEMBERS[request.member].mutates)
 
 /** A screenshot crossing the RPC boundary. */
 export type CuaImage = { readonly dataBase64: string; readonly mimeType: string }
+
+/** A finished computer audio recording, which `apps.audio.read` returns piece by piece. */
+export type CuaAudioRecording = { readonly mimeType: string; readonly size: number }
 
 /** What the host returns for an observation: text for the model and optional pixels. */
 export type CuaObservation = { readonly text: string; readonly image?: CuaImage }
@@ -293,57 +188,19 @@ export type CuaHostInfo = {
   readonly name: string
   /** Whether this is the device the person sent the current turn from. */
   readonly current: boolean
-  readonly surfaces: readonly CuaSurface[]
+  /** What the device offers: browser backends and native app control. */
+  readonly capabilities: readonly HostCapability[]
 }
 
-export type IabTabInfo = {
-  readonly id: string
-  /** The host showing the tab, when the Server knows it. */
-  readonly host?: string
-  readonly kind: "web" | "dapp"
-  readonly title: string
-  readonly url: string
-  readonly active: boolean
-}
-
-export type ExternalBrowserInfo = {
-  readonly id: (typeof BROWSER_FAMILIES)[number]
-  readonly name: string
-  readonly installed: boolean
-  /** Whether remote debugging is on and the browser is reachable. */
-  readonly connectable: boolean
-  /** Why the browser cannot be used yet, with what the person must do. */
-  readonly setup?: string
-}
-
-/** An external browser together with the device it runs on, as the Server reports it. */
-export type HostedBrowserInfo = ExternalBrowserInfo & { readonly host: string }
-
-export type ExternalTabInfo = {
-  readonly id: string
-  readonly title: string
-  readonly url: string
-  /** Whether this Thread controls the tab: it opened or claimed it. */
-  readonly controlled: boolean
-}
-
-export type McpAppInfo = {
-  readonly id: string
-  /** The Thread whose Timeline holds the App, or `null` for a page outside any Thread. */
-  readonly threadId: string | null
-  readonly title: string
-  readonly server: string
-  readonly pluginId: string | null
-  readonly displayMode: string
-}
+/** A browser in the state inventory, with the tabs the Thread controls in it. */
+export type BrowserState = BrowserInfo & { readonly tabs?: readonly TabInfo[] }
 
 export type CuaState = {
   readonly hosts: readonly CuaHostInfo[]
-  /** The device the state's native apps and external browsers come from. */
+  /** The device the state's native apps come from. */
   readonly host?: string
   readonly apps?: readonly AppInfo[]
-  readonly iab?: readonly IabTabInfo[]
-  readonly browsers?: readonly (HostedBrowserInfo & { tabs?: readonly ExternalTabInfo[] })[]
-  readonly mcpApps?: readonly McpAppInfo[]
+  readonly browsers?: readonly BrowserState[]
+  /** Inventory failures; the rest of the state remains usable. */
   readonly errors?: readonly string[]
 }

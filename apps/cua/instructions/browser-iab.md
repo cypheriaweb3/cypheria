@@ -1,0 +1,1 @@
+- `"iab"` (Cypheria's built-in browser, `@Browser`): for local development pages, dApps, and pages the user wants inside Cypheria. In `createBrowserTab`, pass `{ visible: true }` to show the tab, `false` to keep it hidden.

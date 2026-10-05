@@ -7,7 +7,6 @@ overrides:
   "@types/react-dom": ^19.2.3
 allowBuilds:
   '@google/genai': false
-  agent-browser: true
   esbuild: true
   msgpackr-extract: false
   msw: true

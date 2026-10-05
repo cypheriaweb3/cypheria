@@ -1,4 +1,6 @@
 import {
+  type ComputerHostApproval,
+  type ComputerHostApprovalDecision,
   type ComputerHostOutcomeInput,
   type ComputerHostRegistrationInput,
   type ComputerHostRequest,
@@ -43,7 +45,18 @@ export interface ComputerHostActions {
    */
   register(options: ComputerHostOptions): ComputerHostHandle
   sendResult(outcome: ComputerHostOutcomeInput, options?: RequestOptions): Promise<void>
+  /**
+   * Asks the people in a Thread whether Computer Use may operate an app, while the device runs
+   * one of that Thread's commands. Resolves when one of the Thread's clients answers.
+   */
+  requestApproval(
+    approval: ComputerHostApproval,
+    options?: RequestOptions
+  ): Promise<ComputerHostApprovalDecision>
 }
+
+/** How long a person may take to answer an approval. */
+const APPROVAL_TIMEOUT_MS = 30 * 60_000
 
 const errorCode = (error: unknown) =>
   error instanceof Error && /^[a-z_]{1,64}$/u.test(error.name) ? error.name : "device_error"
@@ -57,6 +70,13 @@ export const createComputerHostActions = (client: ServerClient): ComputerHostAct
   }
 
   return {
+    requestApproval: async (approval, options) =>
+      unwrap<{ decision: ComputerHostApprovalDecision }>(
+        await client.requestComputerHost("computer.host.approval.request", approval, {
+          timeoutMs: APPROVAL_TIMEOUT_MS,
+          ...options,
+        })
+      ).decision,
     register: (options) => {
       let released = false
       let connected = false

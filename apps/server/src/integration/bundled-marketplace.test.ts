@@ -90,10 +90,7 @@ describe("bundled Cypheria marketplace", () => {
       await materializeBundledMarketplace(root, target)
       const read = async (path: string) => JSON.parse(await readFile(join(target, path), "utf8"))
       const codex = await read("cua/.codex-plugin/plugin.json")
-      expect(codex.hooks.hooks.Stop[0].hooks[0]).toMatchObject({
-        server: "cua_repl",
-        tool: "turn_ended",
-      })
+      expect(codex.hooks).toBeUndefined()
       expect((await read("cua/.mcp.json")).mcpServers.cua_repl.enabled).toBe(false)
       expect((await read("cua/.claude-mcp.json")).mcpServers.cua_repl.env).toMatchObject({
         CUA_REPL_ENABLED_SURFACES: `\${CYPHERIA_CUA_SURFACES:-}`,

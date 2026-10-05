@@ -1,12 +1,13 @@
 import { type ChildProcess, execFile } from "node:child_process"
 import { createHash } from "node:crypto"
-import { existsSync, mkdirSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync } from "node:fs"
 import { copyFile, mkdir, realpath, stat } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { promisify } from "node:util"
 import { type CypheriaClient, createCypheriaClient } from "@cypheria/client"
+import { nativeCodexBinary } from "@cypheria/cua/host"
 import {
   app,
   BrowserWindow,
@@ -56,6 +57,9 @@ import {
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
   CYPHERIA_WINDOW_LAYOUT_ARGUMENT_PREFIX,
+  clientSettingDefinitions,
+  computerUseChromeImplementationTypeSetContract,
+  computerUseComputerBackendSetContract,
   computerUseDriverRestartContract,
   computerUseMcpAppExecuteContract,
   computerUsePermissionRequestContract,
@@ -88,13 +92,14 @@ import {
   storageReplicaRenameScopeContract,
 } from "../../ipc/src/index.js"
 import { buildDesktopAppPaths, type DesktopAppPaths } from "./app-paths.js"
-import { executeBrowserAutomationForHost } from "./browser/automation/ipc.js"
-import { executeMcpAppAction } from "./browser/automation/mcp-app.js"
+import { BuiltInBrowserTabs } from "./browser/automation/built-in-tabs.js"
+import { executeMcpAppCall } from "./browser/automation/mcp-app.js"
 import { DappProviderController } from "./browser/dapp.js"
 import { installBrowserGuards, pendingBrowserWindowOpenRequests } from "./browser/guard.js"
 import { BrowserKeyboard } from "./browser/keyboard/index.js"
 import { BrowserProfiles } from "./browser/profile.js"
 import {
+  getBrowserScopeId,
   getBrowserWebContentsForHostWindow,
   getBrowserWebviewRegistry,
   registerAttachedBrowser,
@@ -102,6 +107,8 @@ import {
   unregisterBrowserFromHost,
   unregisterBrowserHost,
 } from "./browser/webviews.js"
+import { BrowserExtensionService } from "./browser-extension/index.js"
+import { hostBinaryName } from "./browser-extension/install.js"
 import { configureChromiumFeatures } from "./chromium-features.js"
 import {
   copyDesktopAttachmentFile,
@@ -116,8 +123,10 @@ import {
   clientSettingHasMainSideEffect,
   readAppearance,
   readClientPreferences,
+  readClientSetting,
   readDesktopClientId,
   readLocaleBootstrap,
+  writeClientSetting,
 } from "./client-settings.js"
 import {
   createDesktopClientStorageDatabase,
@@ -131,7 +140,6 @@ import {
   MCP_APP_SANDBOX_SCHEME,
 } from "./mcp-app-sandbox.js"
 import { getOpenTargetApplication, listOpenTargets } from "./open-targets.js"
-import { resolveGeneratedImageProtocolPath } from "./renderer-protocol.js"
 import { DesktopServerManager } from "./server-manager.js"
 import { listSystemFonts } from "./system-fonts.js"
 import { findSystemNotificationSoundFile, listSystemNotificationSounds } from "./system-sounds.js"
@@ -424,16 +432,8 @@ const registerMcpAppSandboxProtocol = (): void => {
   protocol.handle(MCP_APP_SANDBOX_SCHEME, (request) => handleMcpAppSandboxRequest(request.url))
 }
 
-const registerRendererProtocol = (codexHome: string): void => {
-  const generatedImagesDir = join(codexHome, "generated_images")
+const registerRendererProtocol = (): void => {
   protocol.handle("cypheria", (request) => {
-    const generatedImagePath = resolveGeneratedImageProtocolPath(request.url, generatedImagesDir)
-    if (generatedImagePath) {
-      return existsSync(generatedImagePath)
-        ? net.fetch(pathToFileURL(generatedImagePath).toString())
-        : new Response(null, { status: 404 })
-    }
-
     const url = new URL(request.url)
     if (url.hostname !== "app") return new Response(null, { status: 404 })
     const pathname = decodeURIComponent(url.pathname)
@@ -526,11 +526,16 @@ const registerBrowserIpc = (client: CypheriaClient): void => {
   registerIpcRoute(browserLiveListContract, () => ({
     browserIds: getBrowserWebviewRegistry().listBrowserIds(),
   }))
-  registerIpcRoute(browserAutomationExecuteContract, (request, event) =>
-    executeBrowserAutomationForHost(event.sender, request)
+  const builtInTabs = new BuiltInBrowserTabs({
+    contents: (hostId, browserId) => getBrowserWebContentsForHostWindow(browserId, hostId),
+    downloadsDir: () => app.getPath("downloads"),
+    threadOf: getBrowserScopeId,
+  })
+  registerIpcRoute(browserAutomationExecuteContract, (call, event) =>
+    builtInTabs.call(event.sender.id, call)
   )
-  registerIpcRoute(computerUseMcpAppExecuteContract, (input, event) =>
-    executeMcpAppAction(event.sender, input)
+  registerIpcRoute(computerUseMcpAppExecuteContract, (call, event) =>
+    executeMcpAppCall(event.sender, call)
   )
   registerIpcRoute(browserShortcutPolicySetContract, (policy, event) => {
     browserKeyboard.publish(event.sender.id, policy)
@@ -1134,14 +1139,65 @@ const registerLifecycleHandlers = (): void => {
 
 let computerUse: ComputerUseHost | undefined
 
+/** The device's Thread-to-tab leases in the person's browsers, kept across restarts. */
+const CHROME_LEASES_KEY = "computerUse.chromeLeases"
+
 /**
- * Starts this device's Computer Use side, the cua-driver service and the external browser
+ * Starts this device's Computer Use side, the cua-driver service and the `chrome` browser
  * backend, and registers it as the device's computer host over Electron main's own connection.
  * The host belongs to the Desktop, not to a window: it stays registered while every window is
  * closed, and device requests run here without passing through a renderer.
  */
-const registerComputerUse = (paths: DesktopAppPaths, client: CypheriaClient): void => {
+const registerComputerUse = async (
+  paths: DesktopAppPaths,
+  client: CypheriaClient,
+  storage: DesktopClientStorageDatabase["keyValue"]
+): Promise<void> => {
+  let chromeImplementationType = await readClientSetting(
+    storage,
+    clientSettingDefinitions.chromeImplementationType
+  )
+  let registration: { refresh(): void } | undefined
+  const hostPlatform = `${process.platform}-${process.arch}`
+  const hostBinary = hostBinaryName()
+  const browserExtension = new BrowserExtensionService({
+    cypheriaHome: paths.cypheriaHome,
+    desktopVersion: app.getVersion(),
+    hostBinaries: [
+      join(process.resourcesPath, "browser-extension-host", hostPlatform, hostBinary),
+      join(app.getAppPath(), "..", "browser-extension-host", "dist", hostPlatform, hostBinary),
+    ],
+    // A browser profile connecting or leaving changes the browsers this device offers.
+    onChange: () => registration?.refresh(),
+    unpackedExtensions: [
+      join(app.getAppPath(), "..", "browser-extension", ".output", "chrome-mv3"),
+    ],
+  })
+  let computerBackend = await readClientSetting(storage, clientSettingDefinitions.computerBackend)
+  const codexReceipt = join(paths.cypheriaHome, "agents", "codex", "current.json")
   const host = new ComputerUseHost({
+    agentHeader: `Cypheria/${app.getVersion()}`,
+    browserExtension,
+    codexCli: () => {
+      try {
+        return nativeCodexBinary(JSON.parse(readFileSync(codexReceipt, "utf8")))
+      } catch {
+        return null
+      }
+    },
+    // ChatGPT's runtime runs under the Codex that Cypheria installs and its Codex home.
+    codexHome: paths.codexHome,
+    computerBackend: () => computerBackend,
+    requestApproval: (approval) => client.computerHost.requestApproval(approval),
+    chromeImplementationType: () => chromeImplementationType,
+    chromeLeases: {
+      load: async () => {
+        const stored = await storage.getItem(CHROME_LEASES_KEY)
+        return stored === null ? undefined : JSON.parse(stored)
+      },
+      save: (state) => storage.setItem(CHROME_LEASES_KEY, JSON.stringify(state)),
+    },
+    downloadsDir: () => app.getPath("downloads"),
     cypheriaHome: paths.cypheriaHome,
     hostBundleId: process.env.__CFBundleIdentifier ?? "app.cypheria.desktop",
     roots: [
@@ -1149,27 +1205,26 @@ const registerComputerUse = (paths: DesktopAppPaths, client: CypheriaClient): vo
       join(app.getAppPath(), "dist", "cypheria-server", "cua"),
       join(process.resourcesPath, "cypheria-server", "cua"),
     ],
-    scratchDir: join(app.getPath("temp"), "cypheria-cua"),
   })
   computerUse = host
-  const registration = client.computerHost.register({
-    onCommand: ({ cwd, request, threadId }) =>
-      host.execute(request, { threadId, ...(cwd ? { cwd } : {}) }),
+  const hostRegistration = client.computerHost.register({
+    onCommand: ({ commandId, cwd, request, threadId }) =>
+      host.execute(request, { commandId, threadId, ...(cwd ? { cwd } : {}) }),
     onRegistrationError: (error) => console.warn("[computer-use] host registration failed", error),
     registration: async () => {
       const status = await host.status()
       return {
-        name: status.deviceName,
-        surfaces: [
-          ...(status.surfaces.browsers ? (["browsers"] as const) : []),
-          ...(status.surfaces.computer ? (["computer"] as const) : []),
+        capabilities: [
+          ...(status.capabilities.chrome ? (["chrome"] as const) : []),
+          ...(status.capabilities.computer ? (["computer"] as const) : []),
         ],
+        name: status.deviceName,
       }
     },
   })
-  // A grant or a restarted driver can change the surfaces this device serves.
+  // A grant or a restarted driver can change the backends this device serves.
   const refreshed = (status: ComputerUseStatus) => {
-    registration.refresh()
+    hostRegistration.refresh()
     return status
   }
   registerIpcRoute(computerUseStatusReadContract, () => host.status())
@@ -1177,7 +1232,30 @@ const registerComputerUse = (paths: DesktopAppPaths, client: CypheriaClient): vo
     refreshed(await host.requestPermission(permission))
   )
   registerIpcRoute(computerUseDriverRestartContract, async () => refreshed(await host.restart()))
-  void host.start().then(() => registration.refresh())
+  registerIpcRoute(computerUseChromeImplementationTypeSetContract, async ({ type }) => {
+    if (!host.status().chromeImplementationType.available.includes(type)) {
+      throw new Error(
+        `The ${type} implementation is not available in this build of Cypheria Desktop.`
+      )
+    }
+    await writeClientSetting(storage, clientSettingDefinitions.chromeImplementationType, type)
+    chromeImplementationType = type
+    return refreshed(host.status())
+  })
+  registration = hostRegistration
+  registerIpcRoute(computerUseComputerBackendSetContract, async ({ backend }) => {
+    computerBackend = backend
+    await host.computerBackendChanged()
+    if (!host.status().computerBackend.available.includes(backend)) {
+      const reason = host.status().computerBackend.codex?.unavailableReason
+      computerBackend = await readClientSetting(storage, clientSettingDefinitions.computerBackend)
+      await host.computerBackendChanged()
+      throw new Error(reason ?? `The ${backend} backend is not available on this device.`)
+    }
+    await writeClientSetting(storage, clientSettingDefinitions.computerBackend, backend)
+    return refreshed(host.status())
+  })
+  void host.start().then(() => hostRegistration.refresh())
 }
 
 const startDesktopApp = async (): Promise<void> => {
@@ -1240,10 +1318,10 @@ const startDesktopApp = async (): Promise<void> => {
   if (process.platform === "darwin") {
     app.dock?.setIcon(applicationIconPath)
   }
-  registerRendererProtocol(runtimePaths.codexHome)
+  registerRendererProtocol()
   registerMcpAppSandboxProtocol()
   registerIpcHandlers(runtimePaths, desktopClient, desktopStorageDatabase)
-  registerComputerUse(runtimePaths, desktopClient)
+  await registerComputerUse(runtimePaths, desktopClient, desktopStorageDatabase.keyValue)
   installApplicationMenu()
   mainWindow = await createWindow(runtimePaths, { primary: true })
 }

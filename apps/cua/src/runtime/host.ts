@@ -5,6 +5,8 @@ type NodeRepl = {
   readonly env: Readonly<Record<string, string>>
   write(value: unknown): void
   emitImage(image: unknown): PromiseLike<void>
+  /** Present when the Server enables audio (`NODE_REPL_ENABLE_AUDIO=1`). */
+  emitAudio?: (audioDataUrl: string) => PromiseLike<void>
   rpc?: (service: string, request: unknown) => PromiseLike<unknown>
 }
 
@@ -26,8 +28,15 @@ export const writeText = (text: string): void => {
   if (text) nodeRepl().write(`${text.trimEnd()}\n\n`)
 }
 
-export const emitImage = async (image: CuaImage): Promise<void> => {
-  await nodeRepl().emitImage(`data:${image.mimeType};base64,${image.dataBase64}`)
+/** Adds an image to the tool result: base64 from the host, or bytes the runtime holds. */
+export const emitImage = async (
+  image: CuaImage | { readonly bytes: Uint8Array; readonly mimeType: string }
+): Promise<void> => {
+  await nodeRepl().emitImage(
+    "bytes" in image
+      ? { bytes: image.bytes, mimeType: image.mimeType }
+      : `data:${image.mimeType};base64,${image.dataBase64}`
+  )
 }
 
 const BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

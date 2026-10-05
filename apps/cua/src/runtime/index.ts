@@ -1,14 +1,13 @@
-// The `cua` global of `cua_repl`, built to dist/runtime.mjs. The launcher's banner imports it once
-// per REPL module cache, so `js_reset` builds a fresh one.
+// The `cua` and `agent` globals of `cua_repl`, built to dist/runtime.mjs. The launcher's banner
+// imports it once per REPL module cache, so `js_reset` builds a fresh one.
 import type { CuaHostInfo, CuaState } from "../protocol.ts"
 import { parseSurfaces } from "../surfaces.ts"
+import { createAgent } from "./agent.ts"
 import { createAppsApi } from "./apps.ts"
-import { createBrowsersApi } from "./browsers.ts"
+import { createBrowserApi } from "./cua.ts"
 import { SnapshotHistory } from "./diff.ts"
 import { Documentation } from "./docs.ts"
 import { call, nodeRepl, writeText } from "./host.ts"
-import { createIabApi } from "./iab.ts"
-import { createMcpAppsApi } from "./mcp-apps.ts"
 
 const PLATFORM_NAMES: Record<string, string> = {
   darwin: "macOS",
@@ -18,29 +17,23 @@ const PLATFORM_NAMES: Record<string, string> = {
 
 const disabledMessage = (name: string) => `${name} is disabled in Cypheria's Computer Use settings.`
 
-/** Stands in for a disabled surface's namespace: any use explains why it is missing. */
-const disabled = (name: string) =>
-  new Proxy(
-    {},
-    {
-      get() {
-        throw new Error(disabledMessage(name))
-      },
-    }
-  )
-
 const unavailable =
   (name: string) =>
   async (..._args: unknown[]): Promise<never> => {
     throw new Error(disabledMessage(name))
   }
 
-const createCua = () => {
+const createRuntime = () => {
   const surfaces = new Set(parseSurfaces(nodeRepl().env.CUA_REPL_ENABLED_SURFACES))
   const platform = nodeRepl().env.CUA_REPL_PLATFORM ?? ""
-  const docs = new Documentation(PLATFORM_NAMES[platform] ?? "this platform")
+  const docs = new Documentation(
+    PLATFORM_NAMES[platform] ?? "this platform",
+    typeof nodeRepl().emitAudio === "function"
+  )
   const history = new SnapshotHistory()
-  const apps = surfaces.has("computer") ? createAppsApi(history, docs) : null
+  const agent = createAgent(history, docs)
+  const browser = surfaces.has("browser") ? createBrowserApi(agent.browsers, docs) : null
+  const apps = surfaces.has("computer") ? createAppsApi(history, docs, platform) : null
   const getState = async (options: { emit?: boolean } = {}): Promise<CuaState> => {
     const state = await call<CuaState>({ op: "state" })
     if (options.emit !== false) writeText(JSON.stringify(state))
@@ -51,24 +44,26 @@ const createCua = () => {
     if (options.emit !== false) writeText(JSON.stringify(list))
     return list
   }
+  const noBrowser = unavailable("Browser control")
+  const noApps = unavailable("Native app control")
   docs.start()
-  return {
-    browsers: surfaces.has("browsers")
-      ? createBrowsersApi(history, docs)
-      : disabled("External browser control"),
-    getApp: apps?.getApp ?? unavailable("Native app control"),
+  const cua = {
+    computer: apps?.computer ?? { launch_app: noApps, target: "mac" },
+    createBrowserTab: browser?.createBrowserTab ?? noBrowser,
+    getApp: apps?.getApp ?? noApps,
+    getBrowser: browser?.getBrowser ?? noBrowser,
     getState,
+    getTab: browser?.getTab ?? noBrowser,
     hosts,
-    iab: surfaces.has("iab") ? createIabApi(history, docs) : disabled("The built-in browser"),
-    initialize: getState,
-    listApps: apps?.listApps ?? unavailable("Native app control"),
-    listWindows: apps?.listWindows ?? unavailable("Native app control"),
-    mcpApps: surfaces.has("mcpapps")
-      ? createMcpAppsApi(history, docs)
-      : disabled("MCP App control"),
+    listApps: apps?.listApps ?? noApps,
+    listBrowsers: browser?.listBrowsers ?? noBrowser,
+    listTabs: browser?.listTabs ?? noBrowser,
+    listWindows: apps?.listWindows ?? noApps,
     rewriteDocumentation: async () => docs.rewrite(),
-    surfaces: [...surfaces],
   }
+  return { agent: surfaces.has("browser") ? agent : undefined, cua }
 }
 
-Reflect.set(globalThis, "cua", createCua())
+const { agent, cua } = createRuntime()
+Reflect.set(globalThis, "cua", cua)
+if (agent) Reflect.set(globalThis, "agent", agent)

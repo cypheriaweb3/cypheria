@@ -1,6 +1,7 @@
 import { readdir, realpath, stat } from "node:fs/promises"
 import { isAbsolute, join, relative, resolve, sep } from "node:path"
-import type { BrowserTabInfo, ThreadInputBlock } from "@cypheria/protocol"
+import type { MentionableTab } from "@cypheria/cua/host"
+import type { ThreadInputBlock } from "@cypheria/protocol"
 import type { IntegrationService } from "../integration-service.js"
 
 type Reference = Extract<ThreadInputBlock, { type: "reference" }>
@@ -30,7 +31,8 @@ export type ExtensionMentions = {
 type ComposerReferenceOptions = {
   integrations: IntegrationService
   mentions?: ExtensionMentions
-  listBrowserTabs?: (threadId: string) => Promise<BrowserTabInfo[]>
+  /** The Thread's built-in browser tabs and the open tabs of the person's own browsers. */
+  listBrowserTabs?: (threadId: string) => Promise<MentionableTab[]>
   listThreads?: () => Promise<Array<{ id: string; title: string | null }>>
   getThread?: (threadId: string) => Promise<{ id: string; title: string | null }>
 }
@@ -44,6 +46,24 @@ const markdown = (value: string) =>
     .replaceAll(")", "\\)")
 const matches = (query: string, ...values: string[]) =>
   values.some((value) => value.toLowerCase().includes(query.toLowerCase()))
+
+/** A browser tab reference's ID: the browser and its tab, from `suggest`. */
+const parseTabReference = (id: string): [string, string] => {
+  try {
+    const value = JSON.parse(id) as unknown
+    if (
+      Array.isArray(value) &&
+      value.length === 2 &&
+      typeof value[0] === "string" &&
+      typeof value[1] === "string"
+    ) {
+      return [value[0], value[1]]
+    }
+  } catch {
+    // Not a tab reference this Server made.
+  }
+  throw new Error("Browser tab is no longer available")
+}
 
 export class ComposerReferenceService {
   readonly #integrations: IntegrationService
@@ -93,10 +113,14 @@ export class ComposerReferenceService {
       }
       if (context.threadId && this.#listBrowserTabs) {
         for (const tab of await this.#listBrowserTabs(context.threadId).catch(() => [])) {
-          if (tab.threadId !== context.threadId || !matches(query, tab.title, tab.url)) continue
+          if (!matches(query, tab.title, tab.url)) continue
+          const where =
+            tab.source === "iab"
+              ? null
+              : [tab.browserName, tab.profileName].filter(Boolean).join(" · ")
           items.push({
-            description: tab.url,
-            id: tab.browserId,
+            description: where ? `${where} — ${tab.url}` : tab.url,
+            id: JSON.stringify([tab.browserId, tab.tabId]),
             kind: "browser-tab",
             label: tab.title || tab.url,
             type: "reference",
@@ -199,19 +223,30 @@ export class ComposerReferenceService {
     if (block.kind === "browser-tab") {
       if (!context.threadId || !this.#listBrowserTabs)
         throw new Error("Browser tab references are unavailable")
+      const [browserId, tabId] = parseTabReference(block.id)
       const tab = (await this.#listBrowserTabs(context.threadId)).find(
-        (item) => item.browserId === block.id && item.threadId === context.threadId
+        (item) => item.browserId === browserId && item.tabId === tabId
       )
       if (!tab) throw new Error("Browser tab is no longer available")
-      const mention = new URL("plugin://browser@cypheria-bundled")
+      const mention = new URL(
+        tab.source === "iab"
+          ? "plugin://browser@cypheria-bundled"
+          : "plugin://chrome@cypheria-bundled"
+      )
       mention.search = new URLSearchParams({
+        browserId: tab.browserId,
         mention: "tab-v1",
-        tabId: tab.browserId,
+        source: tab.source,
+        tabId: tab.tabId,
         title: tab.title,
         url: tab.url,
       }).toString()
+      const where =
+        tab.source === "iab"
+          ? "Built-in browser tab"
+          : `${[tab.browserName, tab.profileName].filter(Boolean).join(" · ")} tab`
       return {
-        text: `Built-in browser tab "${tab.title}" (${tab.url}): ${mention.href} — open it in cua_repl with cua.iab.getTab({ mention }) to read its current contents.`,
+        text: `${where} "${tab.title}" (${tab.url}): ${mention.href} — open it in cua_repl with cua.getTab({ mention }) to read its current contents.`,
         type: "text",
       }
     }

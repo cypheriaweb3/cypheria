@@ -9,18 +9,16 @@ Copyright (c) 2025-present Mohamed Boudra
 Licensed under the Apache License, Version 2.0 (see licenses/Apache-2.0.txt).
 https://github.com/getpaseo/paseo
 
-  Adapted for the Cypheria built-in browser: browser automation command schemas,
-  the browser tools broker, webview registry, window-open routing, keyboard policy,
-  resident webview host, and CDP-based automation (accessibility snapshots,
-  actionability checks, trusted input, dialog handling). Adapted files carry a
-  header naming their Paseo source and were modified for Cypheria's Thread scopes,
-  tab kinds, and protocol.
+  Adapted for the Cypheria built-in browser: the browser tools broker, the window's
+  browser host, webview registry, window-open routing, keyboard policy, and resident
+  webview host. Adapted files carry a header naming their Paseo source and were
+  modified for Cypheria's Thread scopes, tab kinds, and protocol.
 
 Playwright
 Copyright (c) Microsoft Corporation
 Licensed under the Apache License, Version 2.0 (see licenses/Apache-2.0.txt).
 https://github.com/microsoft/playwright
 
-  The accessibility snapshot script in
-  apps/desktop/main/src/browser/automation/aria-snapshot-script.ts is adapted from
-  Playwright's injected ARIA snapshot model.
+  apps/cua/src/vendor/playwright-injected.ts contains Playwright's injected script,
+  generated unmodified from playwright-core by apps/cua/scripts/vendor-playwright.mjs.
+  The Computer Use engines run it in pages for locators and accessibility snapshots.

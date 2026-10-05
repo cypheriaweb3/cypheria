@@ -353,6 +353,18 @@ if (command === "stop") {
       "run",
       "build:browser-preload",
     ])
+    run("Building the browser extension", [
+      "--filter",
+      "@cypheria/browser-extension",
+      "run",
+      "build",
+    ])
+    run("Building the browser extension host", [
+      "--filter",
+      "@cypheria/browser-extension-host",
+      "run",
+      "build",
+    ])
     run("Rebuilding native Desktop modules", [
       "--filter",
       "@cypheria/desktop",

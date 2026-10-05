@@ -1,6 +1,5 @@
 import {
-  BrowserAutomationOutcomeSchema,
-  BrowserAutomationRequestSchema,
+  BrowserAutomationErrorSchema,
   BrowserIdSchema,
   BrowserTabKindSchema,
 } from "@cypheria/protocol"
@@ -78,6 +77,44 @@ export const BrowserReservedShortcutSchema = z
   .strict()
 export type BrowserReservedShortcut = z.infer<typeof BrowserReservedShortcutSchema>
 
+/**
+ * One browser API member that runs on a page: a built-in browser tab, which Electron main drives
+ * through the engine, or an MCP App. The renderer keeps tab lifecycle; `member` and `args` follow
+ * the `@cypheria/cua` grammar, which Electron main checks again.
+ */
+const MemberCallFields = {
+  args: z.array(z.unknown()).max(16),
+  cwd: z.string().min(1).optional(),
+  handle: z.string().min(1).max(256).optional(),
+  member: z.string().min(1).max(64),
+  selector: z.string().min(1).max(20_000).optional(),
+}
+export const BrowserTabCallSchema = z
+  .object({ browserId: BrowserIdSchema, threadId: BrowserThreadIdSchema, ...MemberCallFields })
+  .strict()
+export type BrowserTabCall = z.infer<typeof BrowserTabCallSchema>
+
+/** The sandbox origin of a mounted MCP App, which identifies its frames in the main window. */
+export const McpAppSandboxOriginSchema = z
+  .string()
+  .regex(/^cypheria-sandbox:\/\/[a-z0-9]{1,63}\/?$/u)
+
+export const McpAppCallSchema = z
+  .object({
+    appId: z.string().min(1).max(256),
+    origin: McpAppSandboxOriginSchema,
+    ...MemberCallFields,
+  })
+  .strict()
+export type McpAppCall = z.infer<typeof McpAppCallSchema>
+
+/** A member call's result, or the error the model reads; errors keep their engine codes. */
+export const BrowserCallOutcomeSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), value: z.unknown() }).strict(),
+  z.object({ error: BrowserAutomationErrorSchema, ok: z.literal(false) }).strict(),
+])
+export type BrowserCallOutcome = z.infer<typeof BrowserCallOutcomeSchema>
+
 const contract = <const C extends string, Req extends z.ZodType, Res extends z.ZodType>(
   channel: C,
   request: Req,
@@ -118,8 +155,8 @@ export const browserLiveListContract = contract(
 )
 export const browserAutomationExecuteContract = contract(
   CYPHERIA_BROWSER_CHANNELS.automationExecute,
-  BrowserAutomationRequestSchema,
-  BrowserAutomationOutcomeSchema
+  BrowserTabCallSchema,
+  BrowserCallOutcomeSchema
 )
 export const browserShortcutPolicySetContract = contract(
   CYPHERIA_BROWSER_CHANNELS.shortcutPolicySet,

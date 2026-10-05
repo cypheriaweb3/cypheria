@@ -68,7 +68,6 @@ export default defineConfig({
     rolldownOptions: {
       input: {
         kernel: "src/kernel.ts",
-        "trusted-worker": "src/trusted-worker.ts",
       },
       output: {
         chunkFileNames: "[name].js",

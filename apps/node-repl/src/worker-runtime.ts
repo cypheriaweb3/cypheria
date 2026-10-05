@@ -26,15 +26,9 @@ interface BackgroundResult {
 }
 
 export interface ExecState {
-  contentItems: string[]
-  formElicitationSupported: boolean
-  gaasBrowserConfig: Readonly<Record<string, unknown>>
   id: string
   outputEvents: OutputEvent[]
   pendingBackgroundTasks: Set<Promise<BackgroundResult>>
-  requestMeta: unknown
-  responseMeta: Record<string, unknown> | null
-  submittedCodeExecutionMs?: number | null
 }
 
 /** A thenable that only tracks whether the caller observed its outcome. */
@@ -47,19 +41,8 @@ export interface TrackedThenable<T> {
   finally(onFinally?: (() => void) | null): Promise<T>
 }
 
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
-function deepFreeze<T>(value: T): T {
-  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
-    return value
-  }
-  Object.freeze(value)
-  for (const child of Object.values(value)) {
-    deepFreeze(child)
-  }
-  return value
 }
 
 function formatLog(args: unknown[]): string {
@@ -125,7 +108,7 @@ export async function drainExecBackgroundTasks(execState: ExecState): Promise<vo
   }
 }
 
-export function toByteArray(value: unknown): Uint8Array | null {
+function toByteArray(value: unknown): Uint8Array | null {
   if (value instanceof Uint8Array) {
     return value
   }
@@ -268,13 +251,12 @@ function createExecContext(): ExecContext {
 
 export type Send = (message: HostMessage) => void
 
-/** The `nodeRepl` global exposed to sandboxed and trusted code. */
+/** The `nodeRepl` global exposed to submitted code. */
 export interface NodeReplBridge {
   cwd: string
   env: Readonly<Record<string, string>>
   homeDir: string | null
   tmpDir: string
-  readonly requestMeta: unknown
   write(value: unknown, itemId?: unknown): void
   emitImage(imageLike: unknown): TrackedThenable<void>
   emitAudio?: (audioDataUrl: unknown) => TrackedThenable<void>
@@ -282,7 +264,7 @@ export interface NodeReplBridge {
 }
 
 /** Sends a request to the host and resolves when its response is settled. */
-export function requestHost(
+function requestHost(
   pendingRequests: Map<string, ResponseResolver>,
   send: Send,
   message: HostMessage & { id: string },
@@ -329,9 +311,6 @@ function createNodeReplBridge({
     env,
     homeDir,
     tmpDir,
-    get requestMeta() {
-      return execContext.getOptional()?.requestMeta ?? null
-    },
     write(value, itemId) {
       const execState = execContext.getCurrent()
       if (itemId !== undefined && (typeof itemId !== "string" || itemId.length === 0)) {
@@ -397,7 +376,7 @@ type ConsoleLike = Pick<Console, "log" | "info" | "warn" | "error" | "debug">
 
 export interface WorkerRuntime {
   createConsole<C extends ConsoleLike>(original: C): C
-  createExecState(message: HostMessage, extra?: Partial<ExecState>): ExecState
+  createExecState(message: HostMessage): ExecState
   execContext: ExecContext
   listen(handleMessage: (message: HostMessage) => void): void
   nodeRepl: NodeReplBridge
@@ -422,21 +401,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions): WorkerRuntim
     process.stdout.write(`${JSON.stringify(message)}\n`)
   }
 
-  function createExecState(message: HostMessage, extra: Partial<ExecState> = {}): ExecState {
+  function createExecState(message: HostMessage): ExecState {
     return {
-      contentItems: [],
-      formElicitationSupported: message.form_elicitation_supported === true,
-      gaasBrowserConfig: isPlainObject(message.gaas_browser_config)
-        ? Object.freeze(message.gaas_browser_config)
-        : Object.freeze({}),
       id: (message.exec_id ?? message.id) as string,
       outputEvents: [],
       pendingBackgroundTasks: new Set(),
-      requestMeta: isPlainObject(message.request_meta)
-        ? deepFreeze(structuredClone(message.request_meta))
-        : null,
-      responseMeta: null,
-      ...extra,
     }
   }
 

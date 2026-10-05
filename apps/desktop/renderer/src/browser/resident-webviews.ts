@@ -263,19 +263,24 @@ export const parkBrowserWebview = (browserId: string): void => {
   if (resident) park(resident, browserId)
 }
 
-/** Sets a fixed viewport for a tab, including a parked tab driven by an Agent. */
-export const resizeResidentBrowserWebview = (
+/**
+ * Sets or clears a tab's fixed viewport, including a parked tab driven by an Agent. A shown tab
+ * follows its record's viewport when the pane presents it again.
+ */
+export const setResidentBrowserViewport = (
   browserId: string,
-  width: number,
-  height: number
-): { width: number; height: number } | null => {
+  size: { width: number; height: number } | null
+): void => {
+  if (size) fixedSizes.set(browserId, size)
+  else fixedSizes.delete(browserId)
   const resident = residents.get(browserId)
-  if (!resident || width <= 0 || height <= 0) return null
-  const size = { height: Math.round(height), width: Math.round(width) }
-  fixedSizes.set(browserId, size)
-  resident.webview.style.width = `${size.width}px`
-  resident.webview.style.height = `${size.height}px`
-  return size
+  if (!resident) return
+  if (resident.surface.getAttribute("aria-hidden") === "true") {
+    park(resident, browserId)
+  } else if (size) {
+    resident.webview.style.width = `${size.width}px`
+    resident.webview.style.height = `${size.height}px`
+  }
 }
 
 export const removeResidentBrowserWebview = (

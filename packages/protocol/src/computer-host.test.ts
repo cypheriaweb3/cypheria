@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { ComputerHostOutcomeSchema, ComputerHostRegistrationSchema } from "./computer-host.js"
+import {
+  ComputerHostApprovalSchema,
+  ComputerHostOutcomeSchema,
+  ComputerHostRegistrationSchema,
+} from "./computer-host.js"
 import {
   isClientResponseMessage,
   SessionInboundMessageSchema,
@@ -10,15 +14,16 @@ import {
 const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
 
 describe("computer host protocol", () => {
-  it("offers only device surfaces, once each", () => {
+  it("offers only device capabilities, once each", () => {
     expect(
       ComputerHostRegistrationSchema.parse({
+        capabilities: ["computer", "chrome", "computer"],
         name: "Studio Mac",
-        surfaces: ["computer", "browsers", "computer"],
       })
-    ).toEqual({ name: "Studio Mac", surfaces: ["computer", "browsers"] })
+    ).toEqual({ capabilities: ["computer", "chrome"], name: "Studio Mac" })
     expect(
-      ComputerHostRegistrationSchema.safeParse({ name: "Studio Mac", surfaces: ["iab"] }).success
+      ComputerHostRegistrationSchema.safeParse({ capabilities: ["iab"], name: "Studio Mac" })
+        .success
     ).toBe(false)
   })
 
@@ -42,5 +47,22 @@ describe("computer host protocol", () => {
         ok: false,
       })
     ).toMatchObject({ error: { retryable: false } })
+  })
+
+  it("asks about an app, or about recording computer audio", () => {
+    const base = { allowAlways: false, commandId: "req_1", risk: "high", threadId } as const
+    expect(
+      ComputerHostApprovalSchema.safeParse({
+        ...base,
+        app: "com.apple.Notes",
+        displayName: "Notes",
+      }).success
+    ).toBe(true)
+    expect(ComputerHostApprovalSchema.safeParse({ ...base, kind: "audio" }).success).toBe(true)
+    expect(
+      ComputerHostApprovalSchema.safeParse({ ...base, app: "x", displayName: "x", kind: "audio" })
+        .success
+    ).toBe(false)
+    expect(ComputerHostApprovalSchema.safeParse({ ...base, kind: "app" }).success).toBe(false)
   })
 })

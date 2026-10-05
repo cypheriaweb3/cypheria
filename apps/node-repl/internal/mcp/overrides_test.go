@@ -33,14 +33,14 @@ func TestToolOverridesReplaceDescriptions(t *testing.T) {
 	if got := byName["js_reset"]["description"]; got != "Reset cua." {
 		t.Fatalf("js_reset description = %v", got)
 	}
-	if got := byName["turn_ended"]["description"]; got == "" {
-		t.Fatal("turn_ended lost its description")
+	if got := byName["js_add_node_module_dir"]["description"]; got == "" {
+		t.Fatal("js_add_node_module_dir lost its description")
 	}
 }
 
 func TestToolOverridesRejectUnknownTools(t *testing.T) {
-	if _, err := ParseToolOverrides(`{"tools":{"turn_ended":{"description":"x"}}}`); err == nil {
-		t.Fatal("expected turn_ended to be rejected")
+	if _, err := ParseToolOverrides(`{"tools":{"unknown":{"description":"x"}}}`); err == nil {
+		t.Fatal("expected an unknown tool to be rejected")
 	}
 	if _, err := ParseToolOverrides(`not json`); err == nil {
 		t.Fatal("expected invalid JSON to be rejected")

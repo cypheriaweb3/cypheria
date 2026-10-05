@@ -73,7 +73,8 @@ describe("NodeReplHostManager", () => {
     const manager = new NodeReplHostManager({
       cua: { closeThread, handle: vi.fn() } as never,
       resolveCodexPath: () => "/usr/local/bin/codex",
-      surfaces: () => ["iab", "computer"],
+      backends: () => ["iab", "chrome"],
+      surfaces: () => ["browser", "computer"],
     })
     const { config, cuaReplConfig, pipePath } = await manager.ensureHostService(threadId)
     expect(config.env).toEqual({
@@ -84,24 +85,44 @@ describe("NodeReplHostManager", () => {
     expect(cuaReplConfig).toMatchObject({
       command: process.execPath,
       enabled: true,
-      enabled_tools: ["js", "js_reset", "turn_ended"],
+      enabled_tools: ["js", "js_reset"],
       env: {
         CODEX_CLI_PATH: "/usr/local/bin/codex",
-        CUA_REPL_ENABLED_SURFACES: "iab,computer",
+        CUA_REPL_BROWSER_BACKENDS: "iab,chrome",
+        CUA_REPL_ENABLED_SURFACES: "browser,computer",
         NODE_REPL_HOST_SERVICES_PIPE_PATH: pipePath,
       },
     })
     expect(manager.sessionEnvironment(threadId)).toEqual({
       CYPHERIA_CUA_HOST_PIPE: pipePath,
-      CYPHERIA_CUA_SURFACES: "iab,computer",
+      CYPHERIA_CUA_BROWSER_BACKENDS: "iab,chrome",
+      CYPHERIA_CUA_SURFACES: "browser,computer",
     })
     await manager.closeHostService(threadId)
     expect(closeThread).toHaveBeenCalledWith(threadId)
   })
 
+  it("runs the REPLs on Cypheria's managed Node.js when it is installed", async () => {
+    const node = "/home/.cypheria/toolchains/node/versions/24.0.0/bin/node"
+    const manager = new NodeReplHostManager({
+      cua: { closeThread: vi.fn(), handle: vi.fn() } as never,
+      resolveCodexPath: () => "/usr/local/bin/codex",
+      resolveNodePath: () => node,
+      backends: () => [],
+      surfaces: () => ["computer"],
+    })
+    const { config, cuaReplConfig } = await manager.ensureHostService(threadId)
+    expect(config.env.NODE_REPL_NODE_PATH).toBe(node)
+    expect(config.env).not.toHaveProperty("ELECTRON_RUN_AS_NODE")
+    expect(cuaReplConfig).toMatchObject({ command: node, env: { NODE_REPL_NODE_PATH: node } })
+    expect(cuaReplConfig.env).not.toHaveProperty("ELECTRON_RUN_AS_NODE")
+    await manager.closeHostService(threadId)
+  })
+
   it("disables cua_repl when no surface is enabled", async () => {
     const manager = new NodeReplHostManager({
       cua: { closeThread: vi.fn(), handle: vi.fn() } as never,
+      backends: () => [],
       surfaces: () => [],
     })
     const { cuaReplConfig } = await manager.ensureHostService(threadId)

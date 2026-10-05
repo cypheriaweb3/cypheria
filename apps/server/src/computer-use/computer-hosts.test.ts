@@ -33,7 +33,7 @@ const window = (service: ComputerHostService, name: string, answer = true) => {
   const register = () =>
     service.handle(
       {
-        payload: { name: "Studio Mac", surfaces: ["computer"] },
+        payload: { name: "Studio Mac", capabilities: ["computer"] },
         requestId: "host",
         type: "computer.host.register.request",
       },
@@ -51,7 +51,7 @@ describe("ComputerHostService", () => {
     await main.register()
     await popout.register()
     expect(service.hosts()).toEqual([
-      { id: "cid_desktop", name: "Studio Mac", surfaces: ["computer"] },
+      { id: "cid_desktop", name: "Studio Mac", capabilities: ["computer"] },
     ])
     await expect(service.request("cid_desktop", { threadId }, { op: "apps.list" })).resolves.toBe(
       "popout"
@@ -79,7 +79,7 @@ describe("ComputerHostService", () => {
     const replies: ComputerHostServerMessage[] = []
     await service.handle(
       {
-        payload: { name: "cli", surfaces: ["computer"] },
+        payload: { name: "cli", capabilities: ["computer"] },
         requestId: "host",
         type: "computer.host.register.request",
       },
@@ -88,5 +88,71 @@ describe("ComputerHostService", () => {
     )
     expect(replies[0]).toMatchObject({ payload: { ok: false } })
     expect(service.hosts()).toEqual([])
+  })
+
+  it("asks the Thread for app approvals of a running command and holds its deadline", async () => {
+    const asked: string[] = []
+    let answer: (decision: "session") => void = () => undefined
+    const service = new ComputerHostService({
+      approve: (thread, approval) => {
+        asked.push(`${thread}:${"app" in approval ? approval.app : approval.kind}`)
+        return new Promise((resolve) => {
+          answer = resolve
+        })
+      },
+      timeoutMs: 50,
+    })
+    const silent = window(service, "main", false)
+    await silent.register()
+    const pending = service.request("cid_desktop", { threadId }, { op: "apps.list" })
+    const commandId = silent.received[0] ?? ""
+    const replies: ComputerHostServerMessage[] = []
+    const approval = {
+      allowAlways: true,
+      app: "com.apple.calculator",
+      commandId,
+      displayName: "Calculator",
+      risk: "low" as const,
+      threadId,
+    }
+    await service.handle(
+      {
+        payload: { ...approval, commandId: "other" },
+        requestId: "a0",
+        type: "computer.host.approval.request",
+      },
+      silent.session,
+      (message) => replies.push(message)
+    )
+    await service.handle(
+      { payload: approval, requestId: "a1", type: "computer.host.approval.request" },
+      silent.session,
+      (message) => replies.push(message)
+    )
+    // The person takes longer than the device deadline to decide.
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    expect(asked).toEqual([`${threadId}:com.apple.calculator`])
+    answer("session")
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(replies.map((reply) => reply.payload)).toEqual([
+      {
+        error: {
+          code: "COMPUTER_HOST_UNKNOWN_COMMAND",
+          message: "No such command is running on this device.",
+        },
+        ok: false,
+      },
+      { ok: true, value: { decision: "session" } },
+    ])
+    await service.handle(
+      {
+        payload: { commandId, ok: true, value: "done" },
+        requestId: "r",
+        type: "computer.host.result.request",
+      },
+      silent.session,
+      () => undefined
+    )
+    await expect(pending).resolves.toBe("done")
   })
 })

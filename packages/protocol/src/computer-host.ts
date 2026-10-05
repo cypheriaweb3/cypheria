@@ -4,11 +4,12 @@ import { ProjectThreadIdSchema } from "./project-thread.ts"
 import { RequestIdSchema } from "./request-id.ts"
 
 /**
- * What a device offers beyond its windows: the user's external browsers and its native apps.
- * Built-in browser tabs and MCP Apps belong to windows and use the browser host messages.
+ * What a device offers beyond its windows: the user's external browsers (`chrome`) and native
+ * apps (`computer`). Built-in browser tabs and MCP Apps belong to windows and use the browser
+ * host messages.
  */
-export const ComputerHostSurfaceSchema = z.enum(["browsers", "computer"])
-export type ComputerHostSurface = z.infer<typeof ComputerHostSurfaceSchema>
+export const ComputerHostCapabilitySchema = z.enum(["chrome", "computer"])
+export type ComputerHostCapability = z.infer<typeof ComputerHostCapabilitySchema>
 
 /**
  * A client offering its device as a Computer Use host. The Server keys the host by the client ID,
@@ -18,7 +19,9 @@ export const ComputerHostRegistrationSchema = z
   .object({
     /** The device's name as people know it, such as its host name. */
     name: z.string().trim().min(1).max(128),
-    surfaces: z.array(ComputerHostSurfaceSchema).transform((surfaces) => [...new Set(surfaces)]),
+    capabilities: z
+      .array(ComputerHostCapabilitySchema)
+      .transform((capabilities) => [...new Set(capabilities)]),
   })
   .strict()
 export type ComputerHostRegistration = z.infer<typeof ComputerHostRegistrationSchema>
@@ -57,6 +60,38 @@ export const ComputerHostOutcomeSchema = z.discriminatedUnion("ok", [
 export type ComputerHostOutcome = z.infer<typeof ComputerHostOutcomeSchema>
 export type ComputerHostOutcomeInput = z.input<typeof ComputerHostOutcomeSchema>
 
+const approvalBase = {
+  commandId: RequestIdSchema,
+  threadId: ProjectThreadIdSchema,
+  risk: z.enum(["low", "high"]),
+  /** Whether the person may allow it for good, not only for this Thread. */
+  allowAlways: z.boolean(),
+}
+
+/**
+ * A device asking the people in a Thread whether Computer Use may operate an app (`kind` `app`,
+ * the default) or record the computer's audio (`audio`), while it runs one of that Thread's
+ * commands. Any client of the Thread can answer.
+ */
+export const ComputerHostApprovalSchema = z.union([
+  z
+    .object({
+      ...approvalBase,
+      kind: z.literal("app").optional(),
+      /** The app's bundle identifier or path. */
+      app: z.string().trim().min(1).max(1_024),
+      displayName: z.string().trim().min(1).max(256),
+      subtitle: z.string().max(1_024).optional(),
+    })
+    .strict(),
+  z.object({ ...approvalBase, kind: z.literal("audio") }).strict(),
+])
+export type ComputerHostApproval = z.infer<typeof ComputerHostApprovalSchema>
+
+/** `session` allows the app for the rest of the Thread; `always` beyond it. */
+export const ComputerHostApprovalDecisionSchema = z.enum(["session", "always", "deny"])
+export type ComputerHostApprovalDecision = z.infer<typeof ComputerHostApprovalDecisionSchema>
+
 const request = <const T extends string, S extends z.ZodType>(type: T, payload: S) =>
   z.object({ payload, requestId: RequestIdSchema, type: z.literal(type) }).strict()
 const response = <const T extends string, S extends z.ZodType>(type: T, value: S) =>
@@ -90,6 +125,11 @@ export const ComputerHostResultRequestSchema = request(
   ComputerHostOutcomeSchema
 )
 
+export const ComputerHostApprovalRequestSchema = request(
+  "computer.host.approval.request",
+  ComputerHostApprovalSchema
+)
+
 export const ComputerHostRegisterResponseSchema = response(
   "computer.host.register.response",
   succeeded
@@ -101,6 +141,11 @@ export const ComputerHostUnregisterResponseSchema = response(
 export const ComputerHostResultResponseSchema = response(
   "computer.host.result.response",
   z.object({ accepted: z.boolean() }).strict()
+)
+
+export const ComputerHostApprovalResponseSchema = response(
+  "computer.host.approval.response",
+  z.object({ decision: ComputerHostApprovalDecisionSchema }).strict()
 )
 
 /** Server-to-host request. The host answers with `computer.host.result.request`. */
@@ -115,14 +160,16 @@ export const COMPUTER_HOST_CLIENT_SCHEMAS = [
   ComputerHostRegisterRequestSchema,
   ComputerHostUnregisterRequestSchema,
   ComputerHostResultRequestSchema,
+  ComputerHostApprovalRequestSchema,
 ] as const
 export const COMPUTER_HOST_SERVER_SCHEMAS = [
   ComputerHostRegisterResponseSchema,
   ComputerHostUnregisterResponseSchema,
   ComputerHostResultResponseSchema,
+  ComputerHostApprovalResponseSchema,
   ComputerHostCommandNotificationSchema,
 ] as const
-export const COMPUTER_HOST_RESPONSE_TYPES = COMPUTER_HOST_SERVER_SCHEMAS.slice(0, 3).map(
+export const COMPUTER_HOST_RESPONSE_TYPES = COMPUTER_HOST_SERVER_SCHEMAS.slice(0, 4).map(
   (schema) => schema.shape.type.value
 )
 

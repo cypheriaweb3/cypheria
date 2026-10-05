@@ -1,5 +1,6 @@
+import type { BrowserHostCall } from "@cypheria/cua"
 import type {
-  BrowserAutomationResult,
+  BrowserAutomationRequest,
   BrowserServerMessage,
   ComputerHostServerMessage,
 } from "@cypheria/protocol"
@@ -15,17 +16,55 @@ const otherThread = "01984de2-8f74-7c91-a3b2-5c5e937cf319"
 
 type ShownApp = { readonly id: string; readonly threadId: string | null; readonly on: string[] }
 
+const call = (member: string, extra: Partial<BrowserHostCall> = {}): BrowserHostCall =>
+  ({
+    args: [],
+    browser: "iab",
+    member,
+    op: "browser.call",
+    backend: "iab",
+    ...extra,
+  }) as BrowserHostCall
+
 /**
  * Two Desktops, each with one window registered as a browser host and the device registered as
- * a computer host. Every request a device or window receives is recorded by client ID.
+ * a computer host. Each window keeps its own built-in browser tabs; every request a window or
+ * device receives is recorded by client ID.
  */
 const setup = (apps: ShownApp[]) => {
-  const browser = new BrowserToolsService({ enabled: () => true })
+  const browser = new BrowserToolsService()
   const devices = new ComputerHostService()
-  const received = new Map<string, unknown[]>()
+  const received = new Map<string, BrowserAutomationRequest[]>()
+  const deviceRequests = new Map<string, unknown[]>()
   for (const clientId of ["laptop", "studio"]) {
-    const sent: unknown[] = []
+    const sent: BrowserAutomationRequest[] = []
+    const tabs: string[] = []
     received.set(clientId, sent)
+    const answer = (request: BrowserAutomationRequest): unknown => {
+      const hostCall = request.request as unknown as BrowserHostCall
+      if (request.backend === "mcpapps") {
+        if (hostCall.member === "tabs.list") {
+          return apps
+            .filter((app) => app.on.includes(clientId))
+            .map((app) => ({ id: app.id, threadId: app.threadId }))
+        }
+        return { from: clientId }
+      }
+      switch (hostCall.member) {
+        case "tabs.list":
+          return tabs.map((id) => ({ id, title: id, url: `https://${id}` }))
+        case "tabs.new": {
+          const id = `${clientId}-tab-${tabs.length + 1}`
+          tabs.push(id)
+          return { id, title: "", url: "about:blank" }
+        }
+        case "tab.close":
+          tabs.splice(tabs.indexOf(String(hostCall.tab)), 1)
+          return null
+        default:
+          return { from: clientId }
+      }
+    }
     const window = {
       clientId,
       id: `ses_${clientId}`,
@@ -33,20 +72,11 @@ const setup = (apps: ShownApp[]) => {
       notify: (message: BrowserServerMessage) => {
         if (message.type !== "browser.automation.command.notification") return
         const request = message.payload
-        const result: BrowserAutomationResult =
-          request.command.command === "list_mcp_apps"
-            ? {
-                apps: apps
-                  .filter((app) => app.on.includes(clientId))
-                  .map((app) => ({ appId: app.id, threadId: app.threadId })),
-                command: "list_mcp_apps",
-              }
-            : { action: "snapshot", appId: "app", command: "mcp_app", snapshot: clientId }
-        if (request.command.command !== "list_mcp_apps") sent.push(request)
+        sent.push(request)
         queueMicrotask(() => {
           void browser.handle(
             {
-              payload: { automationId: request.automationId, ok: true, result },
+              payload: { automationId: request.automationId, ok: true, value: answer(request) },
               requestId: "r",
               type: "browser.automation.result.request",
             },
@@ -59,22 +89,20 @@ const setup = (apps: ShownApp[]) => {
     }
     void browser.handle(
       {
-        payload: {
-          hostKind: "Cypheria Desktop",
-          name: clientId,
-          supportedCommands: ["list_mcp_apps", "mcp_app"],
-        },
+        payload: { backends: ["iab", "mcpapps"], name: clientId },
         requestId: "host",
         type: "browser.host.register.request",
       },
       window,
       () => undefined
     )
+    const requests: unknown[] = []
+    deviceRequests.set(clientId, requests)
     const device = {
       ...window,
       notify: (message: ComputerHostServerMessage) => {
         if (message.type !== "computer.host.command.notification") return
-        sent.push(message.payload)
+        requests.push(message.payload)
         queueMicrotask(() => {
           void devices.handle(
             {
@@ -94,7 +122,7 @@ const setup = (apps: ShownApp[]) => {
     }
     void devices.handle(
       {
-        payload: { name: clientId, surfaces: ["computer"] },
+        payload: { capabilities: ["chrome", "computer"], name: clientId },
         requestId: "device",
         type: "computer.host.register.request",
       },
@@ -111,48 +139,122 @@ const setup = (apps: ShownApp[]) => {
     title: app.id,
   }))
   const hosts = new BrokeredComputerHosts({ browser, devices, openApps: () => openApps })
-  return { hosts, received }
+  const members = (clientId: string) =>
+    (received.get(clientId) ?? []).map(
+      (request) => (request.request as unknown as BrowserHostCall).member
+    )
+  return { deviceRequests, hosts, members }
 }
 
 describe("brokered Computer Use hosts", () => {
+  it("lists one host per device with its windows' and device's capabilities", async () => {
+    const { deviceRequests, hosts } = setup([])
+    expect(hosts.list()).toEqual([
+      { capabilities: ["iab", "mcpapps", "chrome", "computer"], id: "laptop", name: "laptop" },
+      { capabilities: ["iab", "mcpapps", "chrome", "computer"], id: "studio", name: "studio" },
+    ])
+    await expect(hosts.device("studio", { threadId }, { op: "apps.list" })).resolves.toEqual({
+      from: "studio",
+    })
+    expect(deviceRequests.get("studio")?.[0]).toMatchObject({
+      request: { op: "apps.list" },
+      threadId,
+    })
+    expect(deviceRequests.get("laptop")).toHaveLength(0)
+  })
+
+  it("opens built-in browser tabs on the turn's device and routes later calls to their window", async () => {
+    const { hosts, members } = setup([])
+    const tab = (await hosts.call({ threadId }, "iab", call("tabs.new"), "studio")) as {
+      id: string
+      host: string
+    }
+    expect(tab).toMatchObject({ host: "studio", id: "studio-tab-1" })
+    await hosts.call(
+      { threadId },
+      "iab",
+      call("ax.get", { args: ["state"], tab: tab.id }),
+      "laptop"
+    )
+    expect(members("studio")).toEqual(["tabs.new", "ax.get"])
+    expect(members("laptop")).toEqual([])
+    await expect(hosts.call({ threadId }, "iab", call("tabs.new"), "phone")).rejects.toThrow(
+      /Several devices have the built-in browser/u
+    )
+  })
+
+  it("lists tabs across windows and learns owners it did not know", async () => {
+    const { hosts, members } = setup([])
+    await hosts.call({ threadId }, "iab", call("tabs.new"), "laptop")
+    await hosts.call({ threadId }, "iab", call("tabs.new"), "studio")
+    const listed = (await hosts.call({ threadId }, "iab", call("tabs.list"), undefined)) as {
+      id: string
+      host: string
+    }[]
+    expect(listed.map((tab) => [tab.id, tab.host])).toEqual([
+      ["laptop-tab-1", "laptop"],
+      ["studio-tab-1", "studio"],
+    ])
+    expect(members("laptop")).toContain("tabs.list")
+  })
+
+  it("closes unmarked tabs at turn end and keeps marked ones for one more turn", async () => {
+    const { hosts, members } = setup([])
+    const kept = (await hosts.call({ threadId }, "iab", call("tabs.new"), "laptop")) as {
+      id: string
+    }
+    const dropped = (await hosts.call({ threadId }, "iab", call("tabs.new"), "laptop")) as {
+      id: string
+    }
+    await hosts.call({ threadId }, "iab", call("tab.markDeliverable", { tab: kept.id }), "laptop")
+    await hosts.turnEnded({ threadId })
+    expect(members("laptop").filter((member) => member === "tab.close")).toHaveLength(1)
+    const list = async () =>
+      (
+        (await hosts.call({ threadId }, "iab", call("tabs.list"), "laptop")) as { id: string }[]
+      ).map((tab) => tab.id)
+    const remaining = await list()
+    expect(remaining).toEqual([kept.id])
+    expect(remaining).not.toContain(dropped.id)
+    // The mark lasted one turn: a later turn that uses the browser clears it.
+    await hosts.call({ threadId }, "iab", call("tabs.list"), "laptop")
+    await hosts.turnEnded({ threadId })
+    expect(await list()).toEqual([])
+  })
+
   it("lists the Thread's Apps and Apps outside any Thread that a window shows", async () => {
     const { hosts } = setup([
       { id: "mine", on: ["laptop"], threadId },
       { id: "page", on: ["studio"], threadId: null },
       { id: "theirs", on: ["laptop"], threadId: otherThread },
     ])
-    const listed = await hosts.listMcpApps({ threadId })
-    expect(listed.map((item) => [item.id, item.threadId])).toEqual([
-      ["mine", threadId],
-      ["page", null],
-    ])
+    const listed = (await hosts.call(
+      { threadId },
+      "mcpapps",
+      call("tabs.list", { browser: "mcpapps", backend: "mcpapps" }),
+      undefined
+    )) as { id: string }[]
+    expect(listed.map((item) => item.id)).toEqual(["mine", "page"])
     await expect(
-      hosts.mcpApp({ threadId }, "theirs", { type: "snapshot" }, undefined)
+      hosts.call(
+        { threadId },
+        "mcpapps",
+        call("tab.screenshot", { browser: "mcpapps", tab: "theirs", backend: "mcpapps" }),
+        undefined
+      )
     ).rejects.toThrow(/not open in any window/u)
   })
 
-  it("acts on the copy the turn's device shows, else the newest window showing it", async () => {
-    const { hosts, received } = setup([{ id: "shared", on: ["laptop", "studio"], threadId }])
-    await expect(
-      hosts.mcpApp({ threadId }, "shared", { type: "snapshot" }, "laptop")
-    ).resolves.toEqual({ text: "laptop" })
-    await expect(
-      hosts.mcpApp({ threadId }, "shared", { type: "snapshot" }, "phone")
-    ).resolves.toEqual({ text: "studio" })
-    expect(received.get("laptop")).toHaveLength(1)
-    expect(received.get("studio")).toHaveLength(1)
-  })
-
-  it("lists one host per device and sends device requests to the named device", async () => {
-    const { hosts, received } = setup([])
-    expect(hosts.list()).toEqual([
-      { id: "laptop", name: "laptop", surfaces: ["mcpapps", "computer"] },
-      { id: "studio", name: "studio", surfaces: ["mcpapps", "computer"] },
-    ])
-    await expect(hosts.device("studio", { threadId }, { op: "apps.list" })).resolves.toEqual({
-      from: "studio",
-    })
-    expect(received.get("studio")?.[0]).toMatchObject({ request: { op: "apps.list" }, threadId })
-    expect(received.get("laptop")).toHaveLength(0)
+  it("acts on the App copy the turn's device shows, else the newest window showing it", async () => {
+    const { hosts } = setup([{ id: "shared", on: ["laptop", "studio"], threadId }])
+    const act = (preferred: string) =>
+      hosts.call(
+        { threadId },
+        "mcpapps",
+        call("playwright.domSnapshot", { browser: "mcpapps", tab: "shared", backend: "mcpapps" }),
+        preferred
+      )
+    await expect(act("laptop")).resolves.toEqual({ from: "laptop" })
+    await expect(act("phone")).resolves.toEqual({ from: "studio" })
   })
 })

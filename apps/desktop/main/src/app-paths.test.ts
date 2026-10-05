@@ -6,7 +6,7 @@ describe("buildDesktopAppPaths", () => {
   it("uses the dedicated Cypheria home for browser and Codex state", () => {
     expect(buildDesktopAppPaths({ CYPHERIA_HOME: "/var/tmp/cypheria" }, "/home/user")).toEqual({
       browserDir: "/var/tmp/cypheria/browser",
-      codexHome: "/var/tmp/cypheria/codex",
+      codexHome: "/var/tmp/cypheria/agents/codex/home",
       configDir: "/var/tmp/cypheria/config",
       cypheriaHome: "/var/tmp/cypheria",
     })

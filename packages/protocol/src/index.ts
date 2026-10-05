@@ -450,16 +450,19 @@ export const ComputerUseSettingsSchema = z
   .object({
     /** Cypheria's built-in browser tabs. */
     inAppBrowser: z.boolean(),
-    /** The person's own Chromium browsers, attached over remote debugging. */
+    /** The person's own Chromium browsers, through the Cypheria extension or remote debugging. */
     externalBrowsers: z.boolean(),
+    /** Browser families, such as `edge`, that Agents may not use even with the switch above on. */
+    blockedBrowserFamilies: z.array(z.string().trim().min(1).max(32)).max(16).default([]),
     /** MCP Apps a Desktop window shows. */
     mcpApps: z.boolean(),
-    /** Native desktop apps, through the cua-driver service Desktop hosts. */
+    /** Native desktop apps, through the backend each Desktop selects. */
     desktopApps: z.boolean(),
   })
   .strict()
 export type ComputerUseSettings = z.infer<typeof ComputerUseSettingsSchema>
 export const DEFAULT_COMPUTER_USE_SETTINGS: ComputerUseSettings = {
+  blockedBrowserFamilies: [],
   desktopApps: false,
   externalBrowsers: false,
   inAppBrowser: false,

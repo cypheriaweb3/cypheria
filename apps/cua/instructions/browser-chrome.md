@@ -1,0 +1,1 @@
+- `"chrome"`, `"edge"`, `"brave"`, and other Chromium families (the user's own browser, `@Chrome`): pass a short, emoji-prefixed `sessionName` (such as `"🔎 Task"`) to `createBrowserTab` when starting a task. `cua.listBrowsers()` shows exact IDs when several profiles or devices are available.

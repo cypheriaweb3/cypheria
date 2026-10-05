@@ -13,7 +13,12 @@ const createFakeClient = () => {
   const requestComputerHost = vi.fn(async (type: string, _payload?: unknown) => ({
     payload: {
       ok: true as const,
-      value: type === "computer.host.result.request" ? { accepted: true } : { succeeded: true },
+      value:
+        type === "computer.host.result.request"
+          ? { accepted: true }
+          : type === "computer.host.approval.request"
+            ? { decision: "session" }
+            : { succeeded: true },
     },
     requestId: "test",
     type: type.replace(/\.request$/u, ".response"),
@@ -52,7 +57,7 @@ describe("computer host actions", () => {
     const fake = createFakeClient()
     const host = createComputerHostActions(fake.client).register({
       onCommand: vi.fn(),
-      registration: () => ({ name: "Studio Mac", surfaces: ["computer"] }),
+      registration: () => ({ name: "Studio Mac", capabilities: ["computer"] }),
     })
     fake.setState({ status: "connected" })
     fake.setState({ status: "connected" })
@@ -71,7 +76,7 @@ describe("computer host actions", () => {
     ])
     expect(fake.requestComputerHost.mock.calls[0]?.[1]).toEqual({
       name: "Studio Mac",
-      surfaces: ["computer"],
+      capabilities: ["computer"],
     })
   })
 
@@ -84,7 +89,7 @@ describe("computer host actions", () => {
       .mockRejectedValueOnce(failure)
     createComputerHostActions(fake.client).register({
       onCommand,
-      registration: () => ({ name: "Studio Mac", surfaces: ["computer"] }),
+      registration: () => ({ name: "Studio Mac", capabilities: ["computer"] }),
     })
     for (const commandId of ["c-1", "c-2"]) {
       fake.emit({
@@ -98,5 +103,25 @@ describe("computer host actions", () => {
       { commandId: "c-1", ok: true, value: [{ name: "Notes" }] },
       { commandId: "c-2", error: { code: "unavailable", message: "No driver." }, ok: false },
     ])
+  })
+
+  it("asks for app approvals and waits for a person to answer", async () => {
+    const fake = createFakeClient()
+    const approval = {
+      allowAlways: false,
+      app: "com.apple.calculator",
+      commandId: "device-1",
+      displayName: "Calculator",
+      risk: "low" as const,
+      threadId,
+    }
+    await expect(createComputerHostActions(fake.client).requestApproval(approval)).resolves.toBe(
+      "session"
+    )
+    expect(fake.requestComputerHost).toHaveBeenCalledWith(
+      "computer.host.approval.request",
+      approval,
+      { timeoutMs: 30 * 60_000 }
+    )
   })
 })
