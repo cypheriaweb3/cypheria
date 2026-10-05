@@ -87,7 +87,6 @@ export const AGENT_ACP_V2_CLIENT_RPC = {
   "session/new": { request: "agent.acp.session.new.request", response: "agent.acp.session.new.response", requestSchema: acpRequestSchema(2, "agent.acp.session.new.request", acpV2Zod.zNewSessionRequest), responseSchema: acpResponseSchema(2, "agent.acp.session.new.response", acpV2Zod.zNewSessionResponse, false) },
   "session/set_config_option": { request: "agent.acp.session.set_config_option.request", response: "agent.acp.session.set_config_option.response", requestSchema: acpRequestSchema(2, "agent.acp.session.set_config_option.request", acpV2Zod.zSetSessionConfigOptionRequest), responseSchema: acpResponseSchema(2, "agent.acp.session.set_config_option.response", acpV2Zod.zSetSessionConfigOptionResponse, false) },
   "session/prompt": { request: "agent.acp.session.prompt.request", response: "agent.acp.session.prompt.response", requestSchema: acpRequestSchema(2, "agent.acp.session.prompt.request", acpV2Zod.zPromptRequest), responseSchema: acpResponseSchema(2, "agent.acp.session.prompt.response", acpV2Zod.zPromptResponse, false) },
-  "mcp/message": { request: "agent.acp.mcp.message.request", response: "agent.acp.mcp.message.response", requestSchema: acpRequestSchema(2, "agent.acp.mcp.message.request", acpV2Zod.zMessageMcpRequest), responseSchema: acpResponseSchema(2, "agent.acp.mcp.message.response", acpV2Zod.zMessageMcpResponse, false) },
   "session/list": { request: "agent.acp.session.list.request", response: "agent.acp.session.list.response", requestSchema: acpRequestSchema(2, "agent.acp.session.list.request", acpV2Zod.zListSessionsRequest), responseSchema: acpResponseSchema(2, "agent.acp.session.list.response", acpV2Zod.zListSessionsResponse, false) },
   "session/delete": { request: "agent.acp.session.delete.request", response: "agent.acp.session.delete.response", requestSchema: acpRequestSchema(2, "agent.acp.session.delete.request", acpV2Zod.zDeleteSessionRequest), responseSchema: acpResponseSchema(2, "agent.acp.session.delete.response", acpV2Zod.zDeleteSessionResponse, true) },
   "session/fork": { request: "agent.acp.session.fork.request", response: "agent.acp.session.fork.response", requestSchema: acpRequestSchema(2, "agent.acp.session.fork.request", acpV2Zod.zForkSessionRequest), responseSchema: acpResponseSchema(2, "agent.acp.session.fork.response", acpV2Zod.zForkSessionResponse, false) },
@@ -100,9 +99,7 @@ export const AGENT_ACP_V2_CLIENT_RPC = {
 } as const
 export const AGENT_ACP_V2_SERVER_RPC = {
   "session/request_permission": { request: "agent.acp.session.request_permission.request", response: "agent.acp.session.request_permission.response", requestSchema: acpRequestSchema(2, "agent.acp.session.request_permission.request", acpV2Zod.zRequestPermissionRequest), responseSchema: acpResponseSchema(2, "agent.acp.session.request_permission.response", acpV2Zod.zRequestPermissionResponse, false) },
-  "mcp/connect": { request: "agent.acp.mcp.connect.request", response: "agent.acp.mcp.connect.response", requestSchema: acpRequestSchema(2, "agent.acp.mcp.connect.request", acpV2Zod.zConnectMcpRequest), responseSchema: acpResponseSchema(2, "agent.acp.mcp.connect.response", acpV2Zod.zConnectMcpResponse, false) },
   "mcp/message": { request: "agent.acp.mcp.message.request", response: "agent.acp.mcp.message.response", requestSchema: acpRequestSchema(2, "agent.acp.mcp.message.request", acpV2Zod.zMessageMcpRequest), responseSchema: acpResponseSchema(2, "agent.acp.mcp.message.response", acpV2Zod.zMessageMcpResponse, false) },
-  "mcp/disconnect": { request: "agent.acp.mcp.disconnect.request", response: "agent.acp.mcp.disconnect.response", requestSchema: acpRequestSchema(2, "agent.acp.mcp.disconnect.request", acpV2Zod.zDisconnectMcpRequest), responseSchema: acpResponseSchema(2, "agent.acp.mcp.disconnect.response", acpV2Zod.zDisconnectMcpResponse, true) },
   "elicitation/create": { request: "agent.acp.elicitation.create.request", response: "agent.acp.elicitation.create.response", requestSchema: acpRequestSchema(2, "agent.acp.elicitation.create.request", acpV2Zod.zCreateElicitationRequest), responseSchema: acpResponseSchema(2, "agent.acp.elicitation.create.response", acpV2Zod.zCreateElicitationResponse, false) },
 } as const
 export const AGENT_ACP_V2_CLIENT_NOTIFICATIONS = {
@@ -118,7 +115,6 @@ export const AGENT_ACP_V2_CLIENT_NOTIFICATIONS = {
 } as const
 export const AGENT_ACP_V2_SERVER_NOTIFICATIONS = {
   "session/update": { notification: "agent.acp.session.update.notification", schema: acpNotificationSchema(2, "agent.acp.session.update.notification", acpV2Zod.zUpdateSessionNotification) },
-  "mcp/message": { notification: "agent.acp.mcp.message.notification", schema: acpNotificationSchema(2, "agent.acp.mcp.message.notification", acpV2Zod.zMessageMcpNotification) },
   "elicitation/complete": { notification: "agent.acp.elicitation.complete.notification", schema: acpNotificationSchema(2, "agent.acp.elicitation.complete.notification", acpV2Zod.zCompleteElicitationNotification) },
 } as const
 
