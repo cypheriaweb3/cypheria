@@ -8,7 +8,9 @@ Cypheria is a local-first, cross-platform Web3 agent workspace. A privileged Cyp
 - First-party Codex, Claude, Pi, and OpenCode adapters, plus registry-backed ACP agents.
 - Durable Projects, Threads, Sections, Canonical Timeline, interactions, terminals, and artifacts.
 - A public `@cypheria/client` TypeScript SDK with direct Thread, Timeline, interaction, and harness facades.
-- An Electron + TanStack Start desktop client with the established Sidebar and conversation workspace.
+- An Electron + TanStack Start desktop client with the established Sidebar and conversation workspace, local Git review, worktrees, and Code Review.
+- Computer Use: Agents operate the built-in browser, MCP Apps, the user's Chromium browsers, and desktop apps through one `cua_repl` runtime.
+- Skills, MCP, and plugins across Agents, with the OpenAI MCP Extensions surfaces.
 - Server-owned schedules, Web3 networks, wallets, signing policies, dApp sessions, approvals, and audit records.
 - A non-TUI CLI and an optional end-to-end encrypted relay.
 - An Expo Router foundation that builds for iOS, Android, and static web; product work on these surfaces is intentionally limited for now.
@@ -39,29 +41,7 @@ See the [architecture guide](docs/architecture.md) and [documentation index](doc
 
 ## Repository layout
 
-Implemented applications:
-
-```text
-apps/cli       Command-line client and Server lifecycle commands
-apps/desktop   Electron main/preload plus TanStack Start renderer
-apps/expo      Expo Router client foundation and static web export
-apps/relay     Go relay data plane
-apps/server    Privileged local Server and Agent adapters
-apps/website   Marketing, documentation, and future Marketplace web application
-```
-
-Implemented packages:
-
-```text
-packages/client           Shared Server client and domain facades
-packages/db               SQLite schema, repositories, and baseline migration
-packages/protocol         Public protocol and generated Codex contracts
-packages/relay            E2EE channel, pairing, and relay helpers
-packages/ui               Shared UI and conversation presentation primitives
-packages/web3             Pure Web3 domain modules
-```
-
-Marketplace is planned as a dynamic capability inside `apps/website`; no Marketplace routes, accounts, APIs, or storage bindings exist yet. Its intended boundary is documented in the [marketplace design](docs/marketplace.md) and [active roadmap](docs/todo.md).
+Applications live in `apps/`, shared packages in `packages/`, and the bundled plugins in `plugins/`; the [development guide](docs/development.md#workspace) lists each workspace and what it owns. Marketplace is planned as a dynamic capability inside `apps/website`; no Marketplace routes, accounts, APIs, or storage bindings exist yet. Its intended boundary is in the [Marketplace design](docs/planned/marketplace.md) and the [roadmap](docs/roadmap.md).
 
 ## Development
 
@@ -69,7 +49,7 @@ Requirements:
 
 - Node.js 24 or newer
 - pnpm 11
-- Go 1.25 for relay development
+- Go 1.25 for the relay, node_repl, and the browser extension's native host
 
 ```sh
 pnpm install
@@ -88,7 +68,7 @@ pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
 
-Cypheria stores local application data below `$CYPHERIA_HOME`, defaulting to `~/.cypheria`. Cypheria-managed Codex processes use `$CYPHERIA_HOME/codex` as `CODEX_HOME` and do not mutate the user's default Codex home.
+Cypheria stores local application data below `$CYPHERIA_HOME`, defaulting to `~/.cypheria`. Cypheria-managed Codex processes use `$CYPHERIA_HOME/agents/codex/home` as `CODEX_HOME` and do not mutate the user's default Codex home.
 
 Development commands, generated-code workflows, and verification rules are in the [development guide](docs/development.md).
 
@@ -100,7 +80,7 @@ Development commands, generated-code workflows, and verification rules are in th
 - dApp wallet sessions and permissions are isolated by origin; web tabs never receive a wallet provider.
 - Signatures, policy decisions, schedule runs, and transaction results are auditable.
 
-See the [Web3 guide](docs/web3.md) and [security boundaries](docs/architecture.md#trust-boundaries).
+See the [Web3 guide](docs/features/web3.md) and [security boundaries](docs/architecture.md#trust-boundaries).
 
 ## Documentation
 

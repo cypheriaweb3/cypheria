@@ -12,4 +12,4 @@ Pairing offer types are owned by `@cypheria/protocol`. Server Bearer tokens are 
 
 This package contains no deployment, coordination, database, Agent, Electron, or product-state code. The Go data plane lives in `apps/relay` and forwards opaque frames only.
 
-See [Relay](../../docs/relay.md).
+See [Relay](../../docs/server/relay.md).

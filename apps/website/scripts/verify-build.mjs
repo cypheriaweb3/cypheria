@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs"
-import { resolve } from "node:path"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { resolve, sep } from "node:path"
 
 const root = resolve(import.meta.dirname, "..")
 const publicDir = resolve(root, "dist/client")
@@ -28,26 +28,12 @@ for (const path of required) {
   if (!existsSync(resolve(publicDir, path))) failures.push(`missing prerendered asset: ${path}`)
 }
 
-const routeSlugs = [
-  "agent-harnesses",
-  "architecture",
-  "brand",
-  "codex-app-server-api",
-  "codex-app-server-config",
-  "codex-permissions",
-  "database",
-  "desktop",
-  "development",
-  "integrations",
-  "marketplace",
-  "protocol",
-  "relay",
-  "schedules",
-  "server",
-  "todo",
-  "ui",
-  "web3",
-]
+// Every English document in docs/ has an English and a Chinese page.
+const docsDir = resolve(root, "../../docs")
+const routeSlugs = readdirSync(docsDir, { recursive: true })
+  .map((path) => String(path).split(sep).join("/"))
+  .filter((path) => path.endsWith(".md") && !path.endsWith(".zh-CN.md") && path !== "README.md")
+  .map((path) => path.slice(0, -".md".length))
 
 for (const slug of routeSlugs) {
   for (const prefix of ["docs", "zh-CN/docs"]) {

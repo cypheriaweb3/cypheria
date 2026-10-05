@@ -4,49 +4,55 @@ title: Cypheria Documentation
 
 # Cypheria Documentation
 
-This index assigns one owner to each subject. Follow links instead of copying details between documents.
+These documents describe how Cypheria is built. Each subject has one owning page; other pages link to it instead of repeating it. English is authoritative, and every page has a complete Simplified Chinese companion.
 
 ## Start here
 
-- [Architecture](architecture.md): system boundaries, ownership, data flow, and trust boundaries.
-- [Development](development.md): stack, workspace, commands, generation, testing, and contribution workflow.
-- [Active roadmap](todo.md): planned work only.
+- [Architecture](architecture.md): system boundaries, process ownership, data flow, and trust boundaries.
+- [Development](development.md): toolchain, workspace, commands, generated artifacts, testing, and documentation rules.
+- [Roadmap](roadmap.md): approved work that is not done yet.
 
-## Runtime and protocols
+## Server
 
-- [Server](server.md): process supervision, configuration, runtime directories, and operations.
-- [Client/server protocol](protocol.md): transport, messages, domain operations, timelines, and errors.
-- [Agent harnesses](agent-harnesses.md): registry, installation, runtime models, first-party harnesses, and ACP.
-- [Database](database.md): current SQLite baseline and migration policy.
-- [Client storage](client-storage.md): cross-platform key/value state, rebuildable replicas, and attachment bytes.
-- [Composer inputs and references](composer.md): trigger menus, structured references, uploads, and submission mapping.
-- [Schedules](schedules.md): cadence, leases, execution, recovery, and non-replay guarantees.
-- [Terminals](terminals.md): Thread ownership, private authentication terminals, binary streaming, and lifecycle.
-- [Relay](relay.md): encrypted remote transport, deployment, capacity, and observability.
+- [Server runtime](server/runtime.md): process supervision, the Cypheria home, configuration, logs, HTTP operations, and authentication.
+- [Protocol](server/protocol.md): transport, messages, Threads and the Canonical Timeline, turns and interactions, the client SDK, and Computer Use hosts.
+- [Database](server/database.md): the SQLite schema, constraints, transactions, and migration policy.
+- [Schedules](server/schedules.md): cadence, leases, recovery, and the Web3 non-replay rule.
+- [Terminals](server/terminals.md): Thread and authentication terminals, binary streaming, and limits.
+- [Relay](server/relay.md): the encrypted remote transport, its deployment modes, and capacity.
+- [AI gateway](server/ai-gateway.md): the magpie gateway over Cypheria's Agents.
 
-## Product surfaces
+## Agents and plugins
 
-- [Desktop](desktop.md): Electron boundary, Server Manager, Sidebar, conversation workspace, and local settings.
-- [Computer Use](computer-use.md): the `cua_repl` runtime that lets Agents operate the built-in browser, the user's browsers, MCP Apps, and desktop apps.
-- [Local Git design](git.md): Git ownership, backend selection, safety, persistence, and Agent tools.
-- [Code Review](code-review.md): the Code Review MCP App, its tools over OpenAI's backend, private reviews, and Desktop surfaces.
-- [Integrations](integrations.md): Skills, MCP, plugins, marketplace sources, and Codex Apps.
-- [Plugin Extensions](plugin-extensions.md): plugin UI surfaces from the OpenAI MCP Extensions specification, served by the Server for every client: entry points, settings, mentions, file viewers, model context, and the Desktop App sandbox.
-- [AI gateway](gateway.md): the magpie gateway over Cypheria's Agents, its release pin, lifecycle, ports, and scope.
-- [Web3](web3.md): networks, wallets, policies, signing, dApps, and audit.
-- [UI system](ui.md): visual principles, theme implementation, conversation components, and regression invariants.
-- [Codex conversation UI reference](codex-conversation-ui-reference.md): evidence-backed task chrome, Timeline, composer, and panel behavior for shared implementation.
-- [Brand](brand.md): product marks, colors, icons, and asset generation.
+- [Agent harnesses](agents/harnesses.md): the registry, installation, runtimes, the Codex, Claude, Pi, OpenCode, and ACP harnesses, and branching.
+- [Plugins, Skills, and MCP](agents/plugins.md): the integration model, bundled plugins and Cypheria app tools, marketplaces, Codex Apps, and hooks.
+- [Plugin Extensions](agents/plugin-extensions.md): the OpenAI MCP Extensions surfaces that plugins contribute, and the App sandbox.
+- [Codex configuration](agents/codex-config.md): native settings, project trust, Thread launch parameters, and feature flags.
+- [Codex permissions](agents/codex-permissions.md): the permission modes and how they map to Codex.
+- [Codex App Server API](agents/codex-api.md): generated reference for adapter development.
 
-## Codex integration references
+## Desktop
 
-- [Generated Codex App Server API](codex-app-server-api.md)
-- [Codex configuration semantics](codex-app-server-config.md)
-- [Codex feature defaults and Desktop overrides](codex-app-server-features.md)
-- [Codex permissions in Cypheria](codex-permissions.md)
+- [Desktop](desktop/desktop.md): the Electron boundary, Server Manager, Sidebar, settings, conversation workspace, and built-in browser.
+- [Composer](desktop/composer.md): trigger menus, structured references, uploads, and how input reaches an Agent.
+- [Client storage](desktop/client-storage.md): device-local key/value state, rebuildable replicas, and attachment bytes.
 
-## Planned service
+## Features
 
-- [Cypheria Marketplace](marketplace.md): planned dynamic submission, review, publication, and discovery capability inside Website. No Marketplace routes are implemented yet.
+- [Git](features/git.md): the Git service and protocol, the Review panel, pull request creation, and managed worktrees.
+- [Code Review](features/code-review.md): the Code Review App, its tools over OpenAI's backend, and private reviews.
+- [Computer Use](features/computer-use.md): the `cua_repl` runtime through which Agents operate browsers, MCP Apps, and desktop apps.
+- [Browser extension](features/browser-extension.md): the Chromium extension and native messaging host behind the user's browsers.
+- [Web3](features/web3.md): networks, wallets, signing policy, dApp sessions, and audit.
 
-Every maintained English product document has a `.zh-CN.md` companion. Generated references must be updated through their generator rather than edited directly.
+## Design
+
+- [UI system](design/ui-system.md): visual principles, theme, shared components, and regression invariants.
+- [Conversation UI](design/conversation-ui.md): the task chrome, Timeline, composer, and panels that every Agent shares.
+- [Brand](design/brand.md): marks, colors, icons, and asset generation.
+
+## Planned
+
+- [Cypheria Marketplace](planned/marketplace.md): the planned submission, review, publication, and discovery service inside the website. Nothing in it is implemented yet.
+
+Generated references are updated by their generators, never by hand.

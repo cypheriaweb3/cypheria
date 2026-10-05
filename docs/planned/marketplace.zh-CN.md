@@ -1,0 +1,101 @@
+---
+title: Cypheria Marketplace
+---
+
+# Cypheria Marketplace
+
+> 状态：计划在 `apps/website` 内实现；当前尚无 Marketplace 路由
+
+计划中的 Cypheria Marketplace 是 `apps/website` 的动态服务区域，负责插件提交、扫描、审核、发布、发现和信任 metadata。它与 Website 共用项目和 Worker 部署边界，但不是本地 Server integration service，也不是使用 [插件](../agents/plugins.zh-CN.md) 所述 harness-native 或 custom marketplace 的前提。
+
+## 产品边界
+
+服务计划作为现有 Cloudflare Worker 内的 TanStack Start 动态路由，包含三个界面：
+
+- 公开、本地化 catalog；
+- 面向 publisher 的 draft、validation、submission、release 和 advisory console；
+- 面向 reviewer 的 evidence、finding、decision、suspension 和 audit history console。
+
+它不得导入 Electron、Desktop IPC、`apps/server` 内部实现、`@cypheria/db`、Agent SDK、wallet key 或本地 Cypheria 应用数据。
+
+预留的路由族为 `/marketplace/*`、`/publisher/*`、`/review/*`、`/auth/*` 与 `/api/v1/*`。当前 Website 不创建这些路由，也不配置任何 Marketplace binding 或 secret。
+
+## 插件契约
+
+初始发布目标是公开 ChatGPT/Codex plugin specification。Plugin root 包含 `.codex-plugin/plugin.json`，并可包含 Skills、hooks、app declaration、MCP declaration 和 assets。这使发布版本可以通过现有 Codex harness integration 安装，同时保留 `ecosystem: openai` provenance。
+
+只有明确实现对应 manifest、scanning、installation 和 trust contract 后，才会增加 Cypheria-native、Claude、Pi 和 OpenCode 生态发布。Marketplace source 仍为 `cypheria`；ecosystem 是独立字段。
+
+## Agent 兼容性
+
+当官方 catalog 在某个 Agent 的 marketplace 文件中列出 release 时，该 release 即支持这个 Agent；相关文件和按 Agent 启用见 [插件](../agents/plugins.zh-CN.md#agent-兼容性)。
+
+- 每个受支持的生态都会基于自身的 manifest、MCP 声明和 capabilities 独立校验与扫描。只有契约已实现的生态才能发布 release，因此初期 release 只面向 Codex。
+- 增加 Claude、Pi 或 OpenCode 发布，需要先具备该生态的 manifest、scanning、installation 和 trust contract。Desktop 通过各 Agent 自己的 harness 把 release 安装到所选 Agent，每次安装都要经过信任检查。
+- 随程序分发的 `cypheria-bundled` marketplace 采用与未来双 Agent release 相同的双格式布局。
+
+## 来源策略
+
+初期只接受公开开源 GitHub source：
+
+- `url`：plugin 位于 repository root；
+- `git-subdir`：plugin 位于 monorepo 内的受限 path。
+
+每个 release 固定完整不可变 commit SHA。Path 必须留在 repository 内。Validation 会拒绝 private repository、只有可移动 ref、必需的 Git LFS pointer、不安全 submodule indirection、缺失 plugin manifest，以及不覆盖提交路径的 license。
+
+Publisher identity 与 repository relationship 的校验独立于开源 license coverage。
+
+## 审核与发布
+
+Submission 会冻结不可变 source revision。受限 scanner 为 manifest shape、secret、危险代码模式、dependency risk、声明 capability、MCP endpoint behavior、redirect、SSRF、tool annotation、CSP 和 policy URL 生成结构化 evidence。
+
+Approval 与 publication 是不同操作。Reviewer 可以请求修改、拒绝、批准、暂停或撤回。获批 publisher 需要显式发布 release。任何与审核相关的内容变化都必须创建新版本和新审核周期。
+
+每次状态转换都在 Server 侧授权，并记录到只追加 audit log。
+
+## 计划平台
+
+- Cloudflare Workers：request handling 与 SSR；
+- D1：accounts、organizations、drafts、review state、releases 和 audit records；
+- R2：不可变 snapshots、evidence 和 public assets；
+- Queues 与 Workflows：受限 scanning 和 publication jobs；
+- KV：仅用于可丢弃 cache 和 rate-limit 辅助；
+- 外部 OIDC 与 GitHub verification：identity 和 source ownership。
+
+Plugin code 绝不在 web Worker 内执行。MCP scanning 使用隔离、限制 egress 的执行环境，并有严格时间和大小限制。
+
+文档搜索继续使用构建期生成、覆盖仓库 Markdown 的 ZBSearch 索引。Marketplace discovery 将使用由已批准 release 填充的独立服务端派生索引，避免未发布或未授权记录进入浏览器索引。
+
+## 官方 Catalog 交付
+
+Publication 会把 active releases 确定性聚合到官方 Cypheria GitHub marketplace catalog。Entry 使用稳定排序和固定 SHA 的 `url` 或 `git-subdir` source。发布流程在通过 `/api/v1` 和本地化 catalog 页面暴露 release 前验证结果 commit。
+
+Desktop 计划中的 Cypheria Marketplace integration 将：
+
+1. 从 Marketplace API 获取 catalog 与 trust metadata；
+2. 固定官方 repository identity 和预期 catalog commit；
+3. 通过 Codex App Server marketplace 操作注册或升级 catalog；
+4. 校验 plugin source URL、path、SHA、capabilities 和 approvals；
+5. 通过 Codex harness 的 plugin 操作安装。
+
+Discovery trust 与 installation execution 保持分离。OpenAI 和用户添加的 marketplace 保留各自 provenance，不会被重新标记为 Cypheria 已审核。
+
+## 安全要求
+
+- Organization-scoped authorization 和敏感操作 step-up checks。
+- CSRF protection、rate limits、replay-safe identity challenges 和 session rotation。
+- 不可变 source 与 evidence digests。
+- 不持有终端用户 connector credential，不代理 MCP traffic。
+- Catalog service 不执行任意 plugin code。
+- 初始版本不包含 payment、token、rating 或 on-chain registry。
+- 提供 suspension、advisory、withdrawal、reconciliation 和 publication rollback 路径。
+
+## 交付阶段
+
+1. 在现有 Website Worker 中实现 identity、organizations、roles、publisher verification 和 audit。
+2. 实现 source verification、drafts、validation 和 submission。
+3. 实现隔离 scanning 与 reviewer workflow。
+4. 实现 publication、public catalog API、服务端派生搜索和确定性 GitHub synchronization。
+5. 实现 Desktop discovery 与 trust integration。
+
+未完成事项只在 [路线图](../roadmap.zh-CN.md) 跟踪。

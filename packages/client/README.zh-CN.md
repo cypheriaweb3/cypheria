@@ -42,4 +42,4 @@ Client 支持 browser、Node、injected 和 relay E2EE transports，校验两个
 
 该包依赖 `@cypheria/protocol` 和 `@cypheria/relay`，不导入 Electron、Desktop、Server runtime 内部实现、数据库或 Agent SDK。
 
-参见[客户端与 Server 协议](../../docs/protocol.zh-CN.md)和[架构](../../docs/architecture.zh-CN.md)。
+参见[客户端与 Server 协议](../../docs/server/protocol.zh-CN.md)和[架构](../../docs/architecture.zh-CN.md)。

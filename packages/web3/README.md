@@ -18,4 +18,4 @@ import { createEthereumProvider } from "@cypheria/web3/provider"
 
 The package contains no database or filesystem access, secret custody, signing execution, RPC credential storage, or service lifecycle. Those responsibilities belong to `apps/server/src/runtime`. Provider transports forward validated requests to the Server and never handle private keys.
 
-See [Web3](../../docs/web3.md) for lifecycle and security rules.
+See [Web3](../../docs/features/web3.md) for lifecycle and security rules.

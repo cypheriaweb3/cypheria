@@ -4,7 +4,7 @@ title: 架构
 
 # 架构
 
-Cypheria 是一个本地优先系统，由一个特权 Server 和多个非特权客户端组成。本文只定义进程所有权、数据流和信任边界。Wire 字段见[协议](protocol.zh-CN.md)，持久化细节见[数据库](database.zh-CN.md)，命令见[开发指南](development.zh-CN.md)或 [Server](server.zh-CN.md)。
+Cypheria 是一个本地优先系统，由一个特权 Server 和多个非特权客户端组成。本文只定义进程所有权、数据流和信任边界。Wire 字段见[协议](server/protocol.zh-CN.md)，持久化细节见[数据库](server/database.zh-CN.md)，命令见[开发指南](development.zh-CN.md)或 [Server](server/runtime.zh-CN.md)。
 
 ## 系统模型
 
@@ -28,7 +28,7 @@ Server 是共享产品状态的唯一权威。客户端可以管理本地 Server
 - Agent 注册、安装、启用、进程生命周期、健康状态和原生协议适配器。
 - Projects、Threads、Sections、Turns、Interactions 和 Canonical Timeline。
 - 共享 Git 设置、供所有 Agent 使用的单一网络代理、Agent 原生设置访问与集成状态。
-- Schedules、Web3 服务、[特权 Terminal](terminals.zh-CN.md)、本地 Git 执行、Artifacts 和审计记录。
+- Schedules、Web3 服务、[特权 Terminal](server/terminals.zh-CN.md)、本地 Git 执行、Artifacts 和审计记录。
 - 数据库访问、迁移、配置加载、日志和版本化客户端连接。
 - 托管当前 Expo web 静态导出。
 
@@ -36,7 +36,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 ### Desktop
 
-`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、浏览器 guest 加固与 dApp provider 边界、preload IPC、客户端 KV／Replica／附件后端、更新、安全存储和操作系统集成。Renderer 使用 Jotai + 客户端 KV 管理设备本地状态，并通过 `@cypheria/client` + TanStack Query 使用 Server 共享状态。设备本地状态有意不在客户端之间同步。每个窗口的 renderer 以沙箱化 `<webview>` guest 承载浏览器标签页，并连同它显示的 MCP App 注册为该窗口的 browser host；Electron main 注册本设备用于外部浏览器和原生应用的 [Computer Use](computer-use.zh-CN.md#host) host；参见 [Desktop](desktop.zh-CN.md#浏览器与-dapp-边界)。Electron main 执行本设备承担的 Computer Use 部分：针对用户的浏览器运行 agent-browser，并托管用于原生应用操控的 cua-driver daemon，因为 macOS 会把它的辅助功能和屏幕录制授权归属到启动它的应用。Server 负责 Computer Use 的策略、路由和审计，但自己从不驱动浏览器或应用。
+`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、浏览器 guest 加固与 dApp provider 边界、preload IPC、客户端 KV／Replica／附件后端、更新、安全存储和操作系统集成。Renderer 使用 Jotai + 客户端 KV 管理设备本地状态，并通过 `@cypheria/client` + TanStack Query 使用 Server 共享状态。设备本地状态有意不在客户端之间同步。每个窗口的 renderer 以沙箱化 `<webview>` guest 承载浏览器标签页，并连同它显示的 MCP App 注册为该窗口的 browser host；Electron main 注册本设备用于外部浏览器和原生应用的 [Computer Use](features/computer-use.zh-CN.md#host) host；参见 [Desktop](desktop/desktop.zh-CN.md#浏览器与-dapp-边界)。Electron main 执行本设备承担的 Computer Use 部分：通过共享引擎驱动用户的 Chromium 浏览器，并托管用于原生应用操控的 cua-driver daemon，因为 macOS 会把它的辅助功能和屏幕录制授权归属到启动它的应用。Server 负责 Computer Use 的策略、路由和审计，但自己从不驱动浏览器或应用。
 
 ### Expo 与 CLI
 
@@ -55,7 +55,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 - `@cypheria/protocol` 负责版本化公开契约、运行时校验和生成的上游协议产物。
 - `@cypheria/client` 是公开 TypeScript SDK，负责连接和领域 facade，不依赖 Electron 或数据库。
 - `@cypheria/db` 负责 Server 使用的 SQLite Schema、迁移基线和 repositories。
-- `@cypheria/storage` 负责非权威客户端存储端口，以及键值状态、可重建 Replica 和附件二进制的平台 adapter；见[客户端存储](client-storage.zh-CN.md)。
+- `@cypheria/storage` 负责非权威客户端存储端口，以及键值状态、可重建 Replica 和附件二进制的平台 adapter；见[客户端存储](desktop/client-storage.zh-CN.md)。
 - `@cypheria/web3` 包含纯 Network、Policy、Wallet、Provider 领域逻辑；特权编排仍在 Server。
 - `@cypheria/ui` 包含可复用展示组件，包括不依赖协议的会话、面板、通知和 artifact surface。
 
@@ -112,4 +112,4 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 - `apps/website` 内的 Marketplace 路由：公开发现以及需要认证的 publisher、reviewer 界面。其数据与授权独立于本地 Server，插件扫描由另一个受限 Worker 执行。
 - 在 Desktop 体验成熟后扩展 Expo 产品能力。
 
-仍未完成的工作只在 [Todo](todo.zh-CN.md) 中跟踪。
+仍未完成的工作只在 [路线图](roadmap.zh-CN.md) 中跟踪。

@@ -20,4 +20,4 @@ pnpm --filter @cypheria/cypheria-relay test:race
 
 TOML examples are in [config](config). Kubernetes resources are in [deploy/kustomize/base](deploy/kustomize/base); they intentionally omit etcd, public ingress, certificate issuance, and the OpenTelemetry Collector.
 
-See the complete [Relay guide](../../docs/relay.md).
+See the complete [Relay guide](../../docs/server/relay.md).

@@ -10,7 +10,7 @@ This guide is the canonical reference for the workspace, toolchain, generated ar
 
 - Node.js 24 or newer
 - pnpm 11.1.3, as pinned by the root `packageManager`
-- Go 1.25 for `apps/relay` and `apps/node-repl`
+- Go 1.25 for `apps/relay`, `apps/node-repl`, and `apps/browser-extension-host`
 - A compatible Codex binary when regenerating Codex App Server artifacts
 
 Use pnpm for JavaScript and TypeScript workspace commands. The repository uses Turborepo for task orchestration and Biome for formatting and linting.
@@ -28,6 +28,8 @@ Implemented applications:
 | `apps/relay` | Go encrypted relay data plane |
 | `apps/cua` | The Computer Use runtime: the `cua_repl` launcher and `cua` API, the Server host for its surfaces, the embedded cua-driver supervisor, and the hidden `cua` plugin template |
 | `apps/node-repl` | Go node_repl MCP server and supervisor, plus the TypeScript kernel it embeds, for persistent sandboxed JavaScript execution |
+| `apps/browser-extension` | The Cypheria Chromium extension (WXT, Manifest V3) and the protocol it shares with its native host and Desktop |
+| `apps/browser-extension-host` | Go native messaging host that relays the extension's messages to Desktop |
 | `apps/website` | TanStack Start marketing and Fumadocs site on Cloudflare Workers |
 
 Implemented packages:
@@ -109,44 +111,9 @@ pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 
 Use `pnpm --filter @cypheria/desktop dev` only when testing the one-time built renderer instead of the HMR workflow.
 
-The Desktop development shell exposes a fixed **Chat Demo** navigation item at `/chat-demo`. It is
-a local interactive showcase for the shared chat components and does not contact an Agent runtime.
-Its transcript uses `@tanstack/react-virtual` with 128 variable-height messages, measured rows,
-overscan, sampled turn navigation, and live message appends so long-conversation behavior can be
-inspected without production data. The preload bootstrap flag hides the item and redirects the
-route in packaged production builds. Its right and bottom surfaces are simultaneously resizable and
-offer a workspace **Files** fixture (two in-memory roots used to exercise create, rename, move, delete, filter, editing, and Markdown, image, SVG, and CSV/TSV previews)
-and all 25 audited content hosts as tabs: sources, subagents, plan, summary, goal, review,
-pull request, terminal, file, image, browser, MCP App, automation, artifact, PDF, document, notebook,
-presentation, workbook, entity details, side chat, MCP thread/file extensions, sandbox, and a
-secondary timeline. A floating display controller switches nine Timeline families and individual
-panel tabs between a compact curated view and the exhaustive catalog.
-The production Desktop file tabs instead use the Thread-scoped paginated Server API described in [Desktop](desktop.md#conversation-workspace).
-Its composer also showcases Tiptap inline references, `@`/`$`/`/` suggestions, and a selectable attachment tray with pending and failed samples; those fixture entries are Demo-only.
+Both Desktop commands also build the browser extension into `apps/browser-extension/.output/chrome-mv3` and its native host into `apps/browser-extension-host/dist/<platform>-<arch>/`; Desktop installs the host and registers it with your browsers at startup. To use the extension, load that directory as an unpacked extension at the browser's extensions page; see [Browser extension](features/browser-extension.md#development).
 
-### Removing Chat Demo
-
-Chat Demo is temporary development scaffolding. When the production conversation workspace has
-adopted the shared chat components, remove the demo with this checklist:
-
-1. Delete `apps/desktop/renderer/src/components/chat-demo.tsx`, `chat-demo-files.tsx`, the demo
-   test, and `apps/desktop/renderer/src/routes/chat-demo.tsx`.
-2. Remove the `Chat Demo` item, `MessageSquare` import, and development-item filtering from
-   `chat-sidebar.tsx`.
-3. If no other development-only renderer feature uses it, delete `development-mode.ts` and its
-   test, then remove `bootstrap.development`, `CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX`, and the
-   corresponding main/preload argument wiring.
-4. Regenerate `routeTree.gen.ts` with `pnpm --filter @cypheria/desktop build:renderer`; never edit
-   the generated route tree by hand.
-5. Keep the complete, pinned `packages/ui/src/components/icons` mirror. It is a shared UI asset and
-   is intentionally not pruned according to Demo imports; only change it as a separately reviewed
-   upstream-mirror update, including its README revision and license record.
-6. Remove this cleanup section and the preceding Chat Demo paragraph, then run the Desktop tests,
-   Desktop typecheck, strict Lingui compile, `pnpm docs:check`, and root `pnpm check`.
-
-Do not delete `packages/ui/src/components/chat`, the icons directory itself, or the Codex
-conversation UI reference documents when removing the demo. They are reusable production assets,
-not demo scaffolding. Chat Demo deliberately has no Lingui catalog entries to clean up.
+Development builds show a **Chat Demo** item at `/chat-demo`: an interactive showcase of the shared chat components with fixture data and no Agent runtime, covering the virtualized long transcript, every Timeline family, every panel tab, the workspace Files tab, and the composer's references and attachments. Packaged builds hide the item and redirect the route. Its removal is planned in the [roadmap](roadmap.md#desktop).
 
 The product CLI is built separately:
 
@@ -155,7 +122,7 @@ pnpm --filter @cypheria/cli build
 pnpm --filter @cypheria/cli exec cypheria --help
 ```
 
-See [Server](server.md) for lifecycle commands and runtime paths.
+See [Server](server/runtime.md) for lifecycle commands and runtime paths.
 
 The website uses English at root paths and Simplified Chinese under `/zh-CN`. Lingui owns marketing copy; Fumadocs consumes `docs/*.md` and their `.zh-CN.md` companions directly. `pnpm --filter @cypheria/website build` compiles strict catalogs, prerenders every marketing and documentation route, emits the static ZBSearch index, and builds the Worker fallback. Use `pnpm --filter @cypheria/website exec wrangler dev` for the production-shaped local runtime.
 
@@ -179,7 +146,7 @@ pnpm --filter @cypheria/protocol generate:agent-acp-registry
 
 This maintainer command downloads, validates, normalizes, and writes `packages/protocol/src/generated/acp/registry.json` plus the reviewed subset in `agent-ids.ts`. Every approved ID must exist in the snapshot. Both files are committed and reviewed together. Normal builds and checks validate only the local snapshot and never fetch registry data.
 
-The node_repl kernel and trusted worker are written in TypeScript under `apps/node-repl/src/` and bundled by Vite into `apps/node-repl/internal/assets/files/`, which the Go binary embeds. Third-party dependencies such as `meriyah` go into a minified `vendor.js` chunk with their notices in `THIRD_PARTY_LICENSES.txt`, while Cypheria sources stay unminified for debugging:
+The node_repl kernel is written in TypeScript under `apps/node-repl/src/` and bundled by Vite into `apps/node-repl/internal/assets/files/`, which the Go binary embeds. Third-party dependencies such as `meriyah` go into a minified `vendor.js` chunk with their notices in `THIRD_PARTY_LICENSES.txt`, while Cypheria sources stay unminified for debugging:
 
 ```sh
 pnpm --filter @cypheria/node-repl build:js
@@ -187,12 +154,14 @@ pnpm --filter @cypheria/node-repl build:js
 
 The bundle is ignored by Git except `package.json`. The package `build`, `check`, and `test` scripts regenerate it before running Go, so run `build:js` first only when invoking `go` directly.
 
-The Computer Use launcher and runtime are built by Vite into `apps/cua/dist`. Native app control needs the pinned cua-driver release, which a maintainer fetches with digest verification before a Desktop build; see [Computer Use](computer-use.md#desktop-apps):
+The Computer Use launcher and runtime are built by Vite into `apps/cua/dist`. Native app control needs the pinned cua-driver release, which a maintainer fetches with digest verification before a Desktop build; see [Computer Use](features/computer-use.md#desktop-apps):
 
 ```sh
 pnpm --filter @cypheria/cua build
 pnpm --filter @cypheria/cua fetch:cua-driver
 ```
+
+The browser engine vendors parts of Playwright from the pinned `playwright-core`; run `pnpm --filter @cypheria/cua vendor:playwright` after changing that pin.
 
 ## Testing strategy
 
@@ -214,13 +183,15 @@ Tests should exercise public boundaries rather than import private files from an
 
 ## Documentation workflow
 
-English is the source document and each maintained product page has a complete `.zh-CN.md` companion with the same heading topology. One page owns each subject; other pages link to it.
+Documents live under `docs/` by domain: `server/` for the Server process and its contracts, `agents/` for harnesses, Codex, and plugins, `desktop/` for the Desktop client, `features/` for product capabilities that span the Server and clients, `design/` for the visual system, and `planned/` for designs not yet implemented. [Architecture](architecture.md), this guide, and the [roadmap](roadmap.md) stay at the top. File names are short lowercase nouns without a repeated folder prefix.
+
+English is the source document and each maintained product page has a complete `.zh-CN.md` companion with the same heading topology. One page owns each subject; other pages link to it. Documents describe Cypheria. Where Cypheria follows ChatGPT or the official Codex desktop, they say so, but specific ChatGPT versions, bundle names, and local analysis paths belong in the ChatGPT analysis notes, not here.
 
 Run `pnpm docs:check` after documentation changes. Generated pages are updated through their generator. Current behavior is left unmarked; planned work and generated references must be labeled explicitly. Historical change logs belong in Git, not the product documentation.
 
 ## Contribution workflow
 
-1. Choose one reviewable, testable item from [Todo](todo.md) or an agreed issue.
+1. Choose one reviewable, testable item from [Roadmap](roadmap.md) or an agreed issue.
 2. Inspect the repository implementation before changing public behavior or boundaries.
 3. Update English and Chinese documentation in the same change when behavior, architecture, commands, or interfaces change.
 4. Run the narrowest relevant checks, then root CI for cross-workspace changes.

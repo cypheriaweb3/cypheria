@@ -1,6 +1,6 @@
 # Client Package Instructions
 
-Read the package [README](README.md), public [Protocol](../../docs/protocol.md), and repository [Contributor Instructions](../../AGENTS.md).
+Read the package [README](README.md), public [Protocol](../../docs/server/protocol.md), and repository [Contributor Instructions](../../AGENTS.md).
 
 ## Boundaries
 

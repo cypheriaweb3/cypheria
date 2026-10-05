@@ -44,4 +44,4 @@ The client supports browser, Node, injected, and relay E2EE transports. It valid
 
 This package depends on `@cypheria/protocol` and `@cypheria/relay`. It does not import Electron, Desktop, Server runtime internals, databases, or Agent SDKs.
 
-See [Client/Server Protocol](../../docs/protocol.md) and [Architecture](../../docs/architecture.md).
+See [Client/Server Protocol](../../docs/server/protocol.md) and [Architecture](../../docs/architecture.md).

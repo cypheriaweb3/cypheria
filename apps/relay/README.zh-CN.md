@@ -20,4 +20,4 @@ pnpm --filter @cypheria/cypheria-relay test:race
 
 TOML 示例位于 [config](config)。Kubernetes 资源位于 [deploy/kustomize/base](deploy/kustomize/base)；其中有意不包含 etcd、public ingress、certificate issuance 或 OpenTelemetry Collector。
 
-完整说明见 [Relay 指南](../../docs/relay.zh-CN.md)。
+完整说明见 [Relay 指南](../../docs/server/relay.zh-CN.md)。

@@ -18,4 +18,4 @@ import { createEthereumProvider } from "@cypheria/web3/provider"
 
 该包不包含数据库或文件系统访问、secret custody、签名执行、RPC credential storage 或 service lifecycle。这些职责属于 `apps/server/src/runtime`。Provider transport 将已校验请求转发给 Server，绝不处理私钥。
 
-生命周期与安全规则见 [Web3](../../docs/web3.zh-CN.md)。
+生命周期与安全规则见 [Web3](../../docs/features/web3.zh-CN.md)。

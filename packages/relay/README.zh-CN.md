@@ -12,4 +12,4 @@ Pairing offer 类型由 `@cypheria/protocol` 所有。Server Bearer token 绝不
 
 该包不包含部署、coordination、数据库、Agent、Electron 或产品状态代码。Go 数据平面位于 `apps/relay`，只转发不透明 frame。
 
-参见 [Relay](../../docs/relay.zh-CN.md)。
+参见 [Relay](../../docs/server/relay.zh-CN.md)。

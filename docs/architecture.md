@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-Cypheria is a local-first system with one privileged Server and multiple unprivileged clients. This document defines process ownership, data flow, and trust boundaries. Wire fields belong in [Protocol](protocol.md), persistence details in [Database](database.md), and commands in [Development](development.md) or [Server](server.md).
+Cypheria is a local-first system with one privileged Server and multiple unprivileged clients. This document defines process ownership, data flow, and trust boundaries. Wire fields belong in [Protocol](server/protocol.md), persistence details in [Database](server/database.md), and commands in [Development](development.md) or [Server](server/runtime.md).
 
 ## System model
 
@@ -28,7 +28,7 @@ The Server is the sole authority for shared product state. A client may manage a
 - Agent registration, installation, enablement, process lifecycle, health, and native-protocol adapters.
 - Projects, Threads, Sections, turns, interactions, and the Canonical Timeline.
 - Shared Git settings, the single Agent network proxy, Agent-native settings access, and integration state.
-- Schedules, Web3 services, [privileged terminals](terminals.md), local Git execution, artifacts, and audit records.
+- Schedules, Web3 services, [privileged terminals](server/terminals.md), local Git execution, artifacts, and audit records.
 - Database access, migrations, configuration loading, logging, and versioned client connections.
 - Static hosting for the current Expo web export.
 
@@ -36,7 +36,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 
 ### Desktop
 
-`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, browser guest hardening and the dApp provider boundary, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients. Each window's renderer hosts browser tabs as sandboxed `<webview>` guests and registers them with the MCP Apps it shows as that window's browser host, while Electron main registers the device's [Computer Use](computer-use.md#hosts) host for external browsers and native apps; see [Desktop](desktop.md#browser-and-dapp-boundary). Electron main executes the device's share of Computer Use: it runs agent-browser against the user's browsers and hosts the cua-driver daemon for native app control, because macOS attributes its Accessibility and Screen Recording grants to the app that starts it. The Server keeps Computer Use policy, routing, and audit but never drives a browser or app itself.
+`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, browser guest hardening and the dApp provider boundary, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients. Each window's renderer hosts browser tabs as sandboxed `<webview>` guests and registers them with the MCP Apps it shows as that window's browser host, while Electron main registers the device's [Computer Use](features/computer-use.md#hosts) host for external browsers and native apps; see [Desktop](desktop/desktop.md#browser-and-dapp-boundary). Electron main executes the device's share of Computer Use: it drives the user's Chromium browsers through the shared engine and hosts the cua-driver daemon for native app control, because macOS attributes its Accessibility and Screen Recording grants to the app that starts it. The Server keeps Computer Use policy, routing, and audit but never drives a browser or app itself.
 
 ### Expo and CLI
 
@@ -55,7 +55,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 - `@cypheria/protocol` owns versioned public contracts, runtime validation, and generated upstream protocol artifacts.
 - `@cypheria/client` is the public TypeScript SDK. It owns connections and domain facades without Electron or database dependencies.
 - `@cypheria/db` owns the SQLite schema, migration baseline, and repositories used by the Server.
-- `@cypheria/storage` owns non-authoritative client storage ports and platform adapters for key/value state, rebuildable replicas, and attachment bytes; see [Client Storage](client-storage.md).
+- `@cypheria/storage` owns non-authoritative client storage ports and platform adapters for key/value state, rebuildable replicas, and attachment bytes; see [Client Storage](desktop/client-storage.md).
 - `@cypheria/web3` contains pure network, policy, wallet, and provider domain logic; privileged orchestration stays in the Server.
 - `@cypheria/ui` contains reusable presentation primitives, including protocol-independent conversation, panel, notification, and artifact surfaces.
 
@@ -112,4 +112,4 @@ Cloud Agent execution, multi-Agent orchestration, and a stronger multi-user auth
 - Marketplace routes inside `apps/website`: public discovery plus authenticated publisher and reviewer surfaces. Their data and authorization remain independent of the local Server, and plugin scanning runs in a separate restricted Worker.
 - Expanded Expo product surfaces after the Desktop experience is mature.
 
-The active, incomplete work is tracked only in [Todo](todo.md).
+The active, incomplete work is tracked only in [Roadmap](roadmap.md).

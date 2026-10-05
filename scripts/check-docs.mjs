@@ -61,7 +61,7 @@ for (const path of documentationFiles) {
   const source = read(path)
   const withoutCode = stripFencedCode(source)
 
-  if (/^docs\/[^/]+\.mdx?$/u.test(path)) {
+  if (/^docs\/.+\.mdx?$/u.test(path)) {
     const frontmatter = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u)
     const title = frontmatter?.[1].match(/^title:\s*(.+?)\s*$/mu)?.[1]
     const firstHeading = source.match(/^#\s+(.+?)\s*#*$/mu)?.[1]
@@ -119,7 +119,7 @@ const companionCandidates = documentationFiles.filter(
     !path.endsWith(".zh-CN.md") &&
     !path.endsWith(".zh-CN.mdx") &&
     (path === "README.md" ||
-      /^docs\/[^/]+\.mdx?$/u.test(path) ||
+      /^docs\/.+\.mdx?$/u.test(path) ||
       /^(?:apps|packages)\/[^/]+\/README\.md$/u.test(path))
 )
 
@@ -137,7 +137,7 @@ for (const englishPath of companionCandidates) {
   }
 }
 
-for (const path of ["docs/todo.md", "docs/todo.zh-CN.md"]) {
+for (const path of ["docs/roadmap.md", "docs/roadmap.zh-CN.md"]) {
   if (/^\s*- \[[xX]\]/mu.test(read(path))) report(path, "contains completed checklist history")
 }
 

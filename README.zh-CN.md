@@ -7,8 +7,10 @@ Cypheria 是一款 local-first、跨平台的 Web3 Agent 工作台。特权 Cyph
 - 基于 Hono/Node.js 的受监管 Server，提供 HTTP、WebSocket、配置、诊断与内置 Web hosting。
 - Codex、Claude、Pi、OpenCode 第一方 adapter，以及基于 registry 的 ACP Agent。
 - 持久化 Projects、Threads、Sections、Canonical Timeline、interaction、terminal 与 artifact。
-- 作为公开 TypeScript SDK 的 `@cypheria/client`，以及面向全部受支持 Agent 类型的 browser-safe AI SDK provider。
-- Electron + TanStack Start Desktop，保留既有 Sidebar 与会话工作台体验。
+- 作为公开 TypeScript SDK 的 `@cypheria/client`，直接提供 Thread、Timeline、interaction 与 harness facade。
+- Electron + TanStack Start Desktop，保留既有 Sidebar 与会话工作台体验，并提供本地 Git Review、工作树与代码审查。
+- Computer Use：Agent 通过同一个 `cua_repl` 运行时操作内置浏览器、MCP App、用户的 Chromium 浏览器和桌面应用。
+- 跨 Agent 的 Skills、MCP 与插件，以及 OpenAI MCP Extensions 定义的界面。
 - Server 所有的 Schedule、Web3 network、wallet、signing policy、dApp session、approval 与 audit record。
 - 非 TUI CLI，以及可选的端到端加密 Relay。
 - 可构建 iOS、Android 与静态 Web 的 Expo Router 基础；这些端的产品功能目前有意保持精简。
@@ -39,30 +41,7 @@ Electron 负责窗口、内置浏览器标签页与 dApp 钱包 provider 的加�
 
 ## 仓库结构
 
-已实现应用：
-
-```text
-apps/cli       命令行客户端和 Server 生命周期命令
-apps/desktop   Electron main/preload 与 TanStack Start renderer
-apps/expo      Expo Router 客户端基础和静态 Web 导出
-apps/relay     Go Relay 数据平面
-apps/server    特权本地 Server 与 Agent adapters
-apps/website   官网、文档与未来 Marketplace Web 应用
-```
-
-已实现 packages：
-
-```text
-packages/ai-sdk-provider  基于 Cypheria Thread 的 AI SDK providers
-packages/client           共享 Server client 与领域 facade
-packages/db               SQLite schema、repository 与基线迁移
-packages/protocol         公开协议与生成的 Codex contract
-packages/relay            E2EE channel、pairing 与 Relay helpers
-packages/ui               共享 UI primitive 与 AI Elements
-packages/web3             纯 Web3 领域模块
-```
-
-Marketplace 计划作为 `apps/website` 内的动态功能实现；当前尚无 Marketplace 路由、账户、API 或存储 binding。边界见 [Marketplace 设计](docs/marketplace.zh-CN.md)与[当前路线图](docs/todo.zh-CN.md)。
+应用位于 `apps/`，共享包位于 `packages/`，随附插件位于 `plugins/`；每个工作区及其职责见[开发指南](docs/development.zh-CN.md#工作区)。Marketplace 计划作为 `apps/website` 内的动态功能实现；当前尚无 Marketplace 路由、账户、API 或存储 binding。边界见 [Marketplace 设计](docs/planned/marketplace.zh-CN.md)与[路线图](docs/roadmap.zh-CN.md)。
 
 ## 开发
 
@@ -70,7 +49,7 @@ Marketplace 计划作为 `apps/website` 内的动态功能实现；当前尚无 
 
 - Node.js 24 或更新版本
 - pnpm 11
-- Relay 开发需要 Go 1.25
+- Relay、node_repl 和浏览器扩展的原生宿主需要 Go 1.25
 
 ```sh
 pnpm install
@@ -89,7 +68,7 @@ pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
 
-Cypheria 的本地数据位于 `$CYPHERIA_HOME`，默认是 `~/.cypheria`。Cypheria 管理的 Codex 进程只把 `$CYPHERIA_HOME/codex` 用作 `CODEX_HOME`，不会修改用户默认的 Codex home。
+Cypheria 的本地数据位于 `$CYPHERIA_HOME`，默认是 `~/.cypheria`。Cypheria 管理的 Codex 进程只把 `$CYPHERIA_HOME/agents/codex/home` 用作 `CODEX_HOME`，不会修改用户默认的 Codex home。
 
 开发命令、生成代码流程与验证规则见[开发指南](docs/development.zh-CN.md)。
 
@@ -101,7 +80,7 @@ Cypheria 的本地数据位于 `$CYPHERIA_HOME`，默认是 `~/.cypheria`。Cyph
 - dApp 钱包 session 与权限按 origin 隔离；网页标签页永远不会获得钱包 provider。
 - 签名、策略决策、Schedule run 与交易结果都可审计。
 
-详见 [Web3 指南](docs/web3.zh-CN.md)与[架构安全边界](docs/architecture.zh-CN.md#信任边界)。
+详见 [Web3 指南](docs/features/web3.zh-CN.md)与[架构安全边界](docs/architecture.zh-CN.md#信任边界)。
 
 ## 文档
 

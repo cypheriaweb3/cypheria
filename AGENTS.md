@@ -7,13 +7,13 @@ Use these documents instead of repeating architecture in task notes:
 - [Documentation index](docs/README.md)
 - [Architecture](docs/architecture.md)
 - [Development](docs/development.md)
-- [Active roadmap](docs/todo.md)
+- [Roadmap](docs/roadmap.md)
 
-`apps/marketplace` is planned and does not exist. The implemented workspace is listed in [Development](docs/development.md#workspace).
+Marketplace is planned inside `apps/website` and does not exist yet. The implemented workspace is listed in [Development](docs/development.md#workspace).
 
 ## Workflow
 
-- Use `docs/todo.md` as the source for approved incomplete work.
+- Use `docs/roadmap.md` as the source for approved incomplete work.
 - Keep changes reviewable, testable, and focused.
 - Inspect the implementation and tests before changing a public contract.
 - Run narrow checks while iterating and root checks for cross-workspace changes.
@@ -35,7 +35,7 @@ pnpm format
 pnpm lint
 ```
 
-The relay and node-repl additionally require Go. Package-specific commands are documented in [Development](docs/development.md).
+The relay, node-repl, and browser-extension-host additionally require Go. Package-specific commands are documented in [Development](docs/development.md).
 
 ## Documentation
 
@@ -50,8 +50,7 @@ The relay and node-repl additionally require Go. Package-specific commands are d
 
 - `apps/server` owns shared state, database access, Agent runtimes and adapters, schedules, integrations, privileged terminals, Web3 execution, and audit.
 - `@cypheria/client` is the public TypeScript SDK. Clients use it with `@cypheria/protocol`; they do not import Server internals, repositories, or Agent SDKs.
-- Electron main may manage a local Server and owns only Desktop-local windows, browser guest hardening and the dApp provider boundary, preload, settings, updates, secure storage, and OS integration.
-- AI SDK providers are browser-safe and depend on the shared client, protocol, and public AI SDK types.
+- Electron main may manage a local Server and owns only Desktop-local windows, browser guest hardening and the dApp provider boundary, the device's share of Computer Use (the user's browsers and native apps), preload, settings, updates, secure storage, and OS integration.
 - Domain packages do not depend on `apps/server`; Server composition uses explicit services.
 - CLI uses `@cypheria/client` directly and does not depend on Desktop, Electron, or Server internals.
 
@@ -71,7 +70,7 @@ pnpm --filter @cypheria/protocol generate:codex-all
 
 ## Runtime data
 
-`CYPHERIA_HOME` defaults to `~/.cypheria`. Resolve it once per privileged process and pass derived paths to services. Cypheria-managed Codex processes use `CODEX_HOME=$CYPHERIA_HOME/codex` and do not mutate the user's default Codex home.
+`CYPHERIA_HOME` defaults to `~/.cypheria`. Resolve it once per privileged process and pass derived paths to services. Cypheria-managed Codex processes use `CODEX_HOME=$CYPHERIA_HOME/agents/codex/home` and do not mutate the user's default Codex home.
 
 Do not commit local homes, IDE state, dependency directories, caches, build output, or secrets.
 

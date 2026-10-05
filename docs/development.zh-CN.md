@@ -10,7 +10,7 @@ title: 开发指南
 
 - Node.js 24 或更高版本
 - 根目录 `packageManager` 固定的 pnpm 11.1.3
-- 开发 `apps/relay` 与 `apps/node-repl` 所需的 Go 1.25
+- 开发 `apps/relay`、`apps/node-repl` 与 `apps/browser-extension-host` 所需的 Go 1.25
 - 重新生成 Codex App Server 产物时所需的兼容 Codex 二进制文件
 
 JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turborepo 编排任务，使用 Biome 格式化和 lint。
@@ -28,6 +28,8 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `apps/relay` | Go 加密 relay 数据平面 |
 | `apps/cua` | Computer Use 运行时：`cua_repl` 启动器与 `cua` API、Server 端各界面的 host、内嵌 cua-driver 的监管器，以及隐藏 `cua` 插件的模板 |
 | `apps/node-repl` | Go node_repl MCP 服务端与 supervisor，以及其内嵌的 TypeScript kernel，用于持久化沙箱 JavaScript 执行 |
+| `apps/browser-extension` | Cypheria Chromium 扩展（WXT，Manifest V3），以及它与原生宿主和 Desktop 共用的协议 |
+| `apps/browser-extension-host` | 把扩展消息转发给 Desktop 的 Go 原生消息宿主 |
 | `apps/website` | 部署于 Cloudflare Workers 的 TanStack Start 官网与 Fumadocs 文档站 |
 
 已实现包：
@@ -109,28 +111,9 @@ pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 
 仅在测试一次性构建的 renderer、而不是 HMR 工作流时，才使用 `pnpm --filter @cypheria/desktop dev`。
 
-Desktop 开发壳会显示一个固定的 **Chat Demo** 导航项，对应 `/chat-demo`。它是共享 Chat
-组件的本地交互展示，不会连接 Agent runtime。其 transcript 使用 `@tanstack/react-virtual`
-展示 128 条可变高度消息，并包含行测量、overscan、采样 turn 导航和实时消息追加，从而无需生产数据即可检查长会话行为。右侧与底部界面可同时调整尺寸，并提供工作区 **Files** fixture（两个内存中的工作区根目录，用于检查新建、重命名、移动、删除、筛选、编辑，以及 Markdown、图片、SVG 与 CSV/TSV 预览）以及审计得到的全部 25 类内容 host：sources、subagents、plan、summary、goal、review、pull request、terminal、file、image、browser、MCP App、automation、artifact、PDF、document、notebook、presentation、workbook、entity detail、side chat、MCP thread/file extension、sandbox 与 secondary timeline。正式 Desktop 文件标签页改用 [Desktop](desktop.zh-CN.md#会话工作区) 所述 Thread 范围的分页 Server API。悬浮展示控制器可以逐组切换 9 类 Timeline item 和各个 panel tab，也可以在精选视图与完整目录之间切换。preload bootstrap 标志会在正式打包版本中隐藏该入口并重定向该路由。
+两个 Desktop 命令都会把浏览器扩展构建到 `apps/browser-extension/.output/chrome-mv3`，把其原生宿主构建到 `apps/browser-extension-host/dist/<platform>-<arch>/`；Desktop 启动时安装宿主并向你的浏览器注册它。要使用扩展，请在浏览器的扩展程序页面把该目录作为已解压的扩展程序加载，见[浏览器扩展](features/browser-extension.zh-CN.md#开发)。
 
-其 composer 还展示 Tiptap 行内引用、`@`／`$`／`/` 候选菜单，以及可选的附件托盘（包含等待中和失败样例）；这些 fixture 仅属于 Demo。
-
-### 删除 Chat Demo
-
-Chat Demo 是临时开发脚手架。当正式会话工作区已经采用共享 Chat 组件后，按以下清单删除 Demo：
-
-1. 删除 `apps/desktop/renderer/src/components/chat-demo.tsx`、`chat-demo-files.tsx`、对应测试，以及
-   `apps/desktop/renderer/src/routes/chat-demo.tsx`。
-2. 从 `chat-sidebar.tsx` 删除 `Chat Demo` 菜单项、`MessageSquare` import 和开发项过滤逻辑。
-3. 如果没有其他仅开发版 renderer 功能继续使用，删除 `development-mode.ts` 及其测试，并移除
-   `bootstrap.development`、`CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX` 和 main/preload 中对应的参数接线。
-4. 运行 `pnpm --filter @cypheria/desktop build:renderer` 重新生成 `routeTree.gen.ts`；不得手工编辑生成的路由树。
-5. 保留完整且固定版本的 `packages/ui/src/components/icons` 镜像。它属于共享 UI 资产，不能根据 Demo import 情况裁剪；只有在单独审查上游镜像更新时才修改，并同步记录 README 中的 revision 与许可证。
-6. 删除本清理章节及其前面的 Chat Demo 说明，然后运行 Desktop 测试、Desktop typecheck、Lingui
-   strict compile、`pnpm docs:check` 和根级 `pnpm check`。
-
-删除 Demo 时不要删除 `packages/ui/src/components/chat`、icons 目录本身或 Codex
-会话 UI 参考文档；它们是可复用的正式资产，不属于 Demo 脚手架。Chat Demo 刻意没有 Lingui catalog 条目，因此无需清理翻译。
+开发版会在 `/chat-demo` 显示 **Chat Demo** 导航项：它用 fixture 数据交互展示共享 Chat 组件，不连接 Agent runtime，覆盖虚拟化长 transcript、每类 Timeline item、每个 panel tab、工作区 Files 标签页，以及 composer 的引用与附件。打包版会隐藏该入口并重定向路由。删除计划见[路线图](roadmap.zh-CN.md#desktop)。
 
 产品 CLI 单独构建：
 
@@ -139,7 +122,7 @@ pnpm --filter @cypheria/cli build
 pnpm --filter @cypheria/cli exec cypheria --help
 ```
 
-生命周期命令和运行目录见 [Server](server.zh-CN.md)。
+生命周期命令和运行目录见 [Server](server/runtime.zh-CN.md)。
 
 Website 的英文内容位于根路径，简体中文位于 `/zh-CN`。Lingui 管理营销文案；Fumadocs 直接消费 `docs/*.md` 及其 `.zh-CN.md` companion。`pnpm --filter @cypheria/website build` 会严格编译 catalog、预渲染所有营销与文档路由、输出静态 ZBSearch 索引，并构建 Worker fallback。可用 `pnpm --filter @cypheria/website exec wrangler dev` 启动与生产形态一致的本地运行时。
 
@@ -163,7 +146,7 @@ pnpm --filter @cypheria/protocol generate:agent-acp-registry
 
 该维护者命令会下载、校验并规范化 registry，然后写入 `packages/protocol/src/generated/acp/registry.json`，并把审核子集写入 `agent-ids.ts`。每个批准的 ID 都必须存在于快照中。两个文件必须一起提交和审查。普通构建与检查只校验本地快照，绝不会获取 registry 网络数据。
 
-node_repl kernel 与 trusted worker 以 TypeScript 编写，位于 `apps/node-repl/src/`，由 Vite 打包到 `apps/node-repl/internal/assets/files/`，供 Go 二进制内嵌。`meriyah` 等第三方依赖进入经过压缩的 `vendor.js` chunk，其许可声明位于 `THIRD_PARTY_LICENSES.txt`；Cypheria 自身源码保持未压缩，便于调试：
+node_repl kernel 以 TypeScript 编写，位于 `apps/node-repl/src/`，由 Vite 打包到 `apps/node-repl/internal/assets/files/`，供 Go 二进制内嵌。`meriyah` 等第三方依赖进入经过压缩的 `vendor.js` chunk，其许可声明位于 `THIRD_PARTY_LICENSES.txt`；Cypheria 自身源码保持未压缩，便于调试：
 
 ```sh
 pnpm --filter @cypheria/node-repl build:js
@@ -171,12 +154,14 @@ pnpm --filter @cypheria/node-repl build:js
 
 除 `package.json` 外，打包产物均被 Git 忽略。该包的 `build`、`check` 与 `test` 脚本会在运行 Go 之前重新生成产物，因此只有直接调用 `go` 时才需要先运行 `build:js`。
 
-Computer Use 的启动器与运行时由 Vite 构建到 `apps/cua/dist`。原生应用操控需要固定版本的 cua-driver 发行包，维护者在构建 Desktop 前以摘要校验的方式获取它，详见 [Computer Use](computer-use.zh-CN.md#桌面应用)：
+Computer Use 的启动器与运行时由 Vite 构建到 `apps/cua/dist`。原生应用操控需要固定版本的 cua-driver 发行包，维护者在构建 Desktop 前以摘要校验的方式获取它，详见 [Computer Use](features/computer-use.zh-CN.md#桌面应用)：
 
 ```sh
 pnpm --filter @cypheria/cua build
 pnpm --filter @cypheria/cua fetch:cua-driver
 ```
+
+浏览器引擎从固定版本的 `playwright-core` 中 vendor 部分 Playwright 代码；修改该版本后运行 `pnpm --filter @cypheria/cua vendor:playwright`。
 
 ## 测试策略
 
@@ -198,13 +183,15 @@ pnpm --filter @cypheria/cua fetch:cua-driver
 
 ## 文档流程
 
-英文是内容源，每份维护中的产品页面都有完整的 `.zh-CN.md` companion，并保持相同标题拓扑。一个主题只由一份文档负责，其他文档通过链接引用。
+文档按领域放在 `docs/` 下：`server/` 是 Server 进程及其契约，`agents/` 是 harness、Codex 与插件，`desktop/` 是 Desktop 客户端，`features/` 是横跨 Server 与客户端的产品功能，`design/` 是视觉系统，`planned/` 是尚未实现的设计。[架构](architecture.zh-CN.md)、本指南和[路线图](roadmap.zh-CN.md)位于顶层。文件名使用简短的小写名词，不重复所在目录的前缀。
+
+英文是内容源，每份维护中的产品页面都有完整的 `.zh-CN.md` companion，并保持相同标题拓扑。一个主题只由一份文档负责，其他文档通过链接引用。文档描述的是 Cypheria。Cypheria 参照 ChatGPT 或官方 Codex 桌面版的地方可以写明，但具体的 ChatGPT 版本、bundle 名称和本机分析路径属于 ChatGPT 分析笔记，不放在这里。
 
 修改文档后运行 `pnpm docs:check`。生成页面通过生成器更新。当前行为不添加状态标记；计划工作和生成参考必须明确标注。历史变更记录属于 Git，不属于产品文档。
 
 ## 贡献流程
 
-1. 从 [Todo](todo.zh-CN.md) 或已确认 issue 中选择一个可评审、可测试的事项。
+1. 从 [路线图](roadmap.zh-CN.md) 或已确认 issue 中选择一个可评审、可测试的事项。
 2. 修改公开行为或边界前先检查仓库中的实际实现。
 3. 行为、架构、命令或接口变化时，在同一变更中更新中英文文档。
 4. 先运行最小相关检查；跨工作区变更再运行根 CI。
