@@ -66,7 +66,28 @@ export const zSettings = z.object({
     modelImages: z.record(z.string(), z.boolean()).optional(),
     modelPrices: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
     modelOutputs: z.record(z.string(), z.int()).optional(),
-    modelWires: z.record(z.string(), z.string()).optional()
+    modelWires: z.record(z.string(), z.string()).optional(),
+    usageOrder: z.array(z.string()).optional(),
+    noAutoUpdate: z.boolean().optional(),
+    updateEvery: z.int().optional(),
+    updateMirror: z.string().optional(),
+    requestArchive: z.boolean().optional(),
+    codexAgentsV1: z.boolean().optional(),
+    modelAPIs: z.record(z.string(), z.string()).optional(),
+    githubToken: z.string().optional(),
+    traeCheckin: z.boolean().optional(),
+    lanKeyId: z.string().optional(),
+    chinaMirror: z.boolean().optional(),
+    trayNoBird: z.boolean().optional(),
+    chineseUnits: z.boolean().optional(),
+    fullContext: z.boolean().optional(),
+    modelSameAs: z.record(z.string(), z.string()).optional(),
+    plainOwnNames: z.boolean().optional(),
+    requestArchiveMaxMB: z.int().optional(),
+    otel: z.record(z.string(), z.unknown()).optional(),
+    searcher: z.string().optional(),
+    lightweight: z.boolean().optional(),
+    codexTitles: z.string().optional()
 });
 
 export const zSettingsState = zSettings.and(z.object({
@@ -89,7 +110,21 @@ export const zSettingsState = zSettings.and(z.object({
     workbuddy: z.boolean(),
     workbuddyCheckins: z.array(z.record(z.string(), z.unknown())).optional(),
     fx: z.record(z.string(), z.unknown()),
-    notifyProblem: z.string().optional()
+    notifyProblem: z.string().optional(),
+    searchChoices: z.array(z.record(z.string(), z.unknown())),
+    searchProvider: z.string().optional(),
+    searchUnused: z.string().optional(),
+    searchRelays: z.array(z.string()).optional(),
+    otelEnv: z.boolean().optional(),
+    searchVendors: z.array(z.record(z.string(), z.unknown())),
+    githubTokenMask: z.string().optional(),
+    titleModels: z.array(z.record(z.string(), z.unknown())),
+    searchAPIs: z.array(z.record(z.string(), z.unknown())),
+    traeCheckins: z.array(z.record(z.string(), z.unknown())).optional(),
+    githubTokenFrom: z.string().optional(),
+    searchAuto: z.string().optional(),
+    portable: z.boolean().optional(),
+    trae: z.boolean()
 }));
 
 export const zAgentOption = z.object({
@@ -102,7 +137,12 @@ export const zAgentOption = z.object({
     groupIcon: z.string().optional(),
     ref: z.string().optional(),
     free: z.boolean().optional(),
-    context: z.int().optional()
+    context: z.int().optional(),
+    direct: z.string().optional(),
+    rate: z.number().optional(),
+    rateWas: z.number().optional(),
+    same: z.boolean().optional(),
+    alias: z.string().optional()
 });
 
 export const zAgentField = z.object({
@@ -134,7 +174,11 @@ export const zAgent = z.object({
     import: z.string().optional(),
     added: z.boolean().optional(),
     launch: z.string().optional(),
-    models: z.record(z.string(), z.unknown()).optional()
+    models: z.record(z.string(), z.unknown()).optional(),
+    source: z.string().optional(),
+    stale: z.int().optional(),
+    joined: z.boolean().optional(),
+    wired: z.boolean().optional()
 });
 
 export const zClient = z.object({
@@ -152,7 +196,8 @@ export const zProfileLibrary = z.object({
 export const zProfile = z.object({
     name: z.string(),
     summary: z.string(),
-    library: zProfileLibrary.optional()
+    library: zProfileLibrary.optional(),
+    agents: z.array(z.record(z.string(), z.unknown()))
 });
 
 export const zState = z.object({
@@ -163,7 +208,9 @@ export const zState = z.object({
     notice: z.string().optional(),
     settings: zSettings,
     fx: z.record(z.string(), z.unknown()),
-    unlisted: z.array(z.record(z.string(), z.unknown())).optional()
+    unlisted: z.array(z.record(z.string(), z.unknown())).optional(),
+    cliBehind: z.string().optional(),
+    connected: z.record(z.string(), z.unknown()).optional()
 });
 
 export const zAgentFieldChange = z.object({
@@ -246,7 +293,15 @@ export const zProviderModel = z.object({
     imageSet: z.boolean().optional(),
     context: z.int().optional(),
     max: z.int().optional(),
-    free: z.boolean().optional()
+    free: z.boolean().optional(),
+    api: z.string().optional(),
+    rate: z.number().optional(),
+    rateWas: z.number().optional(),
+    merge: z.string().optional(),
+    ownImages: z.boolean().optional(),
+    auto: z.array(z.string()).optional(),
+    listed: z.int().optional(),
+    same: z.string().optional()
 });
 
 export const zKeyInfo = z.object({
@@ -272,7 +327,8 @@ export const zLogin = z.object({
     on: z.boolean(),
     lapsed: z.string().optional(),
     own: z.boolean().optional(),
-    paused: z.boolean().optional()
+    paused: z.boolean().optional(),
+    returns: z.boolean().optional()
 });
 
 export const zAccount = z.object({
@@ -284,7 +340,9 @@ export const zAccount = z.object({
 export const zAccountView = zAccount.and(z.object({
     agentName: z.string(),
     agentIcon: z.string(),
-    logins: z.array(zLogin).optional()
+    logins: z.array(zLogin).optional(),
+    builtin: z.string().optional(),
+    wsl: z.string().optional()
 }));
 
 export const zProviderAgent = z.object({
@@ -345,7 +403,17 @@ export const zProviderView = z.object({
     drawIds: z.array(z.string()).optional(),
     groups: z.record(z.string(), z.array(z.string())).optional(),
     off: z.boolean(),
-    move: z.record(z.string(), z.unknown()).optional()
+    move: z.record(z.string(), z.unknown()).optional(),
+    accountModels: z.record(z.string(), z.array(z.string())).optional(),
+    modelTest: z.string().optional(),
+    keepLogin: z.boolean().optional(),
+    accountCaps: z.record(z.string(), z.int()).optional(),
+    decideTest: z.boolean().optional(),
+    sink: z.boolean().optional(),
+    keepLoginAs: z.string().optional(),
+    pluginConcurrency: z.int().optional(),
+    maxConcurrency: z.int().nullable(),
+    outputs: z.record(z.string(), z.int()).optional()
 });
 
 export const zGatewayState = z.object({
@@ -355,7 +423,13 @@ export const zGatewayState = z.object({
     models: z.int(),
     calls: z.array(z.record(z.string(), z.unknown())),
     groups: z.array(z.record(z.string(), z.unknown())),
-    window: z.boolean()
+    window: z.boolean(),
+    older: z.boolean().optional(),
+    archive: z.record(z.string(), z.unknown()),
+    lanURLs: z.array(z.string()).optional(),
+    lan: z.boolean(),
+    open: z.boolean().optional(),
+    version: z.string().optional()
 });
 
 export const zProviderState = z.object({
@@ -366,7 +440,11 @@ export const zProviderState = z.object({
     codexDaemon: z.string().optional(),
     plugins: z.array(z.record(z.string(), z.unknown())),
     onPlugins: z.array(z.string()).optional(),
-    moved: z.array(z.record(z.string(), z.unknown())).optional()
+    moved: z.array(z.record(z.string(), z.unknown())).optional(),
+    movable: z.array(z.string()).optional(),
+    movesTo: z.record(z.string(), z.string()).optional(),
+    fileError: z.string().optional(),
+    fetching: z.boolean().optional()
 });
 
 export const zProviderKeyResponse = z.object({
@@ -421,7 +499,10 @@ export const zSignInStatus = z.object({
     pasteCode: z.boolean().optional(),
     instructions: z.string().optional(),
     installing: z.string().optional(),
-    plan: z.string().optional()
+    plan: z.string().optional(),
+    again: z.boolean().optional(),
+    keysURL: z.string().optional(),
+    pasteKey: z.boolean().optional()
 });
 
 export const zGroupChange = z.object({
@@ -1397,3 +1478,374 @@ export const zGetGatewayRouteQuery = z.object({
  * JSON object
  */
 export const zGetGatewayRouteResponse = z.record(z.string(), z.unknown());
+
+/**
+ * JSON array
+ */
+export const zListAgentInstallsResponse = z.array(z.unknown());
+
+export const zPreviewAgentDisconnectPath = z.object({
+    id: z.string()
+});
+
+/**
+ * JSON object
+ */
+export const zPreviewAgentDisconnectResponse = z.record(z.string(), z.unknown());
+
+export const zSetCodexAgentsV1Body = z.object({
+    on: z.boolean()
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zSetCodexAgentsV1Response = zSettingsState;
+
+export const zSetFullContextBody = z.object({
+    on: z.boolean()
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zSetFullContextResponse = zSettingsState;
+
+export const zSetWorkBuddyCheckinBody = z.object({
+    on: z.boolean()
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zSetWorkBuddyCheckinResponse = zSettingsState;
+
+export const zSetTraeCheckinBody = z.object({
+    on: z.boolean()
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zSetTraeCheckinResponse = zSettingsState;
+
+export const zSetCodexTitlesBody = z.object({
+    model: z.string()
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zSetCodexTitlesResponse = zSettingsState;
+
+export const zSetGitHubTokenBody = z.object({
+    token: z.string()
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zSetGitHubTokenResponse = zSettingsState;
+
+export const zSetSearchApiBody = z.object({
+    vendor: z.string(),
+    key: z.string().optional(),
+    url: z.string().optional(),
+    remove: z.boolean().optional()
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zSetSearchApiResponse = zSettingsState;
+
+export const zGetSearchApiKeyBody = z.object({
+    vendor: z.string()
+});
+
+/**
+ * The key
+ */
+export const zGetSearchApiKeyResponse = z.object({
+    key: z.string()
+});
+
+export const zSetRequestArchiveBody = z.object({
+    on: z.boolean()
+});
+
+/**
+ * JSON object
+ */
+export const zSetRequestArchiveResponse = z.record(z.string(), z.unknown());
+
+export const zArrangeUsageBody = z.object({
+    order: z.array(z.string())
+});
+
+/**
+ * Settings and runtime facts
+ */
+export const zArrangeUsageResponse = zSettingsState;
+
+export const zArrangeProvidersBody = z.object({
+    order: z.array(z.string())
+});
+
+/**
+ * Providers and gateway state
+ */
+export const zArrangeProvidersResponse = zProviderState;
+
+/**
+ * JSON object
+ */
+export const zListCallerKeysResponse = z.record(z.string(), z.unknown());
+
+export const zChangeCallerKeyBody = z.object({
+    key: z.string().optional(),
+    name: z.string().optional(),
+    limit: z.object({
+        period: z.string().optional(),
+        tokens: z.int().optional(),
+        cost: z.number().optional(),
+        cacheReads: z.boolean().optional()
+    }).optional()
+});
+
+export const zChangeCallerKeyPath = z.object({
+    action: z.enum([
+        'add-key',
+        'rotate-key',
+        'rename-key',
+        'limit-key',
+        'on-key',
+        'off-key',
+        'remove-key',
+        'copy-key'
+    ])
+});
+
+/**
+ * JSON object
+ */
+export const zChangeCallerKeyResponse = z.record(z.string(), z.unknown());
+
+export const zGetArchivedRequestQuery = z.object({
+    date: z.string(),
+    id: z.string()
+});
+
+/**
+ * JSON object
+ */
+export const zGetArchivedRequestResponse = z.record(z.string(), z.unknown());
+
+export const zDownloadArchivedRequestQuery = z.object({
+    date: z.string(),
+    id: z.string()
+});
+
+/**
+ * The archived request as JSON, as an attachment
+ */
+export const zDownloadArchivedRequestResponse = z.record(z.string(), z.unknown());
+
+export const zExportArchivedRequestQuery = z.object({
+    date: z.string(),
+    id: z.string()
+});
+
+/**
+ * JSON object
+ */
+export const zExportArchivedRequestResponse = z.record(z.string(), z.unknown());
+
+export const zGetQuotaHistoryQuery = z.object({
+    days: z.string().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zGetQuotaHistoryResponse = z.record(z.string(), z.unknown());
+
+export const zGetRequestContentQuery = z.object({
+    from: z.string(),
+    to: z.string(),
+    at: z.string().optional(),
+    agent: z.string().optional(),
+    session: z.string().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zGetRequestContentResponse = z.record(z.string(), z.unknown());
+
+/**
+ * JSON array
+ */
+export const zCheckInWorkBuddyResponse = z.array(z.unknown());
+
+/**
+ * JSON array
+ */
+export const zCheckInTraeResponse = z.array(z.unknown());
+
+export const zGetSessionTitlesBody = z.object({
+    ids: z.array(z.string()).optional(),
+    groups: z.boolean().optional(),
+    routeIds: z.array(z.int()).optional(),
+    day: z.string().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zGetSessionTitlesResponse = z.record(z.string(), z.unknown());
+
+export const zListManagedSessionsQuery = z.object({
+    agent: z.string().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zListManagedSessionsResponse = z.record(z.string(), z.unknown());
+
+export const zDeleteSessionsBody = z.object({
+    agent: z.string(),
+    ids: z.array(z.string())
+});
+
+/**
+ * JSON object
+ */
+export const zDeleteSessionsResponse = z.record(z.string(), z.unknown());
+
+export const zRestoreSessionBody = z.object({
+    key: z.string()
+});
+
+/**
+ * JSON object
+ */
+export const zRestoreSessionResponse = z.record(z.string(), z.unknown());
+
+export const zPurgeSessionsBody = z.object({
+    keys: z.array(z.string()).optional(),
+    all: z.boolean().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zPurgeSessionsResponse = z.record(z.string(), z.unknown());
+
+/**
+ * JSON object
+ */
+export const zPutRtkOnPathResponse = z.record(z.string(), z.unknown());
+
+export const zCheckLibraryServersBody = z.object({
+    names: z.array(z.string()).optional(),
+    fresh: z.boolean().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zCheckLibraryServersResponse = z.record(z.string(), z.unknown());
+
+export const zSignInLibraryServerBody = z.object({
+    name: z.string()
+});
+
+/**
+ * JSON object
+ */
+export const zSignInLibraryServerResponse = z.record(z.string(), z.unknown());
+
+export const zGetLibraryServerSignInPath = z.object({
+    id: z.string()
+});
+
+/**
+ * JSON object
+ */
+export const zGetLibraryServerSignInResponse = z.record(z.string(), z.unknown());
+
+export const zCancelLibraryServerSignInPath = z.object({
+    id: z.string()
+});
+
+/**
+ * Accepted
+ */
+export const zCancelLibraryServerSignInResponse = z.void();
+
+export const zSignOutLibraryServerBody = z.object({
+    name: z.string()
+});
+
+/**
+ * JSON object
+ */
+export const zSignOutLibraryServerResponse = z.record(z.string(), z.unknown());
+
+/**
+ * JSON object
+ */
+export const zListPluginListingsResponse = z.record(z.string(), z.unknown());
+
+export const zGetPluginsNpmQuery = z.object({
+    names: z.string().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zGetPluginsNpmResponse = z.record(z.string(), z.unknown());
+
+/**
+ * JSON object
+ */
+export const zCheckPluginUpdatesResponse = z.record(z.string(), z.unknown());
+
+export const zSetPluginsMirrorBody = z.object({
+    on: z.boolean()
+});
+
+/**
+ * JSON object
+ */
+export const zSetPluginsMirrorResponse = z.record(z.string(), z.unknown());
+
+export const zGetWhatsNewQuery = z.object({
+    all: z.string().optional()
+});
+
+/**
+ * JSON object
+ */
+export const zGetWhatsNewResponse = z.record(z.string(), z.unknown());
+
+/**
+ * Accepted
+ */
+export const zMarkWhatsNewSeenResponse = z.void();
+
+export const zQuietWhatsNewTodayBody = z.object({
+    on: z.boolean()
+});
+
+/**
+ * Accepted
+ */
+export const zQuietWhatsNewTodayResponse = z.void();
+
+/**
+ * Accepted
+ */
+export const zQuietCliBehindResponse = z.void();

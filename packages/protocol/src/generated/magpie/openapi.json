@@ -1908,6 +1908,869 @@
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
+    },
+    "/api/agents/install": {
+      "get": {
+        "operationId": "listAgentInstalls",
+        "summary": "List install commands for agents not found",
+        "description": "Commands the user may run to install an agent's CLI; magpie runs none of them. Empty in Cypheria integration mode, where every listed agent is found.",
+        "tags": ["State"],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONArray" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/agents/preview/{id}": {
+      "get": {
+        "operationId": "previewAgentDisconnect",
+        "summary": "Preview what disconnecting an agent changes in its files",
+        "description": "`changes` lists the changes line by line; `error` says why there is no preview.",
+        "tags": ["State"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/codex-agents-v1": {
+      "post": {
+        "operationId": "setCodexAgentsV1",
+        "summary": "Have Codex's OpenAI models say multi_agent_version v1",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["on"], "properties": { "on": { "type": "boolean" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/full-context": {
+      "post": {
+        "operationId": "setFullContext",
+        "summary": "Tell Codex and Claude Code a model's whole context window",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["on"], "properties": { "on": { "type": "boolean" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/workbuddy-checkin": {
+      "post": {
+        "operationId": "setWorkBuddyCheckin",
+        "summary": "Press WorkBuddy's daily check-in automatically",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["on"], "properties": { "on": { "type": "boolean" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/trae-checkin": {
+      "post": {
+        "operationId": "setTraeCheckin",
+        "summary": "Press Trae CN's daily check-in automatically",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["on"], "properties": { "on": { "type": "boolean" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/codex-titles": {
+      "post": {
+        "operationId": "setCodexTitles",
+        "summary": "Choose where Codex's thread-title requests go",
+        "description": "`model` is a model id, `off`, or empty for magpie's choice.",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["model"], "properties": { "model": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/github-token": {
+      "post": {
+        "operationId": "setGitHubToken",
+        "summary": "Set the GitHub token the library's GitHub requests carry",
+        "description": "Empty removes it.",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["token"], "properties": { "token": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/search-api": {
+      "post": {
+        "operationId": "setSearchAPI",
+        "summary": "Add, change or remove a web search API",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["vendor"],
+                "properties": {
+                  "vendor": { "type": "string" },
+                  "key": { "type": "string" },
+                  "url": { "type": "string" },
+                  "remove": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/search-key": {
+      "post": {
+        "operationId": "getSearchAPIKey",
+        "summary": "Get a web search API's key, unmasked",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["vendor"], "properties": { "vendor": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The key",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "required": ["key"], "properties": { "key": { "type": "string" } } }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/settings/archive": {
+      "post": {
+        "operationId": "setRequestArchive",
+        "summary": "Turn the request archive on or off",
+        "description": "The archive goes to the S3 bucket that sync keeps its backup in; turning it on without one is refused.",
+        "tags": ["Settings"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["on"], "properties": { "on": { "type": "boolean" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/usage/arrange": {
+      "post": {
+        "operationId": "arrangeUsage",
+        "summary": "Order the Usage page's cards",
+        "tags": ["Usage"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order"],
+                "properties": {
+                  "order": { "type": "array", "items": { "type": "string" }, "description": "Provider ids" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/SettingsState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/providers/arrange": {
+      "post": {
+        "operationId": "arrangeProviders",
+        "summary": "Order the providers",
+        "tags": ["Providers"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order"],
+                "properties": {
+                  "order": { "type": "array", "items": { "type": "string" }, "description": "Provider ids" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ProviderState" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/caller-keys": {
+      "get": {
+        "operationId": "listCallerKeys",
+        "summary": "List the keys callers reach the gateway with",
+        "tags": ["Settings"],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/caller-keys/{action}": {
+      "post": {
+        "operationId": "changeCallerKey",
+        "summary": "Add, rotate, rename, limit, switch, copy or remove a caller key",
+        "description": "`secret` in the answer is the new key's secret, for `add-key` and `rotate-key`.",
+        "tags": ["Settings"],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "add-key",
+                "rotate-key",
+                "rename-key",
+                "limit-key",
+                "on-key",
+                "off-key",
+                "remove-key",
+                "copy-key"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string", "description": "The key's id; not for add-key" },
+                  "name": { "type": "string" },
+                  "limit": {
+                    "type": "object",
+                    "properties": {
+                      "period": { "type": "string" },
+                      "tokens": { "type": "integer" },
+                      "cost": { "type": "number" },
+                      "cacheReads": { "type": "boolean" }
+                    },
+                    "description": "For limit-key; absent takes the limit off"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/archive": {
+      "get": {
+        "operationId": "getArchivedRequest",
+        "summary": "Read an archived request back from the bucket",
+        "tags": ["Usage"],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "YYYY-MM-DD"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The call's id"
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/archive/file": {
+      "get": {
+        "operationId": "downloadArchivedRequest",
+        "summary": "Download an archived request whole",
+        "tags": ["Usage"],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "YYYY-MM-DD"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The call's id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The archived request as JSON, as an attachment",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/archive/export": {
+      "post": {
+        "operationId": "exportArchivedRequest",
+        "summary": "Save an archived request in Downloads",
+        "description": "Writes to the Downloads folder of the machine Magpie runs on. Remote clients should use GET /api/archive/file.",
+        "tags": ["Usage"],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "YYYY-MM-DD"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The call's id"
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/usage/quotas/history": {
+      "get": {
+        "operationId": "getQuotaHistory",
+        "summary": "Get the subscriptions' usage windows over time",
+        "tags": ["Usage"],
+        "parameters": [{ "name": "days", "in": "query", "required": false, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/usage/requests/content": {
+      "get": {
+        "operationId": "getRequestContent",
+        "summary": "Get what a request sent and received, from the agent's session",
+        "tags": ["Usage"],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "RFC 3339 time"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "RFC 3339 time"
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "When the call should have ended; `to` when absent"
+          },
+          { "name": "agent", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "session", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/usage/workbuddy-checkin": {
+      "post": {
+        "operationId": "checkInWorkBuddy",
+        "summary": "Press WorkBuddy's daily check-in now",
+        "tags": ["Usage"],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONArray" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/usage/trae-checkin": {
+      "post": {
+        "operationId": "checkInTrae",
+        "summary": "Press Trae CN's daily check-in now",
+        "tags": ["Usage"],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONArray" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/gateway/session-titles": {
+      "post": {
+        "operationId": "getSessionTitles",
+        "summary": "Get Codex sessions' titles",
+        "description": "By session id; with `groups`, the titles of the routes given, from today's trace or the history of `day`.",
+        "tags": ["State"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": { "type": "array", "items": { "type": "string" } },
+                  "groups": { "type": "boolean" },
+                  "routeIds": { "type": "array", "items": { "type": "integer" } },
+                  "day": { "type": "string", "description": "YYYY-MM-DD" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/sessions/manage": {
+      "get": {
+        "operationId": "listManagedSessions",
+        "summary": "List an agent's sessions, and the trash, to manage them",
+        "tags": ["Sessions"],
+        "parameters": [
+          {
+            "name": "agent",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "The agent to list; the first one when absent"
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/sessions/delete": {
+      "post": {
+        "operationId": "deleteSessions",
+        "summary": "Move sessions to magpie's trash",
+        "description": "`deleted` and `refused` list the ids; a running session is refused.",
+        "tags": ["Sessions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["agent", "ids"],
+                "properties": {
+                  "agent": { "type": "string" },
+                  "ids": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/sessions/restore": {
+      "post": {
+        "operationId": "restoreSession",
+        "summary": "Put a session back from the trash",
+        "tags": ["Sessions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["key"], "properties": { "key": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/sessions/purge": {
+      "post": {
+        "operationId": "purgeSessions",
+        "summary": "Delete sessions in the trash for good",
+        "tags": ["Sessions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keys": { "type": "array", "items": { "type": "string" } },
+                  "all": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/library/rtk/path": {
+      "post": {
+        "operationId": "putRTKOnPath",
+        "summary": "Put RTK on the PATH agents get",
+        "description": "Links RTK into a folder on PATH on the machine Magpie runs on. Refused with 400 in Cypheria integration mode.",
+        "tags": ["Library"],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/library/mcp/check": {
+      "post": {
+        "operationId": "checkLibraryServers",
+        "summary": "Check that library MCP servers start and answer",
+        "tags": ["Library"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "names": { "type": "array", "items": { "type": "string" } },
+                  "fresh": { "type": "boolean", "description": "Ask again rather than answer from the last check" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/library/mcp-signin": {
+      "post": {
+        "operationId": "signInLibraryServer",
+        "summary": "Sign in to a library MCP server",
+        "description": "Answers the sign-in's page as `url`; `magpie web` opens no browser, so the calling application opens it.",
+        "tags": ["Library"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/library/mcp-signin/{id}": {
+      "get": {
+        "operationId": "getLibraryServerSignIn",
+        "summary": "Get a library MCP server sign-in's progress",
+        "tags": ["Library"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/library/mcp-signin/{id}/cancel": {
+      "post": {
+        "operationId": "cancelLibraryServerSignIn",
+        "summary": "Cancel a library MCP server sign-in",
+        "tags": ["Library"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "204": { "description": "Accepted" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/library/mcp-signout": {
+      "post": {
+        "operationId": "signOutLibraryServer",
+        "summary": "Sign out of a library MCP server",
+        "tags": ["Library"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/plugins/listings": {
+      "get": {
+        "operationId": "listPluginListings",
+        "summary": "List the plugin market's listings",
+        "description": "Plugins are off in Cypheria integration mode: the list is empty.",
+        "tags": ["Plugins"],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/plugins/npm": {
+      "get": {
+        "operationId": "getPluginsNPM",
+        "summary": "Get what npm says of plugin packages",
+        "description": "Plugins are off in Cypheria integration mode: npm is not asked.",
+        "tags": ["Plugins"],
+        "parameters": [
+          {
+            "name": "names",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Comma-separated package names, at most 100"
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/plugins/check": {
+      "post": {
+        "operationId": "checkPluginUpdates",
+        "summary": "Check the plugins for updates now",
+        "description": "Plugins are off in Cypheria integration mode: nothing is checked.",
+        "tags": ["Plugins"],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/plugins/mirror": {
+      "post": {
+        "operationId": "setPluginsMirror",
+        "summary": "Fetch plugins through the China mirror",
+        "tags": ["Plugins"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["on"], "properties": { "on": { "type": "boolean" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/plugins/choose": {
+      "post": {
+        "operationId": "choosePluginFolder",
+        "summary": "Choose a plugin folder in the system picker",
+        "description": "Unsupported by `magpie web`. The calling application chooses the folder itself.",
+        "tags": ["Host", "Plugins"],
+        "responses": {
+          "400": { "$ref": "#/components/responses/HostUnavailable" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/whatsnew": {
+      "get": {
+        "operationId": "getWhatsNew",
+        "summary": "Get the notes of the releases since the one magpie last ran",
+        "description": "This build never asks the release feed, so there are no notes.",
+        "tags": ["Update"],
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Any value: the notes even if they were shown"
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/JSONObject" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/whatsnew/seen": {
+      "post": {
+        "operationId": "markWhatsNewSeen",
+        "summary": "Mark the notes seen",
+        "tags": ["Update"],
+        "responses": { "204": { "description": "Accepted" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/whatsnew/today": {
+      "post": {
+        "operationId": "quietWhatsNewToday",
+        "summary": "Keep the notes from showing by themselves for the rest of the day",
+        "tags": ["Update"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["on"], "properties": { "on": { "type": "boolean" } } }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Accepted" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/cli-behind/quiet": {
+      "post": {
+        "operationId": "quietCLIBehind",
+        "summary": "Hide the advice about a copied magpie command until the next version",
+        "tags": ["Update"],
+        "responses": { "204": { "description": "Accepted" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
     }
   },
   "components": {
@@ -2097,6 +2960,87 @@
             "type": "object",
             "additionalProperties": { "type": "string" },
             "description": "ModelWires is the name to send a vendor for a model magpie knows by another, by \"<provider id>/<model id>\", and \"*\" for every model of that provider."
+          },
+          "usageOrder": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "UsageOrder is how the Usage page's cards are listed, by provider id, as they were dragged there."
+          },
+          "noAutoUpdate": {
+            "type": "boolean",
+            "description": "Stops magpie checking for a newer version by itself. This build never updates itself."
+          },
+          "updateEvery": {
+            "type": "integer",
+            "description": "How often, in minutes, magpie checks for a newer version. This build never updates itself."
+          },
+          "updateMirror": {
+            "type": "string",
+            "description": "A GitHub download mirror an update is fetched through. This build never updates itself."
+          },
+          "requestArchive": {
+            "type": "boolean",
+            "description": "RequestArchive keeps each call the gateway serves — its headers and bodies both ways, secrets taken out — in the S3 bucket sync keeps its backup in (gateway/archive.go), for looking into a request later."
+          },
+          "codexAgentsV1": {
+            "type": "boolean",
+            "description": "CodexAgentsV1 has the OpenAI models magpie hands Codex — the ChatGPT account's own, their codex/ ids and the groups one is in — say multi_agent_version \"v1\"."
+          },
+          "modelAPIs": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "ModelAPIs is the one API a model is asked on at its provider, by \"<provider id>/<model id>\"."
+          },
+          "githubToken": {
+            "type": "string",
+            "description": "GitHubToken is a GitHub token the library's requests to GitHub's API carry, raising its rate limit from 60 requests an hour to 5,000."
+          },
+          "traeCheckin": {
+            "type": "boolean",
+            "description": "TraeCheckin presses Trae CN's daily check-in (每日签到) for each signed-in Trae CN account (its plugin's) once a Beijing day, claiming the credits it gives."
+          },
+          "lanKeyId": {
+            "type": "string",
+            "description": "LANKeyID remembers the default named key created when sharing is enabled."
+          },
+          "chinaMirror": { "type": "boolean", "description": "ChinaMirror is the Plugins page's 「国内镜像」 switch." },
+          "trayNoBird": {
+            "type": "boolean",
+            "description": "TrayNoBird leaves magpie's bird out of the Mac menu bar while the cards are there, the cards alone."
+          },
+          "chineseUnits": {
+            "type": "boolean",
+            "description": "ChineseUnits shortens a large count in 万 and 亿 when magpie speaks Chinese (8000 万 rather than 80M)"
+          },
+          "fullContext": {
+            "type": "boolean",
+            "description": "FullContext has Codex and Claude Code told a model's whole context window."
+          },
+          "modelSameAs": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "ModelSameAs is the model another vendor sells under another name that a model is, by \"<provider id>/<model id>\"."
+          },
+          "plainOwnNames": {
+            "type": "boolean",
+            "description": "With plainNames off, a model the user named is listed by that name alone, as they wrote it."
+          },
+          "requestArchiveMaxMB": {
+            "type": "integer",
+            "description": "RequestArchiveMaxMB is how much of each body the archive keeps, in MiB."
+          },
+          "otel": { "type": "object" },
+          "searcher": {
+            "type": "string",
+            "description": "Searcher is the provider that searches the web for a model that can't."
+          },
+          "lightweight": {
+            "type": "boolean",
+            "description": "Lightweight lets the webview of a window closed — the tray panel or the main window — go once it has stayed closed a while, and makes it again when it is opened."
+          },
+          "codexTitles": {
+            "type": "string",
+            "description": "Where the requests Codex makes for a thread's title are sent."
           }
         }
       },
@@ -2115,7 +3059,12 @@
               "visionModels",
               "imageGenModels",
               "workbuddy",
-              "fx"
+              "fx",
+              "searchChoices",
+              "searchVendors",
+              "titleModels",
+              "searchAPIs",
+              "trae"
             ],
             "properties": {
               "version": { "type": "string" },
@@ -2167,7 +3116,40 @@
               "notifyProblem": {
                 "type": "string",
                 "description": "NotifyProblem is why a usage alert set wouldn't be seen."
-              }
+              },
+              "searchChoices": {
+                "type": "array",
+                "items": { "type": "object" },
+                "description": "The providers Settings' Searcher may name, the one magpie picks when it names none, why the one it names isn't used, and the relays said to search that are never picked automatically."
+              },
+              "searchProvider": { "type": "string" },
+              "searchUnused": { "type": "string" },
+              "searchRelays": { "type": "array", "items": { "type": "string" } },
+              "otelEnv": { "type": "boolean" },
+              "searchVendors": { "type": "array", "items": { "type": "object" } },
+              "githubTokenMask": {
+                "type": "string",
+                "description": "The GitHub token the library asks GitHub with, masked, and where it is from (\"settings\", GITHUB_TOKEN or GH_TOKEN)"
+              },
+              "titleModels": {
+                "type": "array",
+                "items": { "type": "object" },
+                "description": "The models Codex's thread titles may be sent to."
+              },
+              "searchAPIs": {
+                "type": "array",
+                "items": { "type": "object" },
+                "description": "The web search APIs a model's search goes to when no provider can search, their keys masked."
+              },
+              "traeCheckins": {
+                "type": "array",
+                "items": { "type": "object" },
+                "description": "Each Trae CN account's last daily check-in."
+              },
+              "githubTokenFrom": { "type": "string" },
+              "searchAuto": { "type": "string" },
+              "portable": { "type": "boolean", "description": "magpie keeps its files in a data folder beside it." },
+              "trae": { "type": "boolean", "description": "Whether a Trae CN account is signed in." }
             }
           }
         ]
@@ -2185,7 +3167,24 @@
           "groupIcon": { "type": "string" },
           "ref": { "type": "string" },
           "free": { "type": "boolean", "description": "Costs its subscription nothing." },
-          "context": { "type": "integer", "description": "The model's context window, when known." }
+          "context": { "type": "integer", "description": "The model's context window, when known." },
+          "direct": {
+            "type": "string",
+            "description": "Direct names who the agent asks for this model itself, on its own sign-in or key, with magpie not in the way (\"Anthropic\")"
+          },
+          "rate": {
+            "type": "number",
+            "description": "Rate and RateWas are the credits a request costs its subscription, as a multiple, and before a discount running now (Qoder's 0.5×, WorkBuddy's x0.03), when its vendor lists them."
+          },
+          "rateWas": { "type": "number" },
+          "same": {
+            "type": "boolean",
+            "description": "Same is a model magpie serves on the very account the agent is signed in to itself, so the agent reaches it on its own too."
+          },
+          "alias": {
+            "type": "string",
+            "description": "Alias is the value of the option a dated id is another name of (claude-opus-4-5-20251101 → claude-opus-4-5)"
+          }
         }
       },
       "AgentField": {
@@ -2222,7 +3221,17 @@
           "import": { "type": "string", "description": "Import." },
           "added": { "type": "boolean" },
           "launch": { "type": "string", "description": "Launch." },
-          "models": { "type": "object", "description": "Models." }
+          "models": { "type": "object", "description": "Models." },
+          "source": { "type": "string", "description": "What an agent not connected runs on now." },
+          "stale": {
+            "type": "integer",
+            "description": "How many copies of a connected agent still run on the model list they started with."
+          },
+          "joined": {
+            "type": "boolean",
+            "description": "Connected with its own models still in its list, as Codex signed in with ChatGPT is."
+          },
+          "wired": { "type": "boolean", "description": "magpie is in its config, which disconnecting takes out." }
         }
       },
       "Client": {
@@ -2241,11 +3250,16 @@
       },
       "Profile": {
         "type": "object",
-        "required": ["name", "summary"],
+        "required": ["name", "summary", "agents"],
         "properties": {
           "name": { "type": "string" },
           "summary": { "type": "string" },
-          "library": { "$ref": "#/components/schemas/ProfileLibrary" }
+          "library": { "$ref": "#/components/schemas/ProfileLibrary" },
+          "agents": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "Agents is what it holds, by agent, to be read before it is applied."
+          }
         }
       },
       "State": {
@@ -2266,6 +3280,14 @@
             "type": "array",
             "items": { "type": "object" },
             "description": "Unlisted are the models kept for routing groups, which the pickers don't offer."
+          },
+          "cliBehind": {
+            "type": "string",
+            "description": "CLIBehind is the terminal's magpie command, told to the user when it's a copied file rather than the installer's link."
+          },
+          "connected": {
+            "type": "object",
+            "description": "Connected is how the 「接入」 switch chose the model the agent starts on, in the answer to agents/connect."
           }
         }
       },
@@ -2360,7 +3382,28 @@
           "imageSet": { "type": "boolean", "description": "The user said so, rather than its vendor." },
           "context": { "type": "integer" },
           "max": { "type": "integer", "description": "The most its context may be set to, above Context." },
-          "free": { "type": "boolean", "description": "Costs the subscription nothing." }
+          "free": { "type": "boolean", "description": "Costs the subscription nothing." },
+          "api": { "type": "string", "description": "The one API the user said it is asked on." },
+          "rate": { "type": "number", "description": "The credits a request costs the subscription, as a multiple." },
+          "rateWas": { "type": "number", "description": "The rate before a discount running now." },
+          "merge": { "type": "string", "description": "What those groups merge it by when the user says nothing." },
+          "ownImages": {
+            "type": "boolean",
+            "description": "Its vendor's answer, which a staged Restore default shows."
+          },
+          "auto": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The APIs its vendor's list says it is served on, what Auto asks it on."
+          },
+          "listed": {
+            "type": "integer",
+            "description": "Its context window before the user's: its vendor's list's, else models.dev's."
+          },
+          "same": {
+            "type": "string",
+            "description": "The model the user said it is the same as, for the groups magpie finds."
+          }
         }
       },
       "KeyInfo": {
@@ -2390,6 +3433,10 @@
           "paused": {
             "type": "boolean",
             "description": "Paused is the account the agent is signed in to, passed over by the gateway while another is on."
+          },
+          "returns": {
+            "type": "boolean",
+            "description": "Returns is the account magpie signed the agent out of when it was spent, and signs it back in to once it has room again."
           }
         }
       },
@@ -2407,7 +3454,15 @@
             "properties": {
               "agentName": { "type": "string" },
               "agentIcon": { "type": "string" },
-              "logins": { "type": "array", "items": { "$ref": "#/components/schemas/Login" } }
+              "logins": { "type": "array", "items": { "$ref": "#/components/schemas/Login" } },
+              "builtin": {
+                "type": "string",
+                "description": "Builtin is a plugin's provider id, for a plugin beside a built-in subscription (cursor-plugin's cursor)"
+              },
+              "wsl": {
+                "type": "string",
+                "description": "WSL is the distro Claude Code runs in, for a Windows with none of its own."
+              }
             }
           }
         ]
@@ -2453,7 +3508,8 @@
           "keyList",
           "searches",
           "proxy",
-          "off"
+          "off",
+          "maxConcurrency"
         ],
         "properties": {
           "id": { "type": "string" },
@@ -2531,12 +3587,55 @@
           "move": {
             "type": "object",
             "description": "Move is where a built-in subscription stands with the community plugin that can run it."
+          },
+          "accountModels": {
+            "type": "object",
+            "additionalProperties": { "items": { "type": "string" }, "type": "array" },
+            "description": "The models each account or key the user narrowed serves alone, by its name in lower case or its key's id."
+          },
+          "modelTest": {
+            "type": "string",
+            "description": "ModelTest is why its models can't each be sent a test request, \"\" when they can."
+          },
+          "keepLogin": {
+            "type": "boolean",
+            "description": "magpie keeps Codex or Claude Code signed in to the first account rather than moving it on when that one runs low."
+          },
+          "accountCaps": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" },
+            "description": "The usage cap each account the user capped is held at, in percent of its windows, by its name in lower case."
+          },
+          "decideTest": {
+            "type": "boolean",
+            "description": "DecideTest is set when its decision models can each be sent a System One question."
+          },
+          "sink": {
+            "type": "boolean",
+            "description": "A key or account rate limited with quota left goes to the back of the order."
+          },
+          "keepLoginAs": {
+            "type": "string",
+            "description": "The account it is kept signed in to instead of the first; the gateway still tries them in their order."
+          },
+          "pluginConcurrency": {
+            "type": "integer",
+            "description": "What its plugin says maxConcurrency is when the user set none."
+          },
+          "maxConcurrency": {
+            "type": ["integer", "null"],
+            "description": "How many requests each of its keys or accounts has out at once, the rest queued; null when the user set none."
+          },
+          "outputs": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" },
+            "description": "The reply limits the user set."
           }
         }
       },
       "GatewayState": {
         "type": "object",
-        "required": ["url", "running", "mine", "models", "calls", "groups", "window"],
+        "required": ["url", "running", "mine", "models", "calls", "groups", "window", "archive", "lan"],
         "properties": {
           "url": { "type": "string", "format": "uri" },
           "running": { "type": "boolean" },
@@ -2544,7 +3643,16 @@
           "models": { "type": "integer" },
           "calls": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
           "groups": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
-          "window": { "type": "boolean", "description": "The magpie serving it shows its routing." }
+          "window": { "type": "boolean", "description": "The magpie serving it shows its routing." },
+          "older": { "type": "boolean" },
+          "archive": { "type": "object", "description": "The request archive's switch, and where it goes." },
+          "lanURLs": { "type": "array", "items": { "type": "string" } },
+          "lan": { "type": "boolean" },
+          "open": { "type": "boolean", "description": "Listens beyond loopback with no key." },
+          "version": {
+            "type": "string",
+            "description": "Version is another magpie's, serving it, and Older says it is older than this one."
+          }
         }
       },
       "ProviderState": {
@@ -2573,6 +3681,21 @@
             "type": "array",
             "items": { "type": "object" },
             "description": "Moved is the agents the change moved off models it stopped serving, for the page to say so."
+          },
+          "movable": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Movable are the built-in subscriptions a community plugin can run, deprecated in magpie itself."
+          },
+          "movesTo": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "MovesTo is the plugin each of them goes to, for the add sheet's offer to install it before signing in."
+          },
+          "fileError": { "type": "string", "description": "FileError is why providers.json can't be read." },
+          "fetching": {
+            "type": "boolean",
+            "description": "Accounts' model lists are still being asked for; ask again until they are in."
           }
         }
       },
@@ -2643,7 +3766,13 @@
             "type": "string",
             "description": "Installing is the CLI being installed before the sign-in can start."
           },
-          "plan": { "type": "string" }
+          "plan": { "type": "string" },
+          "again": { "type": "boolean", "description": "Again is an account listed already." },
+          "keysURL": { "type": "string" },
+          "pasteKey": {
+            "type": "boolean",
+            "description": "PasteKey is a sign-in an API key made on KeysURL also finishes (Command Code's, whose page posts its key where a pasted address can't carry it)"
+          }
         },
         "required": ["id", "agent", "url", "state"]
       },
