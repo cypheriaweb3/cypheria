@@ -46,7 +46,7 @@ Plugin view 保留 source type、marketplace identity、install policy、availab
 Codex 远程插件的目录 ID 与展示名称不同。Server 在远程详情和安装请求前，从最新的 `plugin/list` 结果解析该 ID，避免用展示名称调用 Codex 安装接口。
 
 为 Codex 或 Claude 启用插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在对应 Agent 管理的 home 中安装其中的插件 `cypheria-app-tools`、`code-review`、`browser`、`chrome`、`computer-use`，以及隐藏的、由 Server 生成的 `cua`，对应官方桌面端随附的 `codex-app-tools`、`code-review` 及其 Computer Use 插件。详见 [Cypheria app tools](#cypheria-app-tools)。它们不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
-内置 marketplace 是双格式的 `plugins/` 目录：同时包含 Codex 的 marketplace 与 manifest，以及 Claude 的 marketplace 与 manifest，并以 `./<plugin>` 列出每个插件；各 Agent 的 MCP 声明放在各自文件中，与插件的 server 放在一起。
+内置 marketplace 的来源是随 Cypheria 打包的双格式 `plugins/` 目录：同时包含 Codex 的 marketplace 与 manifest，以及 Claude 的 marketplace 与 manifest，并以 `./<plugin>` 列出每个插件；各 Agent 的 MCP 声明放在各自文件中，与插件的 server 放在一起。Server 将它物化到 `$CYPHERIA_HOME/marketplaces/cypheria-bundled/`，各 Agent 注册该目录；见 [插件市场](plugin-marketplaces.zh-CN.md#cypheria-bundled)。
 Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本地版本，并从随程序分发的 marketplace 更新插件，再返回列表。
 
 ### Cypheria app tools
@@ -80,47 +80,16 @@ Server 通过运行受管 Claude CLI 的 `claude plugin … --json` 命令管理
 - Marketplace 可以通过在本机运行命令来安装插件。Server 会拒绝这类安装，并返回命令及其 SHA-256；只有客户端在用户查看命令后重新提交该 SHA-256，才会执行安装。Cypheria 从不传 `--yes`。
 - 移除 marketplace 会卸载其插件并删除已保存的数据。Server 会列出受影响的插件，并要求显式的 `confirmUninstall`。
 - 插件选项来自插件声明的 `userConfig`。取值通过 stdin 写入，敏感值不会返回。
-- 变更后，Server 会在运行中的 Claude 会话里重新加载插件，除非这会使会话的 prompt cache 失效；被保留的会话在重启后生效。
+- 用户做出变更后，Server 会在运行中的 Claude 会话里重新加载插件，除非这会使会话的 prompt cache 失效；被保留的会话在重启后生效。[自动更新](agent-plugin-capabilities.zh-CN.md#更新) 不重新加载任何会话，且只在 Claude 没有运行中的会话时进行。
 - 已安装的插件，以及位于其 marketplace 内部的插件，可以查看 skills、MCP server 等组件详情；其他未安装插件只显示 catalog 条目。
 
 插件通过 MCP Apps 与 OpenAI MCP Extensions 提供 UI，见 [Plugin Extensions](plugin-extensions.zh-CN.md)。Cypheria 原生插件计划使用同一契约。不另设 Desktop contribution API。Server 代码运行在受控子进程中，UI 运行在沙箱 frame 中，只获得受限的 host 请求，而不是 Node.js、文件系统、数据库或密钥权限。
 
-## Marketplace 来源
+## 插件包、市场与 Agent 支持
 
-Marketplace source 与 plugin ecosystem 是独立字段。Source kind 为 `cypheria`、`openai`、`claude`、`pi`、`opencode` 和 `custom`。自定义 marketplace 仍必须声明其中每个 plugin 的 ecosystem。
+一个插件包可以同时携带多个 Agent 的 manifest，读取其中任一 manifest 的 Agent 都会原生使用它。读取不了其中任何 manifest 的 Agent 不支持该插件，Cypheria 也不会转换它。插件包格式、检测与启用见 [Polyglot Plugins](polyglot-plugins.zh-CN.md)。
 
-当前 integration facade 支持 harness 自己的 marketplace list、add、upgrade 和 remove 操作。它保留 marketplace name 和 path，避免把不同来源的同名插件合并为一个身份。
-
-独立的公开 Cypheria Marketplace 服务仍在计划中，见 [Marketplace](../planned/marketplace.zh-CN.md)。它尚不存在，不影响 harness-native 或 custom marketplace 支持。
-
-## Agent 兼容性
-
-某个插件被哪些 Agent 支持，由列出它的 marketplace 文件决定，而不是插件里的字段。每个 Agent 读取自己的 marketplace 文件：
-
-| Agent | Marketplace 文件 |
-| :- | :- |
-| Codex | `.agents/plugins/marketplace.json` |
-| Claude | `.claude-plugin/marketplace.json` |
-
-一个仓库可以同时包含多个这样的文件，并在每个文件中列出同一个插件。请让它们使用相同的 marketplace `name`：名称一致时，Cypheria 才把不同 Agent 中的 marketplace 和插件视为同一个。Cypheria 不会根据插件文件推断兼容性，不会在 manifest 或 marketplace 条目中添加兼容性字段，也不会在生态之间转换插件。要在多个 Agent 中加载，plugin root 需并列提供各 Agent 的 manifest（`.codex-plugin/`、`.claude-plugin/`），共用 `skills/` 和 server 代码，并把各 Agent 的 MCP 声明放在各自文件中。
-
-### Marketplace
-
-Marketplace 总是对所有能读取它的 Agent 开放。
-
-- **添加**会尝试所有 Agent。找到自己 marketplace 文件的 Agent 会注册它，其余 Agent 会报告该 marketplace 没有适用于它们的文件，Server 会记住来源。
-- **添加会检查来源和各 Agent 读到的内容。** 来源必须是 `owner/repo`（可带 `#ref`）、`http(s)`、`ssh` 或 `git` URL、`scp` 形式的 `git@host:path`，或存在且含 marketplace 文件的绝对本地路径。类似选项的字符串、相对路径、其他 URL scheme 和带凭据的 URL 都会被拒绝，可被当作选项或逃出仓库的 git ref 与稀疏路径也会被拒绝。Agent 接受后，每个注册都必须可读，所有 Agent 读到的 marketplace `name` 必须一致，且该名称必须是普通名称，不能是 Cypheria 或厂商保留的名称（`cypheria-bundled`、`openai-*`）。已从另一个来源添加过的同名 marketplace 会被拒绝。任一检查失败时，本次调用创建的注册会被撤销。
-- **更新**会先在每个 Agent 中刷新 marketplace，再让各 Agent 与其当前内容保持一致。新增了 marketplace 文件的 Agent 会根据记住的来源获得该 marketplace；失去文件的 Agent 会连同其插件一起移除该 marketplace；已从某个 Agent 文件中移除的插件会在该 Agent 中卸载。
-- **移除**会从所有 Agent 中移除该 marketplace 并卸载其插件，客户端需先确认受影响的插件列表。
-
-### 插件
-
-插件只安装一次，再按 Agent 启用或禁用。
-
-- **安装**会在每个 marketplace 列出该插件的 Agent 中安装，并在每个 Agent 中启用。
-- **启用**按 Agent 独立控制。插件详情页只在插件已安装后，为每个列出该插件的 Agent 显示一个开关，因此插件可以在 Codex 中运行而在 Claude 中保持关闭。
-- **之后新增的支持**不会自动启用任何内容。更新后才列出该插件的 Agent 会显示为关闭，打开开关时会先为该 Agent 安装。
-- **卸载**会从所有持有该插件的 Agent 中移除它。
+市场分类、插件标识（`<pluginName>@<marketplaceId>`）、本地存储、市场生命周期与数据库 Schema 见 [插件市场](plugin-marketplaces.zh-CN.md)。各 Agent 的原生格式与命令见 [Agent 插件能力](agent-plugin-capabilities.zh-CN.md)。
 
 ## Codex Apps
 
@@ -153,7 +122,7 @@ Hooks 为 Agent 提供了跨生命周期的自动化脚本执行与安全防护�
 
 ## 缓存与刷新
 
-Server 可以缓存 harness list；协议允许时，调用方可请求刷新。Mutation 会使相关 harness 和 integration views 失效。客户端使用返回的权威 view，而不是猜测 harness 原生操作的结果。
+Server 可以缓存 harness list；协议允许时，调用方可请求刷新。市场与已安装插件也会按计划刷新，见 [更新](agent-plugin-capabilities.zh-CN.md#更新)。Mutation 会使相关 harness 和 integration views 失效。客户端使用返回的权威 view，而不是猜测 harness 原生操作的结果。
 
 ## 安全规则
 

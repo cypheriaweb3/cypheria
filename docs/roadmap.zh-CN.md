@@ -32,6 +32,16 @@ title: 路线图
 
 详细的未来服务边界与威胁模型见 [Marketplace](planned/marketplace.zh-CN.md)。
 
+## Polyglot Plugins
+
+设计见 [Polyglot Plugins](agents/polyglot-plugins.zh-CN.md)、[插件市场](agents/plugin-marketplaces.zh-CN.md) 与 [Agent 插件能力](agents/agent-plugin-capabilities.zh-CN.md)。
+
+- [ ] 在开发构建与打包构建中，用受管 Agent 端到端验证 Polyglot Plugins。
+  - 通过 Pi、Goose、Gemini CLI、Copilot CLI、Cline、Grok Build 与已登录的 Devin 进行原生安装，包括移除与启用，以及 Agent 目录 `cursor-plugins`、`cline-official`、`devin-marketplace`、`xai-official`、`copilot-plugins` 与 `awesome-copilot`。
+  - Codex 与 Claude 注册 `copilot-plugins`，以及 Copilot CLI 从 Claude 官方目录安装。
+  - 自动更新：在各 Agent 有运行中会话时，验证定时刷新、修订版本副本，以及等待 Agent 空闲后才进行的更新。
+- [ ] 待 Cursor 的 ACP 模式加载插件后，加入它的插件支持。
+
 ## 插件体验
 
 - [ ] 完成其余 Desktop plugin 体验。
@@ -41,7 +51,7 @@ title: 路线图
   - 完成 [Plugin Extensions 限制](agents/plugin-extensions.zh-CN.md#限制)中的各项：Claude 工具调用的只读 App 与对 Claude 隐藏仅供 App 使用的工具、Expo 与 CLI 托管、表单上传，以及 implicit resource 选择。
   - 在开发与打包的 Electron 构建中用 Bits & Bolts 插件端到端验证 Desktop App 沙箱：入口、global 页面的工作区 Thread、文件查看器、模型上下文、消息、设置、提及与表单。
   - 定义 Cypheria 原生 manifest，以及第三方 `cypheria/*` host 请求的权限模型。
-  - 以 custom source 的形式添加 Pi 和 OpenCode 插件适配器，并支持 Claude 使用托管在 claude.ai 的 marketplace。
+  - 支持 Claude 使用托管在 claude.ai 的 marketplace。
 
 ## 本地 Git 与拉取请求
 

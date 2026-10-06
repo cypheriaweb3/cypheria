@@ -88,6 +88,14 @@ type PiCatalog = {
   }>
 }
 
+/** Trailing receipt arguments that start a registry Agent in ACP mode. */
+const ACP_LAUNCH_ARGUMENTS: readonly (readonly string[])[] = [
+  ["agent", "stdio"],
+  ["acp"],
+  ["--acp"],
+  ["--experimental-acp"],
+]
+
 export type AgentRuntimeServerMessage =
   | AgentAcpServerMessage
   | AgentClaudeServerMessage
@@ -348,7 +356,7 @@ export class AgentManager {
       case "gemini":
         return { GEMINI_CLI_HOME: home }
       case "github-copilot-cli":
-        return { COPILOT_HOME: home }
+        return { COPILOT_CACHE_HOME: join(home, "cache"), COPILOT_HOME: home }
       case "goose":
         return {
           GOOSE_PATH_ROOT: home,
@@ -922,6 +930,36 @@ export class AgentManager {
     return { ...spec, cwd: home }
   }
 
+  /** The managed home an Agent runs with: `$CYPHERIA_HOME/agents/<agentId>/home`. */
+  agentHome(agentId: AgentId): string {
+    return join(this.#agentHomes, agentId, "home")
+  }
+
+  /**
+   * Runs an installed Agent's own CLI with `args` in its managed home environment. A registry
+   * Agent's receipt ends with the arguments that start its ACP server, which are dropped.
+   */
+  async runAgentCli(
+    agentId: AgentId,
+    args: string[],
+    options: { signal?: AbortSignal; timeoutMs?: number } = {}
+  ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+    if (agentId === "pi") return await this.runPiCli(args, options)
+    if (agentId === "claude") return await this.runClaudeCli(args, options)
+    const spec = await this.authTerminalSpec(agentId, [])
+    const suffix = isRegistryAgentId(agentId)
+      ? ACP_LAUNCH_ARGUMENTS.find(
+          (tail) =>
+            tail.length <= spec.args.length &&
+            tail.every((arg, index) => spec.args[spec.args.length - tail.length + index] === arg)
+        )
+      : undefined
+    const launch = spec.args.slice(0, spec.args.length - (suffix?.length ?? 0))
+    const home = this.agentHome(agentId)
+    await mkdir(home, { recursive: true })
+    return await this.#runCli(agentId, { ...spec, args: [...launch, ...args], cwd: home }, options)
+  }
+
   /** Runs the managed Pi CLI to completion. Callers pass explicit argv; there is no shell. */
   async runPiCli(
     args: string[],
@@ -1066,6 +1104,18 @@ export class AgentManager {
     const runtime = await pending
     if (this.#piRuntimes.get(context.sessionId) !== pending) return
     await runtime.send(message)
+  }
+
+  /** Whether the Agent has a Thread whose session is not stopped. */
+  async hasActiveThreads(agentId: AgentId): Promise<boolean> {
+    return (await this.#threadCoordinator?.hasActiveThreads(agentId)) ?? false
+  }
+
+  /** Agents that are installed and enabled, in registry order. */
+  activeAgentIds(): AgentId[] {
+    return [...this.#records.values()]
+      .filter((record) => record.installed && record.enabled)
+      .map((record) => record.id as AgentId)
   }
 
   async list(sessionId: string): Promise<AgentView[]> {

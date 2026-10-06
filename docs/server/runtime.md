@@ -46,7 +46,8 @@ $CYPHERIA_HOME/
                    (Codex uses agents/codex/home as CODEX_HOME)
   toolchains/      active managed Node.js, Python, and uv releases, and the pinned magpie
   gateway/         the AI gateway's magpie home, agents file, and settings
-  plugins/         the bundled plugin marketplace that Agents install from
+  marketplaces/    Cypheria-owned plugin marketplaces, fetched plugin sources, and standalone packages
+  plugins/cache/   immutable plugin revisions that package Agents install from
   config/          config.json, network-proxy.json, PID and Server identity, relay key
   db/              SQLite database
   logs/            Server and runtime logs

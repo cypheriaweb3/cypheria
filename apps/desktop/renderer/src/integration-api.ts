@@ -1,3 +1,4 @@
+import type { AgentId } from "@cypheria/protocol"
 import type {
   CodexAppListResult,
   CodexMcpListResult,
@@ -101,9 +102,15 @@ export const integrationApi = {
       (await ensureCypheriaClient()).integrations.plugins.read({ agentId, ...locator }),
     readConfig: async (agentId: PluginAgent, id: string) =>
       (await ensureCypheriaClient()).integrations.plugins.readConfig({ agentId, id }),
-    /** Enables or disables one Agent's copy; enabling installs it there first when needed. */
+    /** Installs a Git repository, npm package, or local directory as a standalone plugin. */
+    installStandalone: async (input: { source: string; sourceType: "git" | "local" | "npm" }) =>
+      (await ensureCypheriaClient()).integrations.plugins.installStandalone(input),
+    /**
+     * Enables or disables one Agent's copy. Enabling installs it there first; an Agent that reads
+     * none of the plugin's formats does not support it.
+     */
     setEnabled: async (
-      agentId: PluginAgent,
+      agentId: AgentId,
       identity: PluginIdentity,
       enabled: boolean,
       options: { acceptCommandSha256?: string } = {}

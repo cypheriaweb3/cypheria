@@ -204,6 +204,8 @@ export const CodexPluginViewSchema = z
     marketplacePath: z.string().nullable(),
     name: z.string().min(1),
     sourceType: z.enum(["local", "git", "npm", "remote", "archive", "command"]),
+    /** False when this Agent reads none of the installed plugin's formats. */
+    supported: z.boolean().optional(),
     version: z.string().nullable(),
   })
   .strict()

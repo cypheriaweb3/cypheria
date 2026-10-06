@@ -8,7 +8,16 @@ export {
   codeReviewStatuses,
 } from "./code-review.js"
 export { dappNetworkContexts, networkRpcEndpoints, networks } from "./network.js"
-export { pluginMarketplaces } from "./plugin.js"
+export {
+  installedPlugins,
+  PLUGIN_FORMATS,
+  PLUGIN_INSTALL_SOURCE_TYPES,
+  type PluginFormat,
+  type PluginInstallSourceType,
+  type PluginNativeInstallReceipt,
+  pluginAgentBindings,
+  pluginMarketplaces,
+} from "./plugin.js"
 export {
   projectItems,
   projects,

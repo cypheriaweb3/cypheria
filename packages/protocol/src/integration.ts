@@ -156,6 +156,11 @@ export const PluginViewSchema = z
     name: z.string().min(1),
     harness,
     sourceType: z.enum(["local", "git", "npm", "remote", "archive", "command"]),
+    /**
+     * Whether this Agent reads one of the installed plugin's formats. Present for plugins of
+     * marketplaces only Cypheria lists once they are installed; the Agent offers no switch when false.
+     */
+    supported: z.boolean().optional(),
     version: z.string().nullable(),
   })
   .strict()
@@ -187,6 +192,22 @@ export const PluginTokenCostSchema = z
   })
   .strict()
 export type PluginTokenCost = z.infer<typeof PluginTokenCostSchema>
+
+/** Package formats Server detects in a plugin directory. */
+export const PluginFormatSchema = z.enum([
+  "agent_plugin",
+  "codex",
+  "claude",
+  "cline",
+  "copilot",
+  "cursor",
+  "devin",
+  "goose",
+  "gemini",
+  "grok",
+  "pi",
+])
+export type PluginFormat = z.infer<typeof PluginFormatSchema>
 
 export const PluginScopeSchema = z.enum(["user", "project", "local"])
 export type PluginScope = z.infer<typeof PluginScopeSchema>
@@ -369,6 +390,17 @@ export const PluginSetEnabledRequestSchema = request(
     })
     .strict()
 )
+// Installs one Git repository, npm package, or local directory under `standalone-plugins`.
+export const PluginStandaloneInstallRequestSchema = request(
+  "integration.plugin.standalone.install.request",
+  z
+    .object({
+      acceptCommands: z.record(z.string(), commandSha256).optional(),
+      source: z.string().min(1).max(2048),
+      sourceType: z.enum(["git", "npm", "local"]),
+    })
+    .strict()
+)
 export const PluginSetGlobalEnabledRequestSchema = request(
   "integration.plugin.set-global-enabled.request",
   z.object({ agentId: AgentIdSchema, enabled: z.boolean() }).strict()
@@ -510,6 +542,16 @@ export const PluginInstallResponseSchema = response(
   "integration.plugin.install.response",
   z.object({ results: z.array(PluginAgentResultSchema) }).strict()
 )
+export const PluginStandaloneInstallResponseSchema = response(
+  "integration.plugin.standalone.install.response",
+  z
+    .object({
+      marketplaceName: z.string().min(1),
+      pluginName: z.string().min(1),
+      results: z.array(PluginAgentResultSchema),
+    })
+    .strict()
+)
 export const PluginUninstallResponseSchema = response(
   "integration.plugin.uninstall.response",
   z.object({ agentIds: z.array(AgentIdSchema), succeeded: z.literal(true) }).strict()
@@ -564,10 +606,13 @@ export const PluginAgentStateSchema = z
   .object({
     agentId: AgentIdSchema,
     enabled: z.boolean(),
+    /** The Agent reads one of the plugin's formats; an Agent that does not has no switch. */
+    supported: z.boolean(),
     id: z.string().min(1),
     installed: z.boolean(),
     installedScopes: z.array(PluginScopeSchema),
     marketplacePath: z.string().nullable(),
+    statusMessage: z.string().nullable(),
   })
   .strict()
 export type PluginAgentState = z.infer<typeof PluginAgentStateSchema>
@@ -630,6 +675,7 @@ export const INTEGRATION_CLIENT_SCHEMAS = [
   PluginUninstallRequestSchema,
   PluginSetEnabledRequestSchema,
   PluginSetGlobalEnabledRequestSchema,
+  PluginStandaloneInstallRequestSchema,
   MarketplaceAddRequestSchema,
   MarketplaceUpgradeRequestSchema,
   MarketplaceRemoveRequestSchema,
@@ -656,6 +702,7 @@ export const INTEGRATION_SERVER_SCHEMAS = [
   PluginUninstallResponseSchema,
   PluginSetEnabledResponseSchema,
   PluginSetGlobalEnabledResponseSchema,
+  PluginStandaloneInstallResponseSchema,
   MarketplaceAddResponseSchema,
   MarketplaceUpgradeResponseSchema,
   MarketplaceRemoveResponseSchema,

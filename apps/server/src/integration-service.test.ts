@@ -1,7 +1,34 @@
+import { mkdtemp } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
+import {
+  applyDatabaseMigrations,
+  createInMemoryDatabase,
+  createPluginPersistenceService,
+} from "@cypheria/db"
 import { describe, expect, it, vi } from "vitest"
 
 import type { AgentManager } from "./agent/agent-manager.js"
 import { IntegrationService } from "./integration-service.js"
+
+const createService = async (agents: Record<string, unknown>): Promise<IntegrationService> => {
+  const database = createInMemoryDatabase()
+  await applyDatabaseMigrations(database.client)
+  const home = await mkdtemp(join(tmpdir(), "cypheria-integration-"))
+  return new IntegrationService(
+    {
+      activeAgentIds: () => ["codex", "claude"],
+      agentHome: (agentId: string) => join(home, "agents", agentId, "home"),
+      ...agents,
+    } as unknown as AgentManager,
+    {
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      persistence: createPluginPersistenceService(database.db),
+    }
+  )
+}
 
 describe("IntegrationService", () => {
   it("updates an already installed bundled plugin when listing after an app update", async () => {
@@ -45,10 +72,10 @@ describe("IntegrationService", () => {
       if (method === "plugin/install") return { appsNeedingAuth: [] }
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
     await service.handle(
       {
@@ -80,10 +107,10 @@ describe("IntegrationService", () => {
         return { data: [], nextCursor: params.cursor === null ? "next-page" : null }
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     await service.handle(
       {
         payload: { forceRefresh: true },
@@ -133,10 +160,10 @@ describe("IntegrationService", () => {
       if (method === "config/value/write") return {}
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
     await service.handle(
       {
@@ -206,10 +233,10 @@ describe("IntegrationService", () => {
         }
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
     await service.handle(
       {
@@ -247,10 +274,10 @@ describe("IntegrationService", () => {
 
   it("updates Codex's process-wide plugins feature", async () => {
     const callCodex = vi.fn(async () => ({ enablement: { plugins: false } }))
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
     await service.handle(
       {
@@ -291,10 +318,10 @@ describe("IntegrationService", () => {
       if (method === "plugin/install") return { appsNeedingAuth: [] }
       return { enablement: { plugins: true } }
     })
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
     await service.handle(
       {
@@ -342,10 +369,10 @@ describe("IntegrationService", () => {
         },
       ],
     }))
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
 
     await service.handle(
@@ -415,10 +442,10 @@ describe("IntegrationService", () => {
       }
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
 
     await service.handle(
@@ -517,10 +544,10 @@ describe("IntegrationService", () => {
 
   it("rejects unsupported harness adapters without falling back to Codex", async () => {
     const callCodex = vi.fn()
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
     await service.handle(
       {
@@ -595,12 +622,12 @@ describe("IntegrationService", () => {
       stderr: "",
       stdout: JSON.stringify(claudeOutput[args.join(" ")] ?? []),
     }))
-    const service = new IntegrationService({
+    const service = await createService({
       callCodex,
       claudePluginsEnabled: () => true,
       reloadClaudePlugins: async () => ({ applied: 0, held: 0 }),
       runClaudeCli,
-    } as unknown as AgentManager)
+    })
     const send = vi.fn()
     await service.handle(
       {

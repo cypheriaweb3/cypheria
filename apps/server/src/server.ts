@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import { access } from "node:fs/promises"
 import type { Server as HttpServer } from "node:http"
 import { homedir, hostname } from "node:os"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { type CuaHost, nativeCodexBinary } from "@cypheria/cua/host"
 import {
@@ -11,7 +11,7 @@ import {
   createAgentRegistryPersistenceService,
   createCodeReviewPersistenceService,
   createCodeReviewPrPersistenceService,
-  createPluginMarketplacePersistenceService,
+  createPluginPersistenceService,
   createProjectThreadPersistenceService,
   createSchedulePersistenceService,
   createThreadAttachmentPersistenceService,
@@ -114,6 +114,7 @@ import { HarnessService } from "./harness-service.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
 import { materializeBundledMarketplace } from "./integration/bundled-marketplace.js"
+import { PiPackageCatalog } from "./integration/pi-package-catalog.js"
 import {
   BUNDLED_MARKETPLACE_NAME,
   bundledMarketplaceDirectory,
@@ -277,7 +278,7 @@ export class CypheriaServer implements HttpAppHost {
     configureBundledMarketplace((source) =>
       materializeBundledMarketplace(
         source,
-        join(this.runtime.paths.cypheriaHome, "plugins", "cypheria-bundled"),
+        join(this.runtime.paths.cypheriaHome, "marketplaces", "cypheria-bundled"),
         this.agentManager.toolchains.executable("node")
       )
     )
@@ -360,7 +361,41 @@ export class CypheriaServer implements HttpAppHost {
       }),
     })
     this.integrations = new IntegrationService(this.agentManager, {
-      marketplaces: createPluginMarketplacePersistenceService(this.database.db),
+      audit: async (event) => {
+        await this.web3.audit.append({
+          actor: "user",
+          eventType: event.eventType,
+          payloadHash: event.payloadHash ?? null,
+          payloadSummary: event.summary,
+          source: "plugins",
+        })
+      },
+      cacheDir: this.runtime.paths.cacheDir,
+      cypheriaHome: this.runtime.paths.cypheriaHome,
+      npm: async (args, cwd) => {
+        const node = this.agentManager.toolchains.executable("node")
+        const npmCli = node
+          ? join(dirname(dirname(node)), "lib", "node_modules", "npm", "bin", "npm-cli.js")
+          : undefined
+        const { stdout } = await promisify(execFile)(
+          node && npmCli ? node : "npm",
+          node && npmCli ? [npmCli, ...args] : args,
+          {
+            cwd,
+            encoding: "utf8",
+            env: this.agentManager.toolchains.environment({
+              npm_config_audit: "false",
+              npm_config_fund: "false",
+            }),
+            maxBuffer: 16 * 1024 * 1024,
+            timeout: 120_000,
+            windowsHide: true,
+          }
+        )
+        return stdout
+      },
+      persistence: createPluginPersistenceService(this.database.db),
+      piCatalog: new PiPackageCatalog(),
     })
     this.inputFiles = new InputFileService(this.runtime.paths.cypheriaHome)
     this.composerReferences = new ComposerReferenceService({
@@ -781,6 +816,7 @@ export class CypheriaServer implements HttpAppHost {
         5 * 60 * 1000
       ).unref()
       await this.schedules.start()
+      this.integrations.startPluginAutoUpdate()
       await this.magpieManager.init()
       const startedAt = new Date().toISOString()
       const id = await loadOrCreateServerId(this.runtime.paths.configDir)
@@ -1588,6 +1624,7 @@ export class CypheriaServer implements HttpAppHost {
     if (this.#webSocketHeartbeat) clearInterval(this.#webSocketHeartbeat)
     this.#webSocketHeartbeat = undefined
     if (this.#resourceCleanupTimer) clearInterval(this.#resourceCleanupTimer)
+    this.integrations.stopPluginAutoUpdate()
     this.#resourceCleanupTimer = undefined
     this.#webSocketServer?.close()
     this.#webSocketServer = undefined

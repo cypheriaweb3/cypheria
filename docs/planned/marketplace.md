@@ -28,7 +28,7 @@ Cypheria-native, Claude, Pi, and OpenCode ecosystem publication can be added onl
 
 ## Agent compatibility
 
-A release supports an Agent when the official catalog lists it in that Agent's marketplace file; see [Plugins](../agents/plugins.md#agent-compatibility) for the files and per-Agent enablement.
+A release supports an Agent natively when it carries a manifest that Agent reads; see [Polyglot Plugins](../agents/polyglot-plugins.md) for format detection and per-Agent enablement.
 
 - Each supported ecosystem is validated and scanned on its own manifest, MCP declarations, and capabilities. A release is publishable only for ecosystems whose contracts are implemented, so initial releases target Codex only.
 - Adding Claude, Pi, or OpenCode publication needs that ecosystem's manifest, scanning, installation, and trust contracts first. Desktop installs a release into each chosen Agent through that Agent's own harness, and the trust checks apply to each install.

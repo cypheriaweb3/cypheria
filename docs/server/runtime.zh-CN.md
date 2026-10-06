@@ -46,7 +46,8 @@ $CYPHERIA_HOME/
                    （Codex 使用 agents/codex/home 作为 CODEX_HOME）
   toolchains/      当前托管的 Node.js、Python 和 uv 版本，以及固定版本的 magpie
   gateway/         AI 网关的 magpie 目录、Agent 描述文件与设置
-  plugins/         Agent 从中安装的随附插件 marketplace
+  marketplaces/    Cypheria 管理的插件市场、获取的插件来源与独立插件包
+  plugins/cache/   package Agent 从中安装的不可变插件修订版本
   config/          config.json、network-proxy.json、PID、Server 身份和 relay key
   db/              SQLite 数据库
   logs/            Server 与 runtime 日志

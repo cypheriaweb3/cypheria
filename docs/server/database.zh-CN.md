@@ -27,6 +27,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions、有序 endpoints、health 和 origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | 公开 wallet metadata 和 active selection |
 | Signing | `signing_policies`, `signing_intents`, `signing_intent_claims`, `approval_requests` | Policy、intent、lease、approval 和 replay protection |
+| Plugins | `plugin_marketplaces`, `installed_plugins`, `plugin_agent_bindings` | 市场、已安装插件及其检测到的格式，以及按 Agent 的安装、启用与持有的修订版本；见 [插件市场](../agents/plugin-marketplaces.zh-CN.md#数据库-schema) |
 | Browser | `dapp_origins`, `dapp_permissions`, `solana_dapp_permissions` | 按 origin 的 dApp session 和受限 provider permission；浏览器配置属于 Desktop 本地 |
 
 私钥、mnemonic、vault encryption key、decrypted signer 和秘密 endpoint header 不属于普通表数据。

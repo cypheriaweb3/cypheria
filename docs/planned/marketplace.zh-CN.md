@@ -28,7 +28,7 @@ title: Cypheria Marketplace
 
 ## Agent 兼容性
 
-当官方 catalog 在某个 Agent 的 marketplace 文件中列出 release 时，该 release 即支持这个 Agent；相关文件和按 Agent 启用见 [插件](../agents/plugins.zh-CN.md#agent-兼容性)。
+Release 携带某个 Agent 能读取的 manifest 时，即原生支持该 Agent；格式检测与按 Agent 启用见 [Polyglot Plugins](../agents/polyglot-plugins.zh-CN.md)。
 
 - 每个受支持的生态都会基于自身的 manifest、MCP 声明和 capabilities 独立校验与扫描。只有契约已实现的生态才能发布 release，因此初期 release 只面向 Codex。
 - 增加 Claude、Pi 或 OpenCode 发布，需要先具备该生态的 manifest、scanning、installation 和 trust contract。Desktop 通过各 Agent 自己的 harness 把 release 安装到所选 Agent，每次安装都要经过信任检查。

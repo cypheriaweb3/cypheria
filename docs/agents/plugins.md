@@ -46,7 +46,7 @@ Plugin views retain source type, marketplace identity, install policy, availabil
 Codex remote plugins have a catalog ID distinct from their displayed name. Server resolves that ID from a fresh `plugin/list` result before remote detail or install requests, so a visible plugin is not sent to Codex's install endpoint under its display name.
 
 When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs its plugins, `cypheria-app-tools`, `code-review`, `browser`, `chrome`, `computer-use`, and the hidden, generated `cua`, in that Agent's managed home, as the official desktop bundles `codex-app-tools`, `code-review`, and its Computer Use plugins. They are described in [Cypheria app tools](#cypheria-app-tools). They declare no OpenAI App ID and have no GitHub or GitLab connector credentials.
-The bundled marketplace is the dual-format `plugins/` directory: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, lists each plugin at `./<plugin>`, and each Agent's MCP declaration lives in its own file next to the plugin's server.
+The bundled marketplace's source is the dual-format `plugins/` directory packaged with Cypheria: it carries a Codex marketplace and manifests and a Claude marketplace and manifests, lists each plugin at `./<plugin>`, and each Agent's MCP declaration lives in its own file next to the plugin's server. Server materializes it into `$CYPHERIA_HOME/marketplaces/cypheria-bundled/`, and Agents register that directory; see [Plugin Marketplaces](plugin-marketplaces.md#cypheria-bundled).
 When an installed bundled plugin is discovered after a Cypheria update, Server checks its local version and updates it from the bundled marketplace before returning the plugin list.
 
 ### Cypheria app tools
@@ -80,47 +80,16 @@ Server manages Claude plugins by running the managed Claude CLI's `claude plugin
 - A marketplace can install a plugin by running a command on this computer. Server refuses that install, returns the command and its SHA-256, and installs only when the client resubmits that SHA-256 after the user reviews the command. Cypheria never passes `--yes`.
 - Removing a marketplace uninstalls its plugins and deletes their saved data. Server lists the affected plugins and requires an explicit `confirmUninstall`.
 - Plugin options come from the plugin's declared `userConfig`. Values are written over stdin, and sensitive values are never returned.
-- After a change, Server reloads plugins in running Claude sessions unless that would invalidate a session's prompt cache; held sessions pick the change up when they restart.
+- After a change the user makes, Server reloads plugins in running Claude sessions unless that would invalidate a session's prompt cache; held sessions pick the change up when they restart. [Automatic updates](agent-plugin-capabilities.md#updates) reload no session and run only while Claude has none running.
 - Component details, such as skills and MCP servers, are available for installed plugins and for plugins that live inside their marketplace. Other uninstalled plugins show only their catalog entry.
 
 Plugins contribute UI through MCP Apps and the OpenAI MCP Extensions, described in [Plugin Extensions](plugin-extensions.md). Cypheria-native plugins are planned to use the same contract. There is no separate Desktop contribution API. Server code runs in a controlled child process, and UI runs in sandboxed frames with scoped host requests rather than Node.js, filesystem, database, or secret access.
 
-## Marketplace sources
+## Packages, marketplaces, and Agent support
 
-Marketplace source and plugin ecosystem are independent fields. Source kinds are `cypheria`, `openai`, `claude`, `pi`, `opencode`, and `custom`. A custom marketplace must still declare the ecosystem of every plugin it contains.
+A plugin package can carry the manifests of several Agents and is used natively by each Agent that reads one of them. An Agent that reads none of them does not support the plugin, and Cypheria does not convert it. The package formats, detection, and enablement are described in [Polyglot Plugins](polyglot-plugins.md).
 
-The current integration facade supports harness-owned marketplace listing, add, upgrade, and removal operations. It retains marketplace name and path so similarly named plugins from different sources do not collapse into one identity.
-
-The independent public Cypheria Marketplace service is planned and documented separately in [Marketplace](../planned/marketplace.md). Its absence does not change harness-native or custom marketplace support.
-
-## Agent compatibility
-
-Which Agents support a plugin is decided by the marketplace files that list it, not by a field in the plugin. Each Agent reads its own marketplace file:
-
-| Agent | Marketplace file |
-| :- | :- |
-| Codex | `.agents/plugins/marketplace.json` |
-| Claude | `.claude-plugin/marketplace.json` |
-
-A repository can carry several of these files and list the same plugin in each. Give them the same marketplace `name`: Cypheria treats a marketplace and a plugin as the same across Agents when their names match. Cypheria does not infer compatibility from plugin files, does not add a compatibility field to manifests or marketplace entries, and never converts a plugin between ecosystems. To load in more than one Agent, a plugin root carries each Agent's manifest side by side (`.codex-plugin/`, `.claude-plugin/`), shares `skills/` and server code, and keeps each Agent's MCP declaration in its own file.
-
-### Marketplaces
-
-A marketplace is always offered to every Agent that can read it.
-
-- **Adding** tries every Agent. Each Agent that finds its own marketplace file registers it, the others report that the marketplace has no file for them, and Server remembers the source.
-- **Adding checks the source and what the Agents read.** The source must be `owner/repo` (optionally `#ref`), an `http(s)`, `ssh`, or `git` URL, an `scp`-style `git@host:path`, or an absolute local path that exists and holds a marketplace file. Options-like strings, relative paths, other URL schemes, and URLs with credentials are refused, and so are git refs and sparse paths that could be read as options or escape the repository. After the Agents accept it, each registration must be readable, every Agent must have read the same marketplace `name`, and that name must be plain and not one Cypheria or a vendor owns (`cypheria-bundled`, `openai-*`). A name that was already added from a different source is refused. If a check fails, the registrations this call created are removed.
-- **Updating** refreshes the marketplace in each Agent, then matches the Agents to what it now ships. An Agent that gained a marketplace file gets the marketplace from the remembered source, an Agent that lost its file has the marketplace removed together with its plugins, and a plugin that left an Agent's file is uninstalled there.
-- **Removing** removes the marketplace from every Agent and uninstalls its plugins, after the client confirms the list of affected plugins.
-
-### Plugins
-
-A plugin is installed once and then enabled or disabled per Agent.
-
-- **Installing** installs the plugin in every Agent whose marketplace lists it and enables it in each.
-- **Enablement** is independent per Agent. The plugin detail page shows one switch for every Agent that lists the plugin, only once the plugin is installed, so it can run in Codex and stay off in Claude.
-- **Support added later** does not enable anything. An Agent that gains the plugin after an update shows it switched off, and turning the switch on installs it for that Agent first.
-- **Uninstalling** removes the plugin from every Agent that holds it.
+Marketplace categories, plugin identity (`<pluginName>@<marketplaceId>`), local storage, the marketplace lifecycle, and the database schema are described in [Plugin Marketplaces](plugin-marketplaces.md). Each Agent's native formats and commands are listed in [Agent Plugin Capabilities](agent-plugin-capabilities.md).
 
 ## Codex Apps
 
@@ -153,7 +122,7 @@ Project-level hooks require explicit trust. The Server calculates a SHA-256 hash
 
 ## Caching and refresh
 
-The Server may cache harness lists, but callers can request a refresh where the protocol exposes it. Mutations invalidate the relevant harness and integration views. Clients use the returned authoritative view rather than guessing the result of a harness-native operation.
+The Server may cache harness lists, but callers can request a refresh where the protocol exposes it. Marketplaces and installed plugins are also refreshed on a schedule, as described in [Updates](agent-plugin-capabilities.md#updates). Mutations invalidate the relevant harness and integration views. Clients use the returned authoritative view rather than guessing the result of a harness-native operation.
 
 ## Security rules
 

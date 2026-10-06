@@ -265,6 +265,28 @@ export class CodexPluginProvider implements PluginProvider {
     await this.#call("marketplace/upgrade", { marketplaceName: name ?? null })
   }
 
+  /** Installs again every installed plugin whose marketplace lists a newer version. */
+  async updateInstalled(): Promise<string[]> {
+    const installed = await this.#call<v2.PluginInstalledResponse>("plugin/installed", {
+      cwds: null,
+      installSuggestionPluginNames: null,
+    })
+    const updated: string[] = []
+    for (const marketplace of installed.marketplaces) {
+      for (const plugin of marketplace.plugins) {
+        if (!plugin.installed || !plugin.version || plugin.localVersion === plugin.version) continue
+        await this.#call<v2.PluginInstallResponse>("plugin/install", {
+          installAttemptId: randomUUID(),
+          marketplacePath: marketplace.path,
+          pluginName: plugin.name,
+          remoteMarketplaceName: marketplace.path ? null : marketplace.name,
+        })
+        updated.push(`${plugin.name}@${marketplace.name}`)
+      }
+    }
+    return updated
+  }
+
   async removeMarketplace(input: { name: string }): Promise<MarketplaceRemoveValue> {
     if (sourceKind(input.name) !== "custom") {
       throw new Error("Official marketplaces cannot be removed")

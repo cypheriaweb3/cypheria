@@ -32,6 +32,16 @@ This page contains incomplete, still-approved work. Completed work and architect
 
 The detailed future service boundary and threat model are in [Marketplace](planned/marketplace.md).
 
+## Polyglot Plugins
+
+The design is in [Polyglot Plugins](agents/polyglot-plugins.md), [Plugin Marketplaces](agents/plugin-marketplaces.md), and [Agent Plugin Capabilities](agents/agent-plugin-capabilities.md).
+
+- [ ] Verify Polyglot Plugins end to end with the managed Agents in development and packaged builds.
+  - Native installs through Pi, Goose, Gemini CLI, Copilot CLI, Cline, Grok Build, and a signed-in Devin, including their removal and enablement, and the Agent catalogs `cursor-plugins`, `cline-official`, `devin-marketplace`, `xai-official`, `copilot-plugins`, and `awesome-copilot`.
+  - Codex and Claude registering `copilot-plugins`, and Copilot CLI installing from Claude's official catalog.
+  - Automatic updates: the scheduled refresh, revision copies, and updates that wait for an idle Agent, while a session is running in each Agent.
+- [ ] Add plugin support for Cursor once its ACP mode loads plugins.
+
 ## Plugin experience
 
 - [ ] Complete remaining Desktop plugin experience.
@@ -41,7 +51,7 @@ The detailed future service boundary and threat model are in [Marketplace](plann
   - Complete the [Plugin Extensions limits](agents/plugin-extensions.md#limits): render-only Apps of Claude tool calls and App-only tool hiding for Claude, Expo and CLI hosting, form uploads, and implicit resource selection.
   - Verify the Desktop App sandbox end to end with the Bits & Bolts plugin in development and packaged Electron builds: entry points, the global page's workspace thread, file viewers, model context, messages, settings, mentions, and forms.
   - Define the Cypheria-native manifest and the permission model for third-party `cypheria/*` host requests.
-  - Add Pi and OpenCode plugin adapters as custom sources, and support marketplaces hosted on claude.ai for Claude.
+  - Support marketplaces hosted on claude.ai for Claude.
 
 ## Local Git and pull requests
 

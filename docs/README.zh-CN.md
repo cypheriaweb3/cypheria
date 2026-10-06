@@ -26,6 +26,9 @@ title: Cypheria 文档
 
 - [Agent harnesses](agents/harnesses.zh-CN.md)：registry、安装、runtime，Codex、Claude、Pi、OpenCode 与 ACP harness，以及分支。
 - [插件、Skills 与 MCP](agents/plugins.zh-CN.md)：集成模型、随附插件与 Cypheria app tools、marketplace、Codex Apps 与 hooks。
+- [Polyglot Plugins](agents/polyglot-plugins.zh-CN.md)：Agent Plugins v1 布局、格式检测、原生支持与按 Agent 启用。
+- [插件市场](agents/plugin-marketplaces.zh-CN.md)：市场分类、插件标识、本地存储、市场生命周期与数据库 Schema。
+- [Agent 插件能力](agents/agent-plugin-capabilities.zh-CN.md)：各 Agent 的目录市场、原生格式与命令。
 - [Plugin Extensions](agents/plugin-extensions.zh-CN.md)：插件依据 OpenAI MCP Extensions 提供的界面，以及 App 沙箱。
 - [Codex 配置](agents/codex-config.zh-CN.md)：原生设置、项目信任、Thread 启动参数与 feature 开关。
 - [Codex 权限](agents/codex-permissions.zh-CN.md)：权限模式及其与 Codex 的对应关系。

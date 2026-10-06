@@ -69,11 +69,15 @@ export {
   DEFAULT_MIGRATIONS_DIRNAME,
 } from "./paths.js"
 export {
-  createPluginMarketplacePersistenceService,
-  type PluginMarketplacePersistenceService,
+  createPluginPersistenceService,
+  type InstalledPluginInput,
+  type InstalledPluginRecord,
+  type PluginAgentBindingInput,
+  type PluginAgentBindingRecord,
+  type PluginMarketplaceInput,
   type PluginMarketplaceRecord,
-  type PluginMarketplaceSource,
-} from "./plugin-marketplace.js"
+  type PluginPersistenceService,
+} from "./plugin-store.js"
 export {
   createSigningPolicyPersistenceService,
   type ListSigningPolicyOptions,

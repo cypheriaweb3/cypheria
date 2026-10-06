@@ -27,6 +27,7 @@ Every connection enables foreign keys. Server services define transaction bounda
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | Public wallet metadata and active selection |
 | Signing | `signing_policies`, `signing_intents`, `signing_intent_claims`, `approval_requests` | Policy, intent, lease, approval, and replay protection |
+| Plugins | `plugin_marketplaces`, `installed_plugins`, `plugin_agent_bindings` | Marketplaces, installed plugins with their detected formats, and per-Agent installation, enablement, and held revision; see [Plugin Marketplaces](../agents/plugin-marketplaces.md#database-schema) |
 | Browser | `dapp_origins`, `dapp_permissions`, `solana_dapp_permissions` | Per-origin dApp sessions and scoped provider permission; browser profiles are Desktop-local |
 
 Private keys, mnemonics, vault encryption keys, decrypted signers, and secret endpoint headers are not ordinary table data.

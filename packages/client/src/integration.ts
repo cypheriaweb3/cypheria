@@ -91,6 +91,10 @@ export interface PluginActions {
     input: Payload<"integration.plugin.set-enabled.request">,
     options?: RequestOptions
   ): Promise<Value<"integration.plugin.set-enabled.response">>
+  installStandalone(
+    input: Payload<"integration.plugin.standalone.install.request">,
+    options?: RequestOptions
+  ): Promise<Value<"integration.plugin.standalone.install.response">>
   uninstall(
     input: Payload<"integration.plugin.uninstall.request">,
     options?: RequestOptions
@@ -176,6 +180,8 @@ export const createIntegrationActions = (client: ServerClient): IntegrationActio
       setGlobalEnabled: (input, options) =>
         mutation("integration.plugin.set-global-enabled.request", input, options),
       install: (input, options) => request("integration.plugin.install.request", input, options),
+      installStandalone: (input, options) =>
+        request("integration.plugin.standalone.install.request", input, options),
       list: (input, options) => request("integration.plugin.list.request", input, options),
       read: (input, options) => request("integration.plugin.read.request", input, options),
       readConfig: (input, options) =>

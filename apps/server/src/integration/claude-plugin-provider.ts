@@ -595,6 +595,35 @@ export class ClaudePluginProvider implements PluginProvider {
     await this.#exclusive(() => this.#cli.marketplace(["update", ...(name ? [name] : [])]))
   }
 
+  /**
+   * Runs `claude plugin update` for every installed plugin, which leaves a current one as it is,
+   * and returns the ones whose version changed. Server calls it only while Claude has no running
+   * session.
+   */
+  async updateInstalled(): Promise<string[]> {
+    if (!this.enabled) return []
+    const updated = await this.#exclusive(async () => {
+      const before = await this.#cli.listInstalled()
+      for (const plugin of before) {
+        const result = await this.#cli.mutate(["update", plugin.id, "--scope", plugin.scope])
+        if (result.outcome === "failed") throw new ClaudeCliError(result.message)
+      }
+      const after = await this.#cli.listInstalled()
+      return after
+        .filter((plugin) =>
+          before.some(
+            (entry) =>
+              entry.id === plugin.id &&
+              entry.scope === plugin.scope &&
+              entry.version !== plugin.version
+          )
+        )
+        .map((plugin) => plugin.id)
+    })
+    // No session is reloaded: the next one Claude starts loads the updated plugins.
+    return updated
+  }
+
   async removeMarketplace(input: {
     confirmUninstall?: boolean
     name: string

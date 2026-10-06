@@ -26,6 +26,9 @@ These documents describe how Cypheria is built. Each subject has one owning page
 
 - [Agent harnesses](agents/harnesses.md): the registry, installation, runtimes, the Codex, Claude, Pi, OpenCode, and ACP harnesses, and branching.
 - [Plugins, Skills, and MCP](agents/plugins.md): the integration model, bundled plugins and Cypheria app tools, marketplaces, Codex Apps, and hooks.
+- [Polyglot Plugins](agents/polyglot-plugins.md): the Agent Plugins v1 layout, format detection, native support, and per-Agent enablement.
+- [Plugin Marketplaces](agents/plugin-marketplaces.md): marketplace categories, plugin identity, local storage, the marketplace lifecycle, and the database schema.
+- [Agent Plugin Capabilities](agents/agent-plugin-capabilities.md): each Agent's catalogs, native formats, and commands.
 - [Plugin Extensions](agents/plugin-extensions.md): the OpenAI MCP Extensions surfaces that plugins contribute, and the App sandbox.
 - [Codex configuration](agents/codex-config.md): native settings, project trust, Thread launch parameters, and feature flags.
 - [Codex permissions](agents/codex-permissions.md): the permission modes and how they map to Codex.

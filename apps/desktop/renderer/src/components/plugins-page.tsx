@@ -72,6 +72,7 @@ import {
   usePluginIntegrations,
 } from "./plugin-integrations"
 import { PluginOptionsForm } from "./plugin-options-form"
+import { InstallPackageDialog } from "./plugin-package-dialog"
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : "The request could not be completed."
@@ -96,9 +97,28 @@ const pendingCommands = (results: PluginAgentResult[]) =>
         ]
       : []
   )
-const AGENT_LABELS: Record<PluginAgent, string> = { claude: "Claude", codex: "Codex" }
+const AGENT_LABELS: Record<string, string> = {
+  "antigravity-acp": "Antigravity",
+  claude: "Claude",
+  cline: "Cline",
+  codex: "Codex",
+  cursor: "Cursor",
+  devin: "Devin",
+  gemini: "Gemini CLI",
+  "github-copilot-cli": "Copilot CLI",
+  goose: "Goose",
+  "grok-build": "Grok Build",
+  opencode: "OpenCode",
+  pi: "Pi",
+}
+/** How a plugin runs in one Agent, shown next to its switch. */
+const agentStatus = (state: PluginAgentState): string => {
+  if (!state.supported) return "Not supported: it reads none of the plugin's formats"
+  if (!state.installed) return "Not installed"
+  return state.enabled ? "Enabled" : "Disabled"
+}
 const isClaudePluginsOffError = (entry: { path: string }) => entry.path === "settings:claude"
-const agentLabel = (agentId: string) => AGENT_LABELS[agentId as PluginAgent] ?? agentId
+const agentLabel = (agentId: string) => AGENT_LABELS[agentId] ?? agentId
 const installFailures = (results: PluginAgentResult[]): string | null => {
   const failed = results.flatMap((result) =>
     result.status === "failed" ? [`${agentLabel(result.agentId)}: ${result.message}`] : []
@@ -106,6 +126,8 @@ const installFailures = (results: PluginAgentResult[]): string | null => {
   return failed.length ? failed.join("\n") : null
 }
 const installNotice = (results: PluginAgentResult[]): string | null => {
+  if (!results.length)
+    return "No Agent reads this plugin's formats, so it is not turned on anywhere."
   const parts: string[] = []
   const failed = installFailures(results)
   if (failed) parts.push(`Not installed for ${failed}`)
@@ -259,6 +281,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     items: { agentId: PluginAgent; command: string; sha256: string }[]
     plugin: CodexPluginView
   } | null>(null)
+  const [packageOpen, setPackageOpen] = useState(false)
   const changeAgent = (next: PluginAgent) => {
     if (next === agent) return
     writePluginAgent(next)
@@ -341,13 +364,13 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const agentToggle = useMutation({
     mutationFn: async ({ enable, state }: { enable: boolean; state: PluginAgentState }) => {
       if (!selected) return
-      const target = state.agentId as PluginAgent
+      const target = state.agentId
       const result = await integrationApi.plugins.setEnabled(target, identityOf(selected), enable)
       if (result.status === "confirmation_required") {
         setCommandConfirm({
           items: [
             {
-              agentId: target,
+              agentId: target as PluginAgent,
               command: result.confirmation.command,
               sha256: result.confirmation.sha256,
             },
@@ -357,6 +380,26 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
       }
     },
     onSuccess: invalidatePlugins,
+  })
+  const installPackage = useMutation({
+    mutationFn: async (input: { source: string; sourceType: "git" | "local" | "npm" }) => {
+      const result = await integrationApi.plugins.installStandalone(input)
+      const failed = installFailures(result.results)
+      const installed = result.results.filter((entry) => entry.status === "done")
+      setNotice(
+        [
+          `Installed ${result.pluginName}${installed.length ? ` for ${installed.map((entry) => agentLabel(entry.agentId)).join(", ")}` : ""}.`,
+          ...(result.results.length
+            ? []
+            : ["No Agent reads its formats, so it is not turned on anywhere."]),
+          ...(failed ? [`Not installed for ${failed}`] : []),
+        ].join(" ")
+      )
+    },
+    onSuccess: async () => {
+      setPackageOpen(false)
+      await invalidatePlugins()
+    },
   })
   const confirmInstall = useMutation({
     mutationFn: async (confirm: NonNullable<typeof commandConfirm>) => {
@@ -413,7 +456,9 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
         setNotice(installNotice(results))
       } else if (action.type === "uninstall") {
         await integrationApi.plugins.uninstall(identityOf(p))
-      } else await integrationApi.plugins.setEnabled(agent, identityOf(p), !p.enabled)
+      } else {
+        await integrationApi.plugins.setEnabled(agent, identityOf(p), !p.enabled)
+      }
     },
     onSuccess: async () => {
       await Promise.all([
@@ -450,9 +495,9 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
       const added = result.agents.filter((entry) => entry.added)
       const skipped = result.agents.filter((entry) => !entry.added)
       setNotice(
-        `Added for ${added.map((entry) => AGENT_LABELS[entry.agentId as PluginAgent] ?? entry.agentId).join(", ")}.${
+        `Added for ${added.map((entry) => agentLabel(entry.agentId)).join(", ")}.${
           skipped.length
-            ? ` Not available for ${skipped.map((entry) => AGENT_LABELS[entry.agentId as PluginAgent] ?? entry.agentId).join(", ")}: this marketplace has no marketplace file for ${skipped.length === 1 ? "it" : "them"}.`
+            ? ` Not available for ${skipped.map((entry) => agentLabel(entry.agentId)).join(", ")}: this marketplace has no marketplace file for ${skipped.length === 1 ? "it" : "them"}.`
             : ""
         }`
       )
@@ -465,8 +510,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     mutationFn: async (name: string) => integrationApi.marketplaces.upgrade(name),
     onSuccess: async (result) => {
       await invalidatePlugins()
-      const label = (entry: { agentId: string }) =>
-        AGENT_LABELS[entry.agentId as PluginAgent] ?? entry.agentId
+      const label = (entry: { agentId: string }) => agentLabel(entry.agentId)
       const parts = [
         ...(result.added.length
           ? [`Now also offered for ${result.added.map(label).join(", ")}.`]
@@ -616,12 +660,16 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
           </span>
         </button>
         {manage ? (
-          <Switch
-            aria-label={`Enable ${p.displayName}`}
-            checked={p.enabled}
-            disabled={busy || unavailable(p)}
-            onCheckedChange={() => mutation.mutate({ type: "toggle", plugin: p })}
-          />
+          p.supported === false ? (
+            <span className="shrink-0 text-sm text-muted-foreground">Not supported</span>
+          ) : (
+            <Switch
+              aria-label={`Enable ${p.displayName}`}
+              checked={p.enabled}
+              disabled={busy || unavailable(p)}
+              onCheckedChange={() => mutation.mutate({ type: "toggle", plugin: p })}
+            />
+          )
         ) : unavailable(p) ? (
           <IconButton label="Managed by your administrator" disabled>
             <Users className="size-4" />
@@ -778,6 +826,10 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
         >
           <Plus />
           Add marketplace
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setPackageOpen(true)}>
+          <Plus />
+          Install plugin package
         </DropdownMenuItem>
         {view === "manage" && agent === "codex" && (
           <DropdownMenuItem onClick={() => setMcpOpen(true)}>
@@ -990,26 +1042,28 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                 {agentStatesQuery.data?.some((state) => state.installed) && (
                   <Section title="Agents" count={agentStatesQuery.data.length}>
                     {agentStatesQuery.data.map((state) => {
-                      const label = AGENT_LABELS[state.agentId as PluginAgent] ?? state.agentId
-                      const status = !state.installed
-                        ? "Not installed"
-                        : state.enabled
-                          ? "Enabled"
-                          : "Disabled"
+                      const label = agentLabel(state.agentId)
                       return (
                         <div key={state.agentId} className="flex items-center gap-3 px-2 py-3">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm">{label}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">{status}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {agentStatus(state)}
+                            </p>
+                            {state.statusMessage && (
+                              <p className="mt-1 text-sm text-destructive">{state.statusMessage}</p>
+                            )}
                           </div>
-                          <Switch
-                            aria-label={`Enable ${selected.displayName} for ${label}`}
-                            checked={state.enabled}
-                            disabled={
-                              agentToggle.isPending || selected.installPolicy === "NOT_AVAILABLE"
-                            }
-                            onCheckedChange={(enable) => agentToggle.mutate({ enable, state })}
-                          />
+                          {state.supported && (
+                            <Switch
+                              aria-label={`Enable ${selected.displayName} for ${label}`}
+                              checked={state.enabled}
+                              disabled={
+                                agentToggle.isPending || selected.installPolicy === "NOT_AVAILABLE"
+                              }
+                              onCheckedChange={(enable) => agentToggle.mutate({ enable, state })}
+                            />
+                          )}
                         </div>
                       )
                     })}
@@ -1722,6 +1776,16 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <InstallPackageDialog
+        open={packageOpen}
+        error={installPackage.error ? errorText(installPackage.error) : null}
+        pending={installPackage.isPending}
+        onInstall={(input) => installPackage.mutate(input)}
+        onOpenChange={(open) => {
+          setPackageOpen(open)
+          if (!open) installPackage.reset()
+        }}
+      />
       <Dialog open={marketplaceOpen} onOpenChange={setMarketplaceOpen}>
         <DialogContent>
           <DialogHeader>

@@ -247,6 +247,27 @@ describe("ClaudePluginProvider", () => {
     ).rejects.toThrow("Official marketplaces cannot be removed")
   })
 
+  it("updates installed plugins and reports the ones whose version changed", async () => {
+    installed = [
+      { enabled: true, id: "fresh@team", installPath: "/a", scope: "user", version: "1.0.0" },
+      { enabled: true, id: "stale@team", installPath: "/b", scope: "project", version: "1.0.0" },
+    ]
+    handlers.push((args) => {
+      if (args[1] !== "update") return undefined
+      if (args[2] === "stale@team") {
+        installed = installed.map((plugin) =>
+          plugin.id === "stale@team" ? { ...plugin, version: "2.0.0" } : plugin
+        )
+      }
+      return reply({ command: "update", message: "ok", outcome: "ok", pluginId: args[2] })
+    })
+    expect(await provider().updateInstalled()).toEqual(["stale@team"])
+    expect(calls.filter((args) => args[1] === "update")).toEqual([
+      ["plugin", "update", "fresh@team", "--scope", "user", "--json"],
+      ["plugin", "update", "stale@team", "--scope", "project", "--json"],
+    ])
+  })
+
   it("treats enabling an already enabled plugin as success", async () => {
     handlers.push((args) =>
       args[1] === "enable"

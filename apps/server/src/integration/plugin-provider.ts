@@ -67,5 +67,7 @@ export interface PluginProvider {
   setGlobalEnabled(enabled: boolean): Promise<void>
   uninstall(input: { id: string; keepData?: boolean; scope?: PluginScope }): Promise<void>
   upgradeMarketplace(name?: string): Promise<void>
+  /** Updates installed plugins whose marketplace has a newer version, returning their ids. */
+  updateInstalled?(): Promise<string[]>
   writeConfig?(id: string, values: Record<string, string>): Promise<PluginConfigWriteValue>
 }

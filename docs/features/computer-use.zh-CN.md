@@ -27,7 +27,7 @@ Computer Use 让 Agent 替用户操作界面：Cypheria 内置浏览器的标签
 
 ## 插件
 
-Server 依据 `apps/cua/plugin` 生成隐藏的 `cua` 插件，写入它在 `$CYPHERIA_HOME/plugins/cypheria-bundled` 下物化的 bundled marketplace，并填入本次安装的启动器。该插件声明 `cua_repl`，直接暴露 `js` 和 `js_reset`（`omit_tools_from: ["code_mode", "deferred"]`）。插件中的 server 保持禁用：每个 Codex Thread 启动时带有一个 `mcp_servers.cua_repl` 覆盖项，包含该 Thread 的 host socket、已启用的界面（`CUA_REPL_ENABLED_SURFACES`）和已启用的浏览器后端（`CUA_REPL_BROWSER_BACKENDS`）；Claude session 则通过 `CYPHERIA_CUA_HOST_PIPE`、`CYPHERIA_CUA_SURFACES` 和 `CYPHERIA_CUA_BROWSER_BACKENDS` 获得这些值，插件的 Claude 配置引用了这些变量。插件列表会隐藏 `cua`。
+Server 依据 `apps/cua/plugin` 生成隐藏的 `cua` 插件，写入它在 `$CYPHERIA_HOME/marketplaces/cypheria-bundled` 下物化的 bundled marketplace，并填入本次安装的启动器。该插件声明 `cua_repl`，直接暴露 `js` 和 `js_reset`（`omit_tools_from: ["code_mode", "deferred"]`）。插件中的 server 保持禁用：每个 Codex Thread 启动时带有一个 `mcp_servers.cua_repl` 覆盖项，包含该 Thread 的 host socket、已启用的界面（`CUA_REPL_ENABLED_SURFACES`）和已启用的浏览器后端（`CUA_REPL_BROWSER_BACKENDS`）；Claude session 则通过 `CYPHERIA_CUA_HOST_PIPE`、`CYPHERIA_CUA_SURFACES` 和 `CYPHERIA_CUA_BROWSER_BACKENDS` 获得这些值，插件的 Claude 配置引用了这些变量。插件列表会隐藏 `cua`。
 
 `browser`、`chrome` 和 `computer-use` 是只含 manifest 和图标的普通 bundled 插件：它们向用户和模型描述各个界面，并作为 composer 提及的锚点。它们的行为位于 `apps/cua`。
 

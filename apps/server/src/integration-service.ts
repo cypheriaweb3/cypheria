@@ -1,3 +1,4 @@
+import type { PluginPersistenceService } from "@cypheria/db"
 import type {
   AgentId,
   HookView,
@@ -9,15 +10,25 @@ import type { v2 } from "@cypheria/protocol/codex-types"
 import { z } from "zod"
 import type { AgentManager } from "./agent/agent-manager.js"
 import { codexAppToolScope } from "./codex-app-tool-scope.js"
+import { GitExecutor } from "./git/git-executor.js"
 import { ClaudePluginProvider } from "./integration/claude-plugin-provider.js"
 import { CodexPluginProvider } from "./integration/codex-plugin-provider.js"
 import { HookEngine } from "./integration/hook-engine.js"
-import { PiMcpProvider } from "./integration/pi-mcp-provider.js"
+import { MarketplaceStore } from "./integration/marketplace-store.js"
 import {
-  InMemoryPluginMarketplaceRegistry,
-  PluginHub,
-  type PluginMarketplaceRegistry,
-} from "./integration/plugin-hub.js"
+  type AgentCliRunner,
+  ClinePackageProvider,
+  CopilotPackageProvider,
+  DevinPackageProvider,
+  GeminiPackageProvider,
+  GoosePackageProvider,
+  GrokPackageProvider,
+  type PackagePluginProvider,
+  PiPackageProvider,
+} from "./integration/package-plugin-providers.js"
+import { PiMcpProvider } from "./integration/pi-mcp-provider.js"
+import type { PiPackageCatalog } from "./integration/pi-package-catalog.js"
+import { type PluginAuditEvent, PluginHub } from "./integration/plugin-hub.js"
 import type { PluginProvider } from "./integration/plugin-provider.js"
 import { webUrl } from "./integration/plugin-utils.js"
 
@@ -41,14 +52,38 @@ export class IntegrationService {
   constructor(
     agents: AgentManager,
     options: {
-      cypheriaHome?: string
+      audit?: (event: PluginAuditEvent) => Promise<void>
+      cacheDir: string
+      cypheriaHome: string
       hookEngine?: HookEngine
-      marketplaces?: PluginMarketplaceRegistry
-    } = {}
+      npm?: (args: string[], cwd: string) => Promise<string>
+      persistence: PluginPersistenceService
+      piCatalog?: PiPackageCatalog
+    }
   ) {
     this.#agents = agents
-    this.#hub = new PluginHub(
-      new Map<AgentId, PluginProvider>([
+    const cli =
+      (agentId: AgentId): AgentCliRunner =>
+      (args, runOptions) =>
+        agents.runAgentCli(agentId, args, runOptions)
+    const packages: PackagePluginProvider[] = [
+      new PiPackageProvider(cli("pi")),
+      new GoosePackageProvider({ home: agents.agentHome("goose"), run: cli("goose") }),
+      new GeminiPackageProvider(cli("gemini")),
+      new CopilotPackageProvider(cli("github-copilot-cli")),
+      new DevinPackageProvider(cli("devin")),
+      new ClinePackageProvider(cli("cline")),
+      new GrokPackageProvider(cli("grok-build")),
+    ]
+    this.#hub = new PluginHub({
+      activeAgents: () => agents.activeAgentIds(),
+      isAgentBusy: (agentId) => agents.hasActiveThreads(agentId),
+      agentHome: (agentId) => agents.agentHome(agentId),
+      audit: options.audit,
+      packages: new Map(packages.map((provider) => [provider.agentId, provider])),
+      persistence: options.persistence,
+      piCatalog: options.piCatalog,
+      providers: new Map<AgentId, PluginProvider>([
         ["codex", new CodexPluginProvider(agents)],
         [
           "claude",
@@ -59,8 +94,12 @@ export class IntegrationService {
           }),
         ],
       ]),
-      options.marketplaces ?? new InMemoryPluginMarketplaceRegistry()
-    )
+      store: new MarketplaceStore({
+        cypheriaHome: options.cypheriaHome,
+        git: new GitExecutor(options.cacheDir),
+        npm: options.npm,
+      }),
+    })
     this.#piMcp = new PiMcpProvider({
       home: agents.piHome,
       run: (args, runOptions) => agents.runPiCli(args, runOptions),
@@ -85,6 +124,27 @@ export class IntegrationService {
 
   #plugin(agentId: AgentId): PluginProvider {
     return this.#hub.provider(agentId)
+  }
+
+  /**
+   * Refreshes every marketplace and plugin source two minutes after start and then every six
+   * hours, and every ten minutes applies waiting plugin updates to Agents with no running session.
+   */
+  startPluginAutoUpdate(): void {
+    this.#hub.startAutoUpdate({
+      applyMs: 10 * 60 * 1000,
+      firstRefreshMs: 2 * 60 * 1000,
+      refreshMs: 6 * 60 * 60 * 1000,
+    })
+  }
+
+  stopPluginAutoUpdate(): void {
+    this.#hub.stopAutoUpdate()
+  }
+
+  /** Where Cypheria keeps marketplaces; the bundled marketplace is materialized beneath it. */
+  get marketplaceStore(): MarketplaceStore {
+    return this.#hub.store
   }
 
   async ensureBundledPlugin(agentId: AgentId): Promise<void> {
@@ -200,10 +260,13 @@ export class IntegrationService {
           }
           break
         case "integration.plugin.list.request":
-          respond(await this.#plugin(message.payload.agentId).list(message.payload))
+          respond(await this.#hub.list(message.payload.agentId, message.payload))
           break
         case "integration.plugin.read.request":
-          respond(await this.#plugin(message.payload.agentId).read(message.payload))
+          respond(await this.#hub.read(message.payload.agentId, message.payload))
+          break
+        case "integration.plugin.standalone.install.request":
+          respond(await this.#hub.installStandalone(message.payload))
           break
         case "integration.plugin.install.request":
           respond({ results: await this.#hub.install(message.payload) })
